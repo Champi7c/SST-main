@@ -14,13 +14,16 @@ import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
 const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || ''
 const LOGO_SRC = `${base}/coly.png`
 
+const DEMO_USER = 'demo'
+const DEMO_PASS = 'demo1234'
+
 export default function Login() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState(DEMO_USER)
+  const [password, setPassword] = useState(DEMO_PASS)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [logoError, setLogoError] = useState(false)
-  const { login } = useAuth()
+  const { login, loginDemo } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -107,11 +110,24 @@ export default function Login() {
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              sx={{ mt: 3 }}
               disabled={loading}
             >
               {loading ? 'Connexion...' : 'Se connecter'}
             </Button>
+            <Button
+              type="button"
+              fullWidth
+              variant="outlined"
+              sx={{ mt: 2 }}
+              onClick={loginDemo}
+              disabled={loading}
+            >
+              Voir la démo (sans backend)
+            </Button>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>
+              Compte démo : demo / demo1234 · Ou cliquer ci-dessus pour explorer sans configurer
+            </Typography>
           </Box>
         </Paper>
       </Box>

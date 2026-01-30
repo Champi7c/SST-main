@@ -98,6 +98,8 @@ export default function Agents() {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [showArchived, setShowArchived] = useState(false)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
+  const [submitLoading, setSubmitLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const navigate = useNavigate()
   const { hasMedicalAccess, user } = useAuth()
 
@@ -221,6 +223,7 @@ export default function Agents() {
   }
 
   const handleOpenDialog = (agent?: Agent) => {
+    setFieldErrors({})
     if (agent) {
       setEditingAgent(agent)
       setFormData({
@@ -280,18 +283,23 @@ export default function Agents() {
   const handleCloseDialog = () => {
     setOpenDialog(false)
     setEditingAgent(null)
+    setFieldErrors({})
   }
 
   const handleSubmit = async () => {
-    const companyId = formData.company ? parseInt(formData.company, 10) : NaN
+    setFieldErrors({})
+    const companyVal = formData.company
+    const companyId = (companyVal !== '' && companyVal !== undefined) ? parseInt(String(companyVal), 10) : NaN
     if (!editingAgent && (!formData.matricule?.trim() || !formData.first_name?.trim() || !formData.last_name?.trim() || !formData.date_of_birth || !formData.hire_date)) {
       showSnackbar('Veuillez remplir les champs obligatoires (matricule, prénom, nom, date de naissance, date d\'embauche).', 'error')
       return
     }
     if (!Number.isFinite(companyId)) {
       showSnackbar('Veuillez sélectionner une entreprise.', 'error')
+      setFieldErrors((e) => ({ ...e, company: 'Champ obligatoire' }))
       return
     }
+    setSubmitLoading(true)
     try {
       const data: Record<string, unknown> = {
         matricule: formData.matricule.trim(),
@@ -309,10 +317,10 @@ export default function Agents() {
         emergency_contact_name: formData.emergency_contact_name?.trim() || null,
         emergency_contact_phone: formData.emergency_contact_phone?.trim() || null,
         emergency_contact_relation: formData.emergency_contact_relation?.trim() || null,
-        site: formData.site ? parseInt(formData.site, 10) : null,
-        service: formData.service ? parseInt(formData.service, 10) : null,
-        job_position: formData.job_position ? parseInt(formData.job_position, 10) : null,
-        supervisor: formData.supervisor ? parseInt(formData.supervisor, 10) : null,
+        site: formData.site ? parseInt(String(formData.site), 10) : null,
+        service: formData.service ? parseInt(String(formData.service), 10) : null,
+        job_position: formData.job_position ? parseInt(String(formData.job_position), 10) : null,
+        supervisor: formData.supervisor ? parseInt(String(formData.supervisor), 10) : null,
         function: formData.function?.trim() || null,
         grade: formData.grade?.trim() || null,
         professional_category: formData.professional_category?.trim() || null,
@@ -328,7 +336,19 @@ export default function Agents() {
       fetchAgents()
     } catch (error: any) {
       console.error('Erreur lors de la sauvegarde:', error)
-      showSnackbar(getApiErrorMessage(error), 'error')
+      const msg = getApiErrorMessage(error)
+      showSnackbar(msg, 'error')
+      const data = error?.response?.data
+      if (data && typeof data === 'object' && !data.detail) {
+        const errs: Record<string, string> = {}
+        for (const [key, val] of Object.entries(data)) {
+          const text = Array.isArray(val) ? val[0] : String(val)
+          if (text && typeof text === 'string') errs[key] = text
+        }
+        if (Object.keys(errs).length > 0) setFieldErrors(errs)
+      }
+    } finally {
+      setSubmitLoading(false)
     }
   }
 
@@ -490,6 +510,8 @@ export default function Agents() {
                 onChange={(e) => setFormData({ ...formData, matricule: e.target.value })}
                 required
                 disabled={!!editingAgent}
+                error={!!fieldErrors.matricule}
+                helperText={fieldErrors.matricule}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -528,6 +550,8 @@ export default function Agents() {
                 value={formData.first_name}
                 onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 required
+                error={!!fieldErrors.first_name}
+                helperText={fieldErrors.first_name}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -537,6 +561,8 @@ export default function Agents() {
                 value={formData.last_name}
                 onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 required
+                error={!!fieldErrors.last_name}
+                helperText={fieldErrors.last_name}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -548,6 +574,8 @@ export default function Agents() {
                 onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                 InputLabelProps={{ shrink: true }}
                 required
+                error={!!fieldErrors.date_of_birth}
+                helperText={fieldErrors.date_of_birth}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -616,14 +644,15 @@ export default function Agents() {
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth required>
+              <FormControl fullWidth required error={!!fieldErrors.company}>
                 <InputLabel>Entreprise *</InputLabel>
                 <Select
-                  value={formData.company}
+                  value={formData.company === '' || formData.company === undefined ? '' : String(formData.company)}
                   onChange={(e) => {
+                    const v = e.target.value
                     setFormData({
                       ...formData,
-                      company: e.target.value,
+                      company: v === undefined ? '' : String(v),
                       site: '',
                       service: '',
                       job_position: '',
@@ -633,64 +662,76 @@ export default function Agents() {
                   label="Entreprise *"
                 >
                   {companies.map((company) => (
-                    <MenuItem key={company.id} value={company.id}>
+                    <MenuItem key={company.id} value={String(company.id)}>
                       {company.name}
                     </MenuItem>
                   ))}
                 </Select>
+                {fieldErrors.company && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>{fieldErrors.company}</Typography>
+                )}
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
+              <FormControl fullWidth error={!!fieldErrors.site}>
                 <InputLabel>Site</InputLabel>
                 <Select
-                  value={formData.site}
+                  value={formData.site === '' || formData.site === undefined ? '' : String(formData.site)}
                   onChange={(e) => {
-                    setFormData({ ...formData, site: e.target.value, service: '' })
+                    setFormData({ ...formData, site: e.target.value === undefined ? '' : String(e.target.value), service: '' })
                   }}
                   label="Site"
                   disabled={!formData.company}
                 >
                   {sites.map((site) => (
-                    <MenuItem key={site.id} value={site.id}>
+                    <MenuItem key={site.id} value={String(site.id)}>
                       {site.name}
                     </MenuItem>
                   ))}
                 </Select>
+                {fieldErrors.site && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>{fieldErrors.site}</Typography>
+                )}
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
+              <FormControl fullWidth error={!!fieldErrors.service}>
                 <InputLabel>Service</InputLabel>
                 <Select
-                  value={formData.service}
-                  onChange={(e) => setFormData({ ...formData, service: e.target.value })}
+                  value={formData.service === '' || formData.service === undefined ? '' : String(formData.service)}
+                  onChange={(e) => setFormData({ ...formData, service: e.target.value === undefined ? '' : String(e.target.value) })}
                   label="Service"
                   disabled={!formData.company}
                 >
                   {services.map((service) => (
-                    <MenuItem key={service.id} value={service.id}>
+                    <MenuItem key={service.id} value={String(service.id)}>
                       {service.name}
                     </MenuItem>
                   ))}
                 </Select>
+                {fieldErrors.service && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>{fieldErrors.service}</Typography>
+                )}
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
+              <FormControl fullWidth error={!!fieldErrors.job_position}>
                 <InputLabel>Poste de travail</InputLabel>
                 <Select
-                  value={formData.job_position}
-                  onChange={(e) => setFormData({ ...formData, job_position: e.target.value })}
+                  value={formData.job_position === '' || formData.job_position === undefined ? '' : String(formData.job_position)}
+                  onChange={(e) => setFormData({ ...formData, job_position: e.target.value === undefined ? '' : String(e.target.value) })}
                   label="Poste de travail"
                   disabled={!formData.company}
                 >
                   {jobPositions.map((position) => (
-                    <MenuItem key={position.id} value={position.id}>
+                    <MenuItem key={position.id} value={String(position.id)}>
                       {position.name}
                     </MenuItem>
                   ))}
                 </Select>
+                {fieldErrors.job_position && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>{fieldErrors.job_position}</Typography>
+                )}
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -721,8 +762,8 @@ export default function Agents() {
               <FormControl fullWidth>
                 <InputLabel>Supérieur hiérarchique</InputLabel>
                 <Select
-                  value={formData.supervisor}
-                  onChange={(e) => setFormData({ ...formData, supervisor: e.target.value })}
+                  value={formData.supervisor === '' || formData.supervisor === undefined ? '' : String(formData.supervisor)}
+                  onChange={(e) => setFormData({ ...formData, supervisor: e.target.value === undefined ? '' : String(e.target.value) })}
                   label="Supérieur hiérarchique"
                   disabled={!formData.company}
                 >
@@ -730,7 +771,7 @@ export default function Agents() {
                   {supervisors
                     .filter((s) => s.id !== editingAgent?.id)
                     .map((supervisor) => (
-                      <MenuItem key={supervisor.id} value={supervisor.id}>
+                      <MenuItem key={supervisor.id} value={String(supervisor.id)}>
                         {supervisor.full_name} ({supervisor.matricule})
                       </MenuItem>
                     ))}
@@ -746,6 +787,8 @@ export default function Agents() {
                 onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
                 InputLabelProps={{ shrink: true }}
                 required
+                error={!!fieldErrors.hire_date}
+                helperText={fieldErrors.hire_date}
               />
             </Grid>
             <Grid item xs={12}>
@@ -762,9 +805,9 @@ export default function Agents() {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Annuler</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
-            {editingAgent ? 'Modifier' : 'Créer'}
+          <Button onClick={handleCloseDialog} disabled={submitLoading}>Annuler</Button>
+          <Button onClick={handleSubmit} variant="contained" color="primary" disabled={submitLoading} startIcon={submitLoading ? <CircularProgress size={18} color="inherit" /> : undefined}>
+            {submitLoading ? (editingAgent ? 'Modification...' : 'Création...') : (editingAgent ? 'Modifier' : 'Créer')}
           </Button>
         </DialogActions>
       </Dialog>

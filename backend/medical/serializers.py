@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Agent, DMST, Pathology, AgentPathology, DMSTHistory
+from companies.models import Company, Site, Service, JobPosition
 from companies.serializers import CompanySerializer, SiteSerializer, ServiceSerializer, JobPositionSerializer
 
 
@@ -28,6 +29,28 @@ class AgentSerializer(serializers.ModelSerializer):
         if obj.supervisor:
             return f"{obj.supervisor.last_name} {obj.supervisor.first_name}"
         return None
+    
+    def validate(self, attrs):
+        """Vérifie que site, service et job_position appartiennent à l'entreprise."""
+        company = attrs.get('company') or (self.instance.company if self.instance else None)
+        if not company:
+            return attrs
+        site = attrs.get('site')
+        service = attrs.get('service')
+        job_position = attrs.get('job_position')
+        if site is not None and site and site.company_id != company.id:
+            raise serializers.ValidationError({
+                'site': 'Ce site n\'appartient pas à l\'entreprise sélectionnée.'
+            })
+        if service is not None and service and service.company_id != company.id:
+            raise serializers.ValidationError({
+                'service': 'Ce service n\'appartient pas à l\'entreprise sélectionnée.'
+            })
+        if job_position is not None and job_position and job_position.company_id != company.id:
+            raise serializers.ValidationError({
+                'job_position': 'Ce poste n\'appartient pas à l\'entreprise sélectionnée.'
+            })
+        return attrs
     
     def create(self, validated_data):
         """Création d'un agent avec enregistrement de l'utilisateur créateur"""

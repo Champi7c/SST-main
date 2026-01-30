@@ -1,0 +1,23 @@
+{
+  "$schema": "https://railway.app/schema.json",
+  "name": "sst-backend",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "gunicorn --bind 0.0.0.0:8000 --workers 2 --threads 4 sst_platform.wsgi:application",
+    "healthcheckPath": "/api/health/",
+    "healthcheckTimeout": 30,
+    "restartPolicy": {
+      "strategy": "ON_FAILURE",
+      "maxRetries": 5
+    }
+  },
+  "domains": [
+    {
+      "hostname": "sst-backend.up.railway.app"
+    }
+  ]
+}
+

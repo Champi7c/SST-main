@@ -126,10 +126,30 @@ class Command(BaseCommand):
             self._flush_demo_data()
             self.stdout.write(self.style.SUCCESS('Anciennes données supprimées.\n'))
 
+        # Créer ou récupérer le compte démo (demo / demo1234) pour partage facile
+        demo_user, created = User.objects.get_or_create(
+            username='demo',
+            defaults={
+                'first_name': 'Démo',
+                'last_name': 'Utilisateur',
+                'email': 'demo@example.com',
+                'is_superuser': True,
+                'is_staff': True,
+                'role': 'super_admin',
+            },
+        )
+        if created:
+            demo_user.set_password('demo1234')
+            demo_user.save()
+            self.stdout.write(self.style.SUCCESS('Compte démo créé : demo / demo1234'))
+        else:
+            demo_user.set_password('demo1234')
+            demo_user.save(update_fields=['password'])
+            self.stdout.write(self.style.SUCCESS('Compte démo mis à jour : demo / demo1234'))
+
         user = User.objects.filter(is_superuser=True).first()
         if not user:
-            self.stdout.write(self.style.WARNING('Aucun superuser. Créez-en un (create_admin) puis relancez.'))
-            return
+            user = demo_user
 
         today = timezone.now().date()
         today_dt = timezone.now()

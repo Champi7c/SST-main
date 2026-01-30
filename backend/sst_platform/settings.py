@@ -76,27 +76,57 @@ TEMPLATES = [
 WSGI_APPLICATION = 'sst_platform.wsgi.application'
 
 # Database
-# MySQL (sst, port 3308) si DB_NAME est défini dans .env, sinon SQLite
-_db_name = config('DB_NAME', default='')
-if _db_name:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': _db_name,
-            'HOST': config('DB_HOST', default='127.0.0.1'),
-            'PORT': config('DB_PORT', default=3308, cast=int),
-            'USER': config('DB_USER', default='root'),
-            'PASSWORD': config('DB_PASSWORD', default=''),
-            'OPTIONS': {'charset': 'utf8mb4'},
+# Support de Railway (DATABASE_URL) et configuration locale
+import re
+
+_database_url = config('DATABASE_URL', default='')
+
+if _database_url:
+    # Railway: parser DATABASE_URL (format: mysql://user:pass@host:port/dbname)
+    match = re.match(r'mysql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', _database_url)
+    if match:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.mysql',
+                'NAME': match.group(5),
+                'HOST': match.group(3),
+                'PORT': int(match.group(4)),
+                'USER': match.group(1),
+                'PASSWORD': match.group(2),
+                'OPTIONS': {'charset': 'utf8mb4'},
+            }
         }
-    }
+    else:
+        # Format PostgreSQL ou autre
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+    # Configuration locale via variables individuelles
+    _db_name = config('DB_NAME', default='')
+    if _db_name:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.mysql',
+                'NAME': _db_name,
+                'HOST': config('DB_HOST', default='127.0.0.1'),
+                'PORT': config('DB_PORT', default=3308, cast=int),
+                'USER': config('DB_USER', default='root'),
+                'PASSWORD': config('DB_PASSWORD', default=''),
+                'OPTIONS': {'charset': 'utf8mb4'},
+            }
         }
-    }
+    else:
+        # SQLite par défaut (dev local uniquement)
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
