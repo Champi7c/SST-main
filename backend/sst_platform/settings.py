@@ -101,9 +101,10 @@ if _database_url:
             }
         }
 else:
+    # En local : SQLite par défaut. Pour MySQL, définir USE_MYSQL=True et DB_NAME dans .env
     _use_mysql = config('USE_MYSQL', default=False, cast=bool)
-    _db_name = config('DB_NAME', default='')
-    if _use_mysql or _db_name:
+    _db_name = config('DB_NAME', default='').strip()
+    if _use_mysql and _db_name:
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.mysql',

@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
-import { isDemoMode, setDemoMode } from '../api/mockData'
 
 interface User {
   id: number
@@ -14,23 +13,10 @@ interface User {
   full_name: string
 }
 
-const DEMO_USER: User = {
-  id: 0,
-  username: 'demo',
-  email: 'demo@example.com',
-  first_name: 'Démo',
-  last_name: 'Utilisateur',
-  role: 'super_admin',
-  role_display: 'Super administrateur',
-  full_name: 'Démo Utilisateur',
-}
-
 interface AuthContextType {
   user: User | null
   loading: boolean
-  isDemo: boolean
   login: (username: string, password: string) => Promise<void>
-  loginDemo: () => void
   logout: () => void
   hasMedicalAccess: boolean
   canManageUsers: boolean
@@ -78,11 +64,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (isDemoMode()) {
-      setUser(DEMO_USER)
-      setLoading(false)
-      return
-    }
     const token = localStorage.getItem('access_token')
     if (token) {
       fetchUser()
@@ -116,14 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
-  const loginDemo = () => {
-    setDemoMode(true)
-    setUser(DEMO_USER)
-    navigate('/')
-  }
-
   const logout = () => {
-    setDemoMode(false)
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
     setUser(null)
@@ -132,10 +106,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const hasMedicalAccess = user?.role ? ['super_admin', 'medecin', 'infirmier'].includes(user.role) : false
   const canManageUsers = user?.role ? ['super_admin', 'admin'].includes(user.role) : false
-  const isDemo = isDemoMode()
 
   return (
-    <AuthContext.Provider value={{ user, loading, isDemo, login, loginDemo, logout, hasMedicalAccess, canManageUsers }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, hasMedicalAccess, canManageUsers }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,9 +1,8 @@
 import axios, { AxiosRequestConfig } from 'axios'
-import { isDemoMode, getMockResponse } from './mockData'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
-const realClient = axios.create({
+const client = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -11,7 +10,7 @@ const realClient = axios.create({
 })
 
 // Intercepteur pour ajouter le token
-realClient.interceptors.request.use((config) => {
+client.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -20,7 +19,7 @@ realClient.interceptors.request.use((config) => {
 })
 
 // Intercepteur pour gérer les erreurs
-realClient.interceptors.response.use(
+client.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
@@ -45,32 +44,6 @@ realClient.interceptors.response.use(
     return Promise.reject(error)
   }
 )
-
-/** En mode démo, retourne les mocks ; sinon appelle le backend. */
-async function demoAwareRequest(
-  method: 'get' | 'post' | 'put' | 'patch' | 'delete',
-  url: string,
-  data?: any,
-  config?: AxiosRequestConfig
-) {
-  if (isDemoMode()) {
-    const res = getMockResponse(method, url, data, config)
-    return Promise.resolve(res as any)
-  }
-  if (method === 'get') return realClient.get(url, config)
-  if (method === 'post') return realClient.post(url, data, config)
-  if (method === 'put') return realClient.put(url, data, config)
-  if (method === 'patch') return realClient.patch(url, data, config)
-  return realClient.delete(url, config)
-}
-
-const client = {
-  get: (url: string, config?: AxiosRequestConfig) => demoAwareRequest('get', url, undefined, config),
-  post: (url: string, data?: any, config?: AxiosRequestConfig) => demoAwareRequest('post', url, data, config),
-  put: (url: string, data?: any, config?: AxiosRequestConfig) => demoAwareRequest('put', url, data, config),
-  patch: (url: string, data?: any, config?: AxiosRequestConfig) => demoAwareRequest('patch', url, data, config),
-  delete: (url: string, config?: AxiosRequestConfig) => demoAwareRequest('delete', url, undefined, config),
-}
 
 /** Retourne un message d'erreur lisible à partir d'une erreur API (400, etc.). */
 export function getApiErrorMessage(error: any): string {
