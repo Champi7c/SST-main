@@ -16,6 +16,7 @@ import {
   Avatar,
   Menu,
   MenuItem,
+  Chip,
 } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
 import DashboardIcon from '@mui/icons-material/Dashboard'
@@ -52,7 +53,7 @@ export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [logoError, setLogoError] = useState(false)
-  const { user, logout } = useAuth()
+  const { user, logout, isDemo } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -157,6 +158,9 @@ export default function Layout() {
             {menuItems.find(item => item.path === location.pathname)?.text || 'Plateforme SST'}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {isDemo && (
+              <Chip label="Mode démo" size="small" color="info" sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.5)' }} variant="outlined" />
+            )}
             <Typography variant="body2">{user?.full_name}</Typography>
             <IconButton onClick={handleMenuClick} size="small">
               <Avatar sx={{ width: 32, height: 32 }}>

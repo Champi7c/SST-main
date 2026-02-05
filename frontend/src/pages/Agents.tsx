@@ -99,6 +99,8 @@ export default function Agents() {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
   const [showArchived, setShowArchived] = useState(false)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
+  const [submitLoading, setSubmitLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const navigate = useNavigate()
   const { hasMedicalAccess, user } = useAuth()
 
@@ -239,6 +241,7 @@ export default function Agents() {
   }
 
   const handleOpenDialog = (agent?: Agent) => {
+    setFieldErrors({})
     if (agent) {
       setEditingAgent(agent)
       setFormData({
@@ -298,21 +301,23 @@ export default function Agents() {
   const handleCloseDialog = () => {
     setOpenDialog(false)
     setEditingAgent(null)
+    setFieldErrors({})
   }
 
   const handleSubmit = async () => {
-    // Vérifier si c'est un ID numérique ou un nom d'entreprise
+    setFieldErrors({})
     const companyId = formData.company ? parseInt(formData.company, 10) : NaN
     const isCompanyName = formData.company && !Number.isFinite(companyId)
-    
     if (!editingAgent && (!formData.matricule?.trim() || !formData.first_name?.trim() || !formData.last_name?.trim() || !formData.date_of_birth || !formData.hire_date)) {
       showSnackbar('Veuillez remplir les champs obligatoires (matricule, prénom, nom, date de naissance, date d\'embauche).', 'error')
       return
     }
     if (!formData.company || (!Number.isFinite(companyId) && !isCompanyName)) {
       showSnackbar('Veuillez sélectionner ou saisir une entreprise.', 'error')
+      setFieldErrors((e) => ({ ...e, company: 'Champ obligatoire' }))
       return
     }
+    setSubmitLoading(true)
     try {
       const data: Record<string, unknown> = {
         matricule: formData.matricule.trim(),
@@ -329,7 +334,6 @@ export default function Agents() {
         emergency_contact_name: formData.emergency_contact_name?.trim() || null,
         emergency_contact_phone: formData.emergency_contact_phone?.trim() || null,
         emergency_contact_relation: formData.emergency_contact_relation?.trim() || null,
-        // supervisor sera géré après
         function: formData.function?.trim() || null,
         grade: formData.grade?.trim() || null,
         professional_category: formData.professional_category?.trim() || null,
@@ -395,7 +399,19 @@ export default function Agents() {
       fetchCompanies() // Rafraîchir la liste des entreprises au cas où une nouvelle a été créée
     } catch (error: any) {
       console.error('Erreur lors de la sauvegarde:', error)
-      showSnackbar(getApiErrorMessage(error), 'error')
+      const msg = getApiErrorMessage(error)
+      showSnackbar(msg, 'error')
+      const data = error?.response?.data
+      if (data && typeof data === 'object' && !data.detail) {
+        const errs: Record<string, string> = {}
+        for (const [key, val] of Object.entries(data)) {
+          const text = Array.isArray(val) ? val[0] : String(val)
+          if (text && typeof text === 'string') errs[key] = text
+        }
+        if (Object.keys(errs).length > 0) setFieldErrors(errs)
+      }
+    } finally {
+      setSubmitLoading(false)
     }
   }
 
@@ -557,6 +573,8 @@ export default function Agents() {
                 onChange={(e) => setFormData({ ...formData, matricule: e.target.value })}
                 required
                 disabled={!!editingAgent}
+                error={!!fieldErrors.matricule}
+                helperText={fieldErrors.matricule}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -595,6 +613,8 @@ export default function Agents() {
                 value={formData.first_name}
                 onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 required
+                error={!!fieldErrors.first_name}
+                helperText={fieldErrors.first_name}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -604,6 +624,8 @@ export default function Agents() {
                 value={formData.last_name}
                 onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 required
+                error={!!fieldErrors.last_name}
+                helperText={fieldErrors.last_name}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -615,6 +637,8 @@ export default function Agents() {
                 onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                 InputLabelProps={{ shrink: true }}
                 required
+                error={!!fieldErrors.date_of_birth}
+                helperText={fieldErrors.date_of_birth}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -706,15 +730,12 @@ export default function Agents() {
                     : ''
                 }
                 onInputChange={(event, newInputValue, reason) => {
-                  // Si l'utilisateur tape un nom qui n'existe pas dans la liste
                   if (reason === 'input' && newInputValue) {
                     const existingCompany = companies.find(c => c.name.toLowerCase() === newInputValue.toLowerCase())
                     if (!existingCompany) {
-                      // C'est un nouveau nom d'entreprise
                       setFormData({
                         ...formData,
-                        company: newInputValue, // Stocker le nom comme string
-                        company_name: newInputValue,
+                        company: newInputValue,
                         site: '',
                         service: '',
                         job_position: '',
@@ -725,33 +746,27 @@ export default function Agents() {
                 }}
                 onChange={(event, newValue) => {
                   if (typeof newValue === 'string') {
-                    // L'utilisateur a tapé un nom d'entreprise
                     setFormData({
                       ...formData,
-                      company: newValue, // Stocker le nom comme string
-                      company_name: newValue,
+                      company: newValue,
                       site: '',
                       service: '',
                       job_position: '',
                       supervisor: '',
                     })
                   } else if (newValue && 'id' in newValue) {
-                    // L'utilisateur a sélectionné une entreprise existante
                     setFormData({
                       ...formData,
                       company: newValue.id.toString(),
-                      company_name: newValue.name,
                       site: '',
                       service: '',
                       job_position: '',
                       supervisor: '',
                     })
                   } else {
-                    // Valeur effacée
                     setFormData({
                       ...formData,
                       company: '',
-                      company_name: '',
                       site: '',
                       service: '',
                       job_position: '',
@@ -765,6 +780,8 @@ export default function Agents() {
                     label="Entreprise *"
                     required
                     placeholder="Sélectionnez ou tapez un nom d'entreprise"
+                    error={!!fieldErrors.company}
+                    helperText={fieldErrors.company}
                   />
                 )}
               />
@@ -981,40 +998,28 @@ export default function Agents() {
                 }
                 onInputChange={(event, newInputValue, reason) => {
                   if (reason === 'input' && newInputValue && formData.company) {
-                    // Chercher si c'est un nom complet avec matricule entre parenthèses
                     const match = newInputValue.match(/^(.+?)\s*\((.+?)\)$/)
                     if (match) {
-                      const [, name, matricule] = match
+                      const [, , matricule] = match
                       const existingSupervisor = supervisors.find(s => 
-                        s.matricule.toLowerCase() === matricule.trim().toLowerCase() ||
-                        s.full_name.toLowerCase() === name.trim().toLowerCase()
+                        s.matricule.toLowerCase() === matricule.trim().toLowerCase()
                       )
                       if (!existingSupervisor) {
-                        // Stocker le matricule ou le nom
-                        setFormData({
-                          ...formData,
-                          supervisor: matricule.trim(),
-                        })
+                        setFormData({ ...formData, supervisor: matricule.trim() })
                       }
                     } else {
-                      // Chercher par nom ou matricule
                       const existingSupervisor = supervisors.find(s => 
                         s.full_name.toLowerCase().includes(newInputValue.toLowerCase()) ||
                         s.matricule.toLowerCase() === newInputValue.toLowerCase()
                       )
                       if (!existingSupervisor) {
-                        // Permettre la saisie libre (sera recherché par matricule ou nom dans le backend)
-                        setFormData({
-                          ...formData,
-                          supervisor: newInputValue,
-                        })
+                        setFormData({ ...formData, supervisor: newInputValue })
                       }
                     }
                   }
                 }}
                 onChange={(event, newValue) => {
                   if (typeof newValue === 'string') {
-                    // Si c'est une chaîne vide, ne pas définir de superviseur
                     if (newValue.trim() === '' || newValue.toLowerCase() === 'aucun') {
                       setFormData({ ...formData, supervisor: '' })
                     } else {
@@ -1045,6 +1050,8 @@ export default function Agents() {
                 onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
                 InputLabelProps={{ shrink: true }}
                 required
+                error={!!fieldErrors.hire_date}
+                helperText={fieldErrors.hire_date}
               />
             </Grid>
             <Grid item xs={12}>
@@ -1061,9 +1068,9 @@ export default function Agents() {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Annuler</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
-            {editingAgent ? 'Modifier' : 'Créer'}
+          <Button onClick={handleCloseDialog} disabled={submitLoading}>Annuler</Button>
+          <Button onClick={handleSubmit} variant="contained" color="primary" disabled={submitLoading} startIcon={submitLoading ? <CircularProgress size={18} color="inherit" /> : undefined}>
+            {submitLoading ? (editingAgent ? 'Modification...' : 'Création...') : (editingAgent ? 'Modifier' : 'Créer')}
           </Button>
         </DialogActions>
       </Dialog>

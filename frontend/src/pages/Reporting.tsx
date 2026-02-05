@@ -147,7 +147,7 @@ export default function Reporting() {
 
     try {
       const [dashboardRes, sstRes] = await Promise.all([
-        client.get<DashboardData>('/reporting/dashboard-stats/', { params }),
+        client.get('/reporting/dashboard-stats/', { params }),
         client.get('/reporting/sst-indicators/', { params }),
       ])
       setData(dashboardRes.data)

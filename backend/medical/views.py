@@ -69,10 +69,10 @@ class AgentViewSet(viewsets.ModelViewSet):
         
         # Filtrage par entreprise si l'utilisateur n'est pas super_admin
         if hasattr(self.request, 'user') and self.request.user.role != 'super_admin':
-            # Filtrer selon les entreprises de l'utilisateur
-            user_companies = self.request.user.company_memberships.values_list('company_id', flat=True)
-            if user_companies:
-                queryset = queryset.filter(company_id__in=user_companies)
+            user_companies = list(
+                self.request.user.company_memberships.values_list('company_id', flat=True)
+            )
+            queryset = queryset.filter(company_id__in=user_companies)
         
         return queryset
     
@@ -81,6 +81,28 @@ class AgentViewSet(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
+    
+    def _user_can_access_company(self, company_id):
+        """Vérifie si l'utilisateur (non super_admin) a accès à cette entreprise."""
+        if self.request.user.role == 'super_admin':
+            return True
+        user_companies = list(
+            self.request.user.company_memberships.values_list('company_id', flat=True)
+        )
+        if not user_companies:
+            return False
+        return company_id in user_companies
+    
+    def perform_create(self, serializer):
+        """Vérifie l'accès à l'entreprise avant création."""
+        company_id = serializer.validated_data.get('company').id
+        if not self._user_can_access_company(company_id):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(
+                'Vous ne pouvez créer des agents que pour les entreprises auxquelles vous êtes rattaché. '
+                'Vérifiez votre rattachement aux entreprises dans les paramètres.'
+            )
+        serializer.save()
     
     def perform_destroy(self, instance):
         """Archivage au lieu de suppression définitive"""

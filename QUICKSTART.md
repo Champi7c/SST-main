@@ -60,8 +60,10 @@ Le frontend sera accessible sur http://localhost:3000
 ## 🔑 Première connexion
 
 1. Ouvrir http://localhost:3000
-2. Se connecter avec les identifiants du super utilisateur créé
-3. Le tableau de bord s'affichera
+2. **Compte démo** (prérempli) : `demo` / `demo1234` — ou créer un superuser puis l'utiliser
+3. Pour créer/réinitialiser le compte démo seul : `python manage.py create_demo_user`
+4. **Mode démo sans backend** : cliquer sur « Voir la démo (sans backend) » pour explorer l'interface sans configurer la base de données ni le backend (données fictives)
+5. Le tableau de bord s'affichera
 
 ## 📝 Création de données de test
 
