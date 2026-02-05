@@ -44,6 +44,7 @@ interface TrainingType {
   name: string
   code?: string
   validity_period_months?: number
+  drive_link?: string
 }
 
 interface RiskCategory {
@@ -129,7 +130,7 @@ export default function Settings() {
   const { user, canManageUsers } = useAuth()
 
   const [vaccineForm, setVaccineForm] = useState({ name: '', code: '', validity_period_months: '', description: '' })
-  const [typeForm, setTypeForm] = useState({ name: '', code: '', validity_period_months: '', description: '' })
+  const [typeForm, setTypeForm] = useState({ name: '', code: '', validity_period_months: '', description: '', drive_link: '' })
   const [categoryForm, setCategoryForm] = useState({ name: '', code: '', category_type: '', description: '' })
   const [visitTypeForm, setVisitTypeForm] = useState({ name: '', code: '', description: '' })
   const [vaccineReqForm, setVaccineReqForm] = useState({
@@ -270,10 +271,11 @@ export default function Settings() {
         code: typeForm.code || null,
         validity_period_months: typeForm.validity_period_months ? parseInt(typeForm.validity_period_months) : null,
         description: typeForm.description || null,
+        drive_link: typeForm.drive_link?.trim() || null,
       })
       showSnackbar('Type de formation ajouté', 'success')
       setOpenTypeDialog(false)
-      setTypeForm({ name: '', code: '', validity_period_months: '', description: '' })
+      setTypeForm({ name: '', code: '', validity_period_months: '', description: '', drive_link: '' })
       fetchTrainingTypes()
     } catch (err: any) {
       showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
@@ -427,6 +429,7 @@ export default function Settings() {
                     <TableCell>Nom</TableCell>
                     <TableCell>Code</TableCell>
                     <TableCell>Validité (mois)</TableCell>
+                    <TableCell>Lien Drive (cours)</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -435,6 +438,11 @@ export default function Settings() {
                       <TableCell>{t.name}</TableCell>
                       <TableCell>{t.code || '–'}</TableCell>
                       <TableCell>{t.validity_period_months ?? '–'}</TableCell>
+                      <TableCell>
+                        {t.drive_link ? (
+                          <a href={t.drive_link} target="_blank" rel="noopener noreferrer">Ouvrir le cours</a>
+                        ) : '–'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -660,6 +668,9 @@ export default function Settings() {
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth label="Description" multiline rows={2} value={typeForm.description} onChange={(e) => setTypeForm({ ...typeForm, description: e.target.value })} />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Lien Drive (cours)" placeholder="https://drive.google.com/..." value={typeForm.drive_link} onChange={(e) => setTypeForm({ ...typeForm, drive_link: e.target.value })} />
             </Grid>
           </Grid>
         </DialogContent>

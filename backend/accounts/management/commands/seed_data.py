@@ -245,7 +245,7 @@ class Command(BaseCommand):
                         'status': status,
                         'actual_date': sd if status == 'completed' else None,
                         'reason': 'Contrôle périodique',
-                        'decision': random.choice(['apte', 'apte_avec_reserves', 'inapte_temporaire']) if status == 'completed' else None,
+                        'avis': random.choice(['apte', 'apte_avec_reserves', 'inapte_temporaire']) if status == 'completed' else None,
                         'created_by': user,
                         'doctor': user,
                     }
@@ -259,10 +259,10 @@ class Command(BaseCommand):
                 ad = today_dt - timedelta(days=60 * (N - i) + random.randint(0, 30))
                 WorkAccident.objects.create(
                     agent=ag,
-                    accident_type=random.choice(['work', 'work', 'commute', 'service']),
+                    accident_type=random.choice(['work', 'work', 'commute', 'service', 'mission']),
                     accident_date=ad,
                     location='Atelier' if i % 2 else 'Bureau',
-                    circumstances='Chute / glissade',
+                    mechanism='Chute / glissade',
                     description='Description détaillée de l\'accident.',
                     severity=random.choice(['light', 'light', 'moderate', 'severe']),
                     status=random.choice(['declared', 'investigating', 'closed']),
@@ -283,11 +283,14 @@ class Command(BaseCommand):
                 fd = today - timedelta(days=180 * (i % 5) + random.randint(0, 90))
                 OccupationalDisease.objects.create(
                     agent=ag,
+                    disease_type=random.choice(['mp', 'mcp', 'ms']),
                     disease_name=random.choice(mps),
-                    disease_code=f'MP{i % 10:02d}',
+                    table_number=random.randint(1, 100) if i % 3 else None,
                     first_symptoms_date=fd,
                     diagnosis_date=fd + timedelta(days=30),
-                    status=random.choice(['suspected', 'declared', 'recognized', 'rejected']),
+                    status=random.choice(['declared', 'recognized', 'rejected']),
+                    exposure_start_date=fd - timedelta(days=365) if i % 2 else None,
+                    exposure_end_date=fd - timedelta(days=30) if i % 2 else None,
                     declared_by=user,
                 )
 

@@ -76,13 +76,14 @@ TEMPLATES = [
 WSGI_APPLICATION = 'sst_platform.wsgi.application'
 
 # Database
-# MySQL (sst, port 3308) si DB_NAME est défini dans .env, sinon SQLite
-_db_name = config('DB_NAME', default='')
-if _db_name:
+# SQLite par défaut. Pour utiliser MySQL, définir USE_MYSQL=True dans .env
+_use_mysql = config('USE_MYSQL', default=False, cast=bool)
+if _use_mysql:
+    # Configuration MySQL (sst, port 3308)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
-            'NAME': _db_name,
+            'NAME': config('DB_NAME', default='sst'),
             'HOST': config('DB_HOST', default='127.0.0.1'),
             'PORT': config('DB_PORT', default=3308, cast=int),
             'USER': config('DB_USER', default='root'),
@@ -91,6 +92,7 @@ if _db_name:
         }
     }
 else:
+    # SQLite par défaut
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

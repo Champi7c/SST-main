@@ -4,6 +4,7 @@ Vues pour l'authentification et la gestion des utilisateurs
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import APIException
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
@@ -109,9 +110,13 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             
             return response
             
+        except APIException:
+            # Laisser passer les exceptions HTTP de DRF (comme AuthenticationFailed)
+            # pour qu'elles retournent leur code de statut approprié (401, 400, etc.)
+            raise
         except Exception as e:
-            # Logger l'erreur complète
-            logger.error(f"Erreur lors de l'authentification: {e}", exc_info=True)
+            # Logger uniquement les erreurs inattendues
+            logger.error(f"Erreur inattendue lors de l'authentification: {e}", exc_info=True)
             from rest_framework.response import Response
             from rest_framework import status
             import traceback
@@ -125,7 +130,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             return Response(
                 {
                     "detail": "Erreur lors de l'authentification.",
-                    "error": error_detail if settings.DEBUG else "Vérifiez vos identifiants."
+                    "error": error_detail if settings.DEBUG else "Une erreur inattendue s'est produite."
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

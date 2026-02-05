@@ -13,8 +13,8 @@ class WorkAccidentAdmin(admin.ModelAdmin):
 
 @admin.register(OccupationalDisease)
 class OccupationalDiseaseAdmin(admin.ModelAdmin):
-    list_display = ['agent', 'disease_name', 'first_symptoms_date', 'status', 'recognition_date', 'declared_by', 'created_at']
-    list_filter = ['status', 'first_symptoms_date']
-    search_fields = ['agent__matricule', 'agent__last_name', 'disease_name', 'disease_code']
+    list_display = ['agent', 'disease_type', 'disease_name', 'table_number', 'first_symptoms_date', 'status', 'recognition_date', 'declared_by', 'created_at']
+    list_filter = ['disease_type', 'status', 'first_symptoms_date']
+    search_fields = ['agent__matricule', 'agent__last_name', 'disease_name']
     readonly_fields = ['created_at', 'updated_at', 'declaration_date', 'declared_by']
     date_hierarchy = 'first_symptoms_date'

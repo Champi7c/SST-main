@@ -39,10 +39,10 @@ const drawerWidth = 240
 const menuItems = [
   { text: 'Tableau de bord', icon: <DashboardIcon />, path: '/' },
   { text: 'Agents', icon: <PeopleIcon />, path: '/agents' },
-  { text: 'Visites médicales', icon: <EventIcon />, path: '/visits' },
-  { text: 'Accidents de travail', icon: <WarningIcon />, path: '/accidents' },
+  { text: 'Dossier médical', icon: <MedicalServicesIcon />, path: '/visits' },
+  { text: 'ATMP', icon: <WarningIcon />, path: '/accidents' },
   { text: 'Vaccination', icon: <VaccinesIcon />, path: '/vaccination' },
-  { text: 'Prévention', icon: <SecurityIcon />, path: '/prevention' },
+  { text: 'GRILLE EVRP', icon: <SecurityIcon />, path: '/prevention' },
   { text: 'Formation', icon: <SchoolIcon />, path: '/training' },
   { text: 'Reporting', icon: <AssessmentIcon />, path: '/reporting' },
   { text: 'Paramètres', icon: <SettingsIcon />, path: '/settings' },

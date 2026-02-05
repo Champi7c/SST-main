@@ -26,7 +26,7 @@ class MedicalVisitViewSet(viewsets.ModelViewSet):
     serializer_class = MedicalVisitSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['agent', 'visit_type', 'status', 'decision', 'agent__company', 'agent__site']
+    filterset_fields = ['agent', 'visit_type', 'status', 'avis', 'agent__company', 'agent__site']
     search_fields = ['agent__matricule', 'agent__last_name', 'agent__first_name']
     ordering_fields = ['scheduled_date', 'actual_date', 'created_at']
     ordering = ['-scheduled_date']

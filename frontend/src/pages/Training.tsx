@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Box,
   Typography,
@@ -29,7 +29,7 @@ import {
   Card,
   CardContent,
 } from '@mui/material'
-import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon } from '@mui/icons-material'
+import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon, Download as DownloadIcon, Upload as UploadIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -38,6 +38,8 @@ interface TrainingType {
   name: string
   code?: string
   validity_period_months?: number
+  drive_link?: string
+  description?: string
 }
 
 interface TrainingRecord {
@@ -56,6 +58,8 @@ interface TrainingRecord {
   result?: string
   certificate_number?: string
   training_organization?: string
+  trainer_name?: string
+  notes?: string
 }
 
 interface EducationalArticle {
@@ -129,6 +133,8 @@ export default function Training() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const [companyFilter, setCompanyFilter] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [importLoading, setImportLoading] = useState(false)
+  const importFileInputRef = useRef<HTMLInputElement>(null)
   const { user, canManageUsers } = useAuth()
   const [requirementForm, setRequirementForm] = useState({
     company: '',
@@ -159,7 +165,7 @@ export default function Training() {
     is_published: false,
   })
 
-  const canManage = user?.role ? ['super_admin', 'admin', 'consultant', 'hse', 'direction'].includes(user.role) : false
+  const canManage = user?.role ? ['super_admin', 'admin', 'consultant', 'hse', 'direction', 'medecin', 'rh'].includes(user.role) : false
 
   useEffect(() => {
     fetchTrainingTypes()
@@ -255,6 +261,20 @@ export default function Training() {
     setSnackbar({ open: true, message, severity })
   }
 
+  const initialTrainingForm = () => ({
+    agent: '',
+    training_type: '',
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: '',
+    next_due_date: '',
+    status: 'planned',
+    result: '',
+    certificate_number: '',
+    training_organization: '',
+    trainer_name: '',
+    notes: '',
+  })
+
   const handleCreateTraining = async () => {
     try {
       await client.post('/training/trainings/', {
@@ -272,6 +292,7 @@ export default function Training() {
       })
       showSnackbar('Formation enregistrée', 'success')
       setOpenTrainingDialog(false)
+      setTrainingForm(initialTrainingForm())
       fetchTrainings()
     } catch (err: any) {
       showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
@@ -335,7 +356,7 @@ export default function Training() {
         job_position: parseInt(requirementForm.job_position),
         mandatory: requirementForm.mandatory,
       })
-      showSnackbar('Habilitation ajoutée', 'success')
+      showSnackbar('Certification ajoutée', 'success')
       setOpenRequirementsDialog(false)
       setRequirementForm({ company: '', training_type: '', job_position: '', mandatory: true })
       fetchRequirements()
@@ -356,6 +377,136 @@ export default function Training() {
   const dueCount = trainings.filter((t) => t.is_due).length
   const completedCount = trainings.filter((t) => t.status === 'completed').length
 
+  const escapeCsv = (v: string | number | undefined | null): string => {
+    if (v === undefined || v === null) return ''
+    const s = String(v)
+    if (s.includes(';') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`
+    return s
+  }
+
+  const exportFormationsCsv = () => {
+    const headers = ['Agent', 'Matricule', 'Type de formation', 'Date début', 'Date fin', 'Date rappel', 'Statut', 'Résultat', 'N° certificat', 'Organisme formateur', 'Formateur', 'Notes']
+    const rows = trainings.map((t) => [
+      escapeCsv(t.agent_name),
+      escapeCsv(t.agent_matricule),
+      escapeCsv(t.training_type_name),
+      escapeCsv(t.start_date ? new Date(t.start_date).toLocaleDateString('fr-FR') : ''),
+      escapeCsv(t.end_date ? new Date(t.end_date).toLocaleDateString('fr-FR') : ''),
+      escapeCsv(t.next_due_date ? new Date(t.next_due_date).toLocaleDateString('fr-FR') : ''),
+      escapeCsv(t.status_display),
+      escapeCsv(t.result),
+      escapeCsv(t.certificate_number),
+      escapeCsv(t.training_organization),
+      escapeCsv(t.trainer_name),
+      escapeCsv(t.notes),
+    ])
+    const csv = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `formations_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    showSnackbar('Export formations téléchargé', 'success')
+  }
+
+  const exportCoursCsv = () => {
+    const headers = ['Nom', 'Code', 'Validité (mois)', 'Lien Drive (cours)', 'Description']
+    const rows = trainingTypes.map((tp) => [
+      escapeCsv(tp.name),
+      escapeCsv(tp.code),
+      escapeCsv(tp.validity_period_months),
+      escapeCsv(tp.drive_link),
+      escapeCsv(tp.description),
+    ])
+    const csv = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `cours_types_formation_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    showSnackbar('Export des cours téléchargé', 'success')
+  }
+
+  const parseCsvLine = (line: string): string[] => {
+    const result: string[] = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i]
+      if (c === '"') {
+        inQuotes = !inQuotes
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      } else if ((c === ';' && !inQuotes) || c === '\n' || c === '\r') {
+        result.push(current.trim())
+        current = ''
+        if (c !== ';') break
+      } else {
+        current += c
+      }
+    }
+    result.push(current.trim())
+    return result
+  }
+
+  const handleImportCours = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      showSnackbar('Veuillez sélectionner un fichier CSV.', 'error')
+      return
+    }
+    setImportLoading(true)
+    try {
+      const text = await file.text()
+      const lines = text.split(/\r?\n/).filter((l) => l.trim())
+      if (lines.length < 2) {
+        showSnackbar('Le fichier CSV doit contenir une ligne d\'en-tête et au moins une ligne de données.', 'error')
+        setImportLoading(false)
+        return
+      }
+      const header = parseCsvLine(lines[0])
+      const nameIdx = header.findIndex((h) => /nom/i.test(h))
+      const codeIdx = header.findIndex((h) => /code/i.test(h))
+      const validIdx = header.findIndex((h) => /validit/i.test(h))
+      const linkIdx = header.findIndex((h) => /lien|drive/i.test(h))
+      const descIdx = header.findIndex((h) => /description/i.test(h))
+      if (nameIdx === -1) {
+        showSnackbar('Le CSV doit contenir une colonne "Nom".', 'error')
+        setImportLoading(false)
+        return
+      }
+      let created = 0
+      let errors = 0
+      for (let i = 1; i < lines.length; i++) {
+        const cells = parseCsvLine(lines[i])
+        const name = cells[nameIdx]?.trim()
+        if (!name) continue
+        try {
+          await client.post('/training/training-types/', {
+            name,
+            code: codeIdx >= 0 ? (cells[codeIdx]?.trim() || null) : null,
+            validity_period_months: validIdx >= 0 && cells[validIdx] ? parseInt(cells[validIdx], 10) || null : null,
+            drive_link: linkIdx >= 0 ? (cells[linkIdx]?.trim() || null) : null,
+            description: descIdx >= 0 ? (cells[descIdx]?.trim() || null) : null,
+          })
+          created++
+        } catch {
+          errors++
+        }
+      }
+      if (importFileInputRef.current) importFileInputRef.current.value = ''
+      fetchTrainingTypes()
+      showSnackbar(`${created} cours importé(s).${errors ? ` ${errors} erreur(s).` : ''}`, errors ? 'error' : 'success')
+    } catch (e) {
+      showSnackbar('Erreur lors de la lecture du fichier.', 'error')
+    }
+    setImportLoading(false)
+  }
+
   if (loading && tabValue === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
@@ -374,23 +525,11 @@ export default function Training() {
             color="primary"
             startIcon={<AddIcon />}
             onClick={() => {
-              setTrainingForm({
-                agent: '',
-                training_type: '',
-                start_date: new Date().toISOString().split('T')[0],
-                end_date: '',
-                next_due_date: '',
-                status: 'planned',
-                result: '',
-                certificate_number: '',
-                training_organization: '',
-                trainer_name: '',
-                notes: '',
-              })
+              setTrainingForm(initialTrainingForm())
               setOpenTrainingDialog(true)
             }}
           >
-            Nouvelle formation
+            Ajouter formation
           </Button>
         )}
       </Box>
@@ -422,12 +561,143 @@ export default function Training() {
         </Grid>
       </Grid>
 
+      {canManage && (
+        <Paper sx={{ p: 2, mb: 3 }} elevation={2}>
+          <Typography variant="h6" gutterBottom>Ajouter une formation</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Remplissez le formulaire ci-dessous pour enregistrer une nouvelle formation.</Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Effectif *"
+                value={trainingForm.agent}
+                onChange={(e) => setTrainingForm({ ...trainingForm, agent: e.target.value })}
+                placeholder="Numéro (ex. matricule ou ID agent)"
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Type de formation *</InputLabel>
+                <Select
+                  value={trainingForm.training_type}
+                  onChange={(e) => setTrainingForm({ ...trainingForm, training_type: e.target.value })}
+                  label="Type de formation *"
+                >
+                  {trainingTypes.map((tp) => (
+                    <MenuItem key={tp.id} value={String(tp.id)}>{tp.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date de début *"
+                type="date"
+                value={trainingForm.start_date}
+                onChange={(e) => setTrainingForm({ ...trainingForm, start_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date de fin"
+                type="date"
+                value={trainingForm.end_date}
+                onChange={(e) => setTrainingForm({ ...trainingForm, end_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Prochain rappel"
+                type="date"
+                value={trainingForm.next_due_date}
+                onChange={(e) => setTrainingForm({ ...trainingForm, next_due_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Statut</InputLabel>
+                <Select
+                  value={trainingForm.status}
+                  onChange={(e) => setTrainingForm({ ...trainingForm, status: e.target.value })}
+                  label="Statut"
+                >
+                  <MenuItem value="planned">Planifiée</MenuItem>
+                  <MenuItem value="in_progress">En cours</MenuItem>
+                  <MenuItem value="completed">Terminée</MenuItem>
+                  <MenuItem value="cancelled">Annulée</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Organisme formateur"
+                value={trainingForm.training_organization}
+                onChange={(e) => setTrainingForm({ ...trainingForm, training_organization: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Formateur"
+                value={trainingForm.trainer_name}
+                onChange={(e) => setTrainingForm({ ...trainingForm, trainer_name: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Résultat"
+                value={trainingForm.result}
+                onChange={(e) => setTrainingForm({ ...trainingForm, result: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="N° certificat"
+                value={trainingForm.certificate_number}
+                onChange={(e) => setTrainingForm({ ...trainingForm, certificate_number: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Notes"
+                multiline
+                rows={2}
+                value={trainingForm.notes}
+                onChange={(e) => setTrainingForm({ ...trainingForm, notes: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleCreateTraining}
+                disabled={!trainingForm.agent || !trainingForm.training_type || !trainingForm.start_date}
+              >
+                Enregistrer la formation
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
+
       <Paper>
         <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
           <Tab label="Formations" />
           <Tab label="Types de formation" />
           <Tab label="Articles d'éducation sanitaire" />
-          <Tab label="Habilitations" />
+          <Tab label="Certifications" />
         </Tabs>
 
         <Box sx={{ px: 2, pb: 2 }}>
@@ -441,16 +711,62 @@ export default function Training() {
             </Select>
           </FormControl>
           {tabValue === 0 && (
-            <FormControl size="small" sx={{ minWidth: 160, mt: 2, mb: 2 }}>
-              <InputLabel>Statut</InputLabel>
-              <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Statut">
-                <MenuItem value="all">Tous</MenuItem>
-                <MenuItem value="planned">Planifiée</MenuItem>
-                <MenuItem value="in_progress">En cours</MenuItem>
-                <MenuItem value="completed">Terminée</MenuItem>
-                <MenuItem value="cancelled">Annulée</MenuItem>
-              </Select>
-            </FormControl>
+            <>
+              <FormControl size="small" sx={{ minWidth: 160, mt: 2, mb: 2, mr: 2 }}>
+                <InputLabel>Statut</InputLabel>
+                <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Statut">
+                  <MenuItem value="all">Tous</MenuItem>
+                  <MenuItem value="planned">Planifiée</MenuItem>
+                  <MenuItem value="in_progress">En cours</MenuItem>
+                  <MenuItem value="completed">Terminée</MenuItem>
+                  <MenuItem value="cancelled">Annulée</MenuItem>
+                </Select>
+              </FormControl>
+              {canManage && (
+                <Button variant="outlined" startIcon={<AddIcon />} sx={{ mt: 2, mb: 2, mr: 2 }} onClick={() => { setTrainingForm(initialTrainingForm()); setOpenTrainingDialog(true) }}>
+                  Ajouter formation
+                </Button>
+              )}
+              <Button variant="outlined" startIcon={<DownloadIcon />} sx={{ mt: 2, mb: 2, mr: 2 }} onClick={exportFormationsCsv} disabled={trainings.length === 0}>
+                Exporter formations et détails
+              </Button>
+            </>
+          )}
+          {tabValue === 1 && (
+            <>
+              {canManage && (
+                <Box sx={{ mt: 2, mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1, border: '1px dashed', borderColor: 'divider' }}>
+                  <Typography variant="subtitle2" gutterBottom>Importer des cours (fichier CSV)</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Déposez un fichier CSV avec les colonnes : Nom, Code, Validité (mois), Lien Drive (cours), Description (séparateur ;). Vous pouvez exporter les cours existants pour voir le format.
+                  </Typography>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    ref={importFileInputRef}
+                    onChange={handleImportCours}
+                    style={{ display: 'none' }}
+                  />
+                  <Button
+                    variant="contained"
+                    startIcon={importLoading ? <CircularProgress size={20} color="inherit" /> : <UploadIcon />}
+                    onClick={() => importFileInputRef.current?.click()}
+                    disabled={importLoading}
+                    sx={{ mr: 2 }}
+                  >
+                    {importLoading ? 'Import en cours...' : 'Choisir un fichier CSV'}
+                  </Button>
+                  <Button variant="outlined" startIcon={<DownloadIcon />} onClick={exportCoursCsv} disabled={trainingTypes.length === 0}>
+                    Exporter les cours
+                  </Button>
+                </Box>
+              )}
+              {!canManage && (
+                <Button variant="outlined" startIcon={<DownloadIcon />} sx={{ mt: 2, mb: 2 }} onClick={exportCoursCsv} disabled={trainingTypes.length === 0}>
+                  Exporter les cours
+                </Button>
+              )}
+            </>
           )}
 
           <TabPanel value={tabValue} index={0}>
@@ -458,8 +774,8 @@ export default function Training() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Agent</TableCell>
-                    <TableCell>Type</TableCell>
+                    <TableCell>Effectif</TableCell>
+                    <TableCell>Thématique</TableCell>
                     <TableCell>Début</TableCell>
                     <TableCell>Fin</TableCell>
                     <TableCell>Rappel</TableCell>
@@ -510,6 +826,7 @@ export default function Training() {
                     <TableCell>Nom</TableCell>
                     <TableCell>Code</TableCell>
                     <TableCell>Validité (mois)</TableCell>
+                    <TableCell>Lien Drive (cours)</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -518,6 +835,11 @@ export default function Training() {
                       <TableCell>{tp.name}</TableCell>
                       <TableCell>{tp.code || '–'}</TableCell>
                       <TableCell>{tp.validity_period_months ?? '–'}</TableCell>
+                      <TableCell>
+                        {tp.drive_link ? (
+                          <a href={tp.drive_link} target="_blank" rel="noopener noreferrer">Ouvrir le cours</a>
+                        ) : '–'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -597,7 +919,7 @@ export default function Training() {
                   setOpenRequirementsDialog(true)
                 }}
               >
-                Ajouter une habilitation
+                Ajouter une certification
               </Button>
             )}
             <TableContainer>
@@ -613,7 +935,7 @@ export default function Training() {
                   {requirements.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={3} align="center">
-                        <Typography variant="body2" color="text.secondary">Aucune habilitation</Typography>
+                        <Typography variant="body2" color="text.secondary">Aucune certification</Typography>
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -637,18 +959,14 @@ export default function Training() {
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel>Agent *</InputLabel>
-                <Select
-                  value={trainingForm.agent}
-                  onChange={(e) => setTrainingForm({ ...trainingForm, agent: e.target.value })}
-                  label="Agent *"
-                >
-                  {agents.map((a) => (
-                    <MenuItem key={a.id} value={String(a.id)}>{a.full_name} ({a.matricule})</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                label="Effectif *"
+                value={trainingForm.agent}
+                onChange={(e) => setTrainingForm({ ...trainingForm, agent: e.target.value })}
+                placeholder="Numéro (ex. matricule ou ID agent)"
+                required
+              />
             </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth required>
@@ -847,7 +1165,7 @@ export default function Training() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Agent</TableCell>
+                  <TableCell>Effectif</TableCell>
                   <TableCell>Lu</TableCell>
                   <TableCell>Date lecture</TableCell>
                   <TableCell>Actions</TableCell>
@@ -884,7 +1202,7 @@ export default function Training() {
       </Dialog>
 
       <Dialog open={openRequirementsDialog} onClose={() => setOpenRequirementsDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Nouvelle habilitation (formation obligatoire / recommandée)</DialogTitle>
+        <DialogTitle>Nouvelle certification (formation obligatoire / recommandée)</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>

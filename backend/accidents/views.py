@@ -19,7 +19,7 @@ class WorkAccidentViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['agent', 'accident_type', 'severity', 'status', 'work_stoppage', 'agent__company', 'agent__site', 'agent__service']
-    search_fields = ['agent__matricule', 'agent__last_name', 'location', 'circumstances', 'description']
+    search_fields = ['agent__matricule', 'agent__last_name', 'location', 'mechanism', 'description']
     ordering_fields = ['accident_date', 'declaration_date', 'created_at']
     ordering = ['-accident_date']
     
@@ -248,8 +248,8 @@ class OccupationalDiseaseViewSet(viewsets.ModelViewSet):
     serializer_class = OccupationalDiseaseSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['agent', 'status', 'agent__company', 'agent__site']
-    search_fields = ['agent__matricule', 'agent__last_name', 'disease_name', 'disease_code']
+    filterset_fields = ['agent', 'disease_type', 'status', 'agent__company', 'agent__site']
+    search_fields = ['agent__matricule', 'agent__last_name', 'disease_name']
     ordering_fields = ['first_symptoms_date', 'diagnosis_date', 'declaration_date', 'created_at']
     ordering = ['-first_symptoms_date']
     
@@ -279,7 +279,7 @@ class OccupationalDiseaseViewSet(viewsets.ModelViewSet):
             'by_disease': list(queryset.values('disease_name').annotate(count=Count('id')).values('disease_name', 'count')[:10]),
             'by_company': list(queryset.values('agent__company__name').annotate(count=Count('id')).values('agent__company__name', 'count')),
             'recognized': queryset.filter(status='recognized').count(),
-            'pending': queryset.filter(status__in=['suspected', 'declared']).count(),
+            'pending': queryset.filter(status='declared').count(),
         }
         
         return Response(stats)

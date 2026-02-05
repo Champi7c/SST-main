@@ -36,7 +36,7 @@ class MedicalVisit(models.Model):
         ('rescheduled', 'Reprogrammée'),
     ]
     
-    DECISION_CHOICES = [
+    AVIS_CHOICES = [
         ('apte', 'Apte'),
         ('apte_avec_reserves', 'Apte avec réserves'),
         ('inapte_temporaire', 'Inapte temporaire'),
@@ -69,9 +69,9 @@ class MedicalVisit(models.Model):
     prescriptions = models.TextField(blank=True, null=True, verbose_name="Prescriptions")
     recommendations = models.TextField(blank=True, null=True, verbose_name="Recommandations")
     
-    # Décision médicale
-    decision = models.CharField(max_length=30, choices=DECISION_CHOICES, blank=True, null=True, verbose_name="Décision médicale")
-    decision_details = models.TextField(blank=True, null=True, verbose_name="Détails de la décision")
+    # Avis médical
+    avis = models.CharField(max_length=30, choices=AVIS_CHOICES, blank=True, null=True, verbose_name="Avis médical")
+    avis_details = models.TextField(blank=True, null=True, verbose_name="Détails de l'avis")
     
     # Alertes
     alert_rh = models.BooleanField(default=False, verbose_name="Alerte RH")

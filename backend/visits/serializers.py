@@ -21,7 +21,7 @@ class MedicalVisitSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, allow_null=True)
     validated_by_name = serializers.CharField(source='validated_by.get_full_name', read_only=True, allow_null=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
-    decision_display = serializers.CharField(source='get_decision_display', read_only=True, allow_null=True)
+    avis_display = serializers.CharField(source='get_avis_display', read_only=True, allow_null=True)
     can_be_modified = serializers.SerializerMethodField()
     
     def get_can_be_modified(self, obj):
@@ -43,7 +43,7 @@ class MedicalVisitSerializer(serializers.ModelSerializer):
                 'temperature', 'blood_pressure_systolic', 'blood_pressure_diastolic',
                 'heart_rate', 'blood_sugar', 'weight', 'height',
                 'diagnosis', 'prescriptions', 'recommendations',
-                'decision', 'decision_details', 'notes'
+                'avis', 'avis_details', 'notes'
             ]
             for field in medical_fields:
                 representation[field] = None
@@ -57,7 +57,7 @@ class MedicalVisitStatusSerializer(serializers.ModelSerializer):
     agent_matricule = serializers.CharField(source='agent.matricule', read_only=True)
     visit_type_name = serializers.CharField(source='visit_type.name', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
-    decision_display = serializers.CharField(source='get_decision_display', read_only=True, allow_null=True)
+    avis_display = serializers.CharField(source='get_avis_display', read_only=True, allow_null=True)
     
     def get_agent_name(self, obj):
         return f"{obj.agent.last_name} {obj.agent.first_name}"
@@ -68,7 +68,7 @@ class MedicalVisitStatusSerializer(serializers.ModelSerializer):
             'id', 'agent', 'agent_name', 'agent_matricule',
             'visit_type', 'visit_type_name',
             'scheduled_date', 'actual_date', 'status', 'status_display',
-            'decision', 'decision_display',
+            'avis', 'avis_display',
             'alert_rh', 'alert_direction', 'alert_reason',
             'created_at', 'updated_at'
         ]

@@ -30,12 +30,19 @@ class OccupationalDiseaseSerializer(serializers.ModelSerializer):
     agent_company = serializers.CharField(source='agent.company.name', read_only=True)
     agent_site = serializers.CharField(source='agent.site.name', read_only=True, allow_null=True)
     agent_service = serializers.CharField(source='agent.service.name', read_only=True, allow_null=True)
-    
-    def get_agent_name(self, obj):
-        return f"{obj.agent.last_name} {obj.agent.first_name}"
+    disease_type_display = serializers.CharField(source='get_disease_type_display', read_only=True)
     declared_by_name = serializers.CharField(source='declared_by.get_full_name', read_only=True, allow_null=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
-    
+    exposure_duration_days = serializers.SerializerMethodField()
+
+    def get_agent_name(self, obj):
+        return f"{obj.agent.last_name} {obj.agent.first_name}"
+
+    def get_exposure_duration_days(self, obj):
+        if obj.exposure_start_date and obj.exposure_end_date and obj.exposure_end_date >= obj.exposure_start_date:
+            return (obj.exposure_end_date - obj.exposure_start_date).days
+        return None
+
     class Meta:
         model = OccupationalDisease
         fields = '__all__'

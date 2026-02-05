@@ -10,7 +10,16 @@ from accounts.permissions import IsSuperAdminOrAdmin
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
-    permission_classes = [permissions.IsAuthenticated, IsSuperAdminOrAdmin]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        Permet la lecture à tous les utilisateurs authentifiés,
+        mais restreint la création/modification/suppression aux super_admin et admin
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsSuperAdminOrAdmin()]
 
 
 class SiteViewSet(viewsets.ModelViewSet):

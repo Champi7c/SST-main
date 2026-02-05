@@ -1,6 +1,6 @@
 """
 Modèles pour la gestion de la formation et de l'éducation sanitaire.
-SST, incendie, EPI, hygiène & sécurité ; habilitations par poste ; diffusion ciblée.
+SST, incendie, EPI, hygiène & sécurité ; certifications par poste ; diffusion ciblée.
 """
 from django.db import models
 from django.conf import settings
@@ -16,6 +16,7 @@ class TrainingType(models.Model):
     code = models.CharField(max_length=50, unique=True, blank=True, null=True, verbose_name="Code")
     description = models.TextField(blank=True, null=True, verbose_name="Description")
     validity_period_months = models.IntegerField(blank=True, null=True, verbose_name="Période de validité (mois)")
+    drive_link = models.URLField(max_length=500, blank=True, null=True, verbose_name="Lien Drive (cours)")
     is_active = models.BooleanField(default=True, verbose_name="Actif")
     
     class Meta:
@@ -137,7 +138,7 @@ class ArticleRecipient(models.Model):
 
 class TrainingRequirement(models.Model):
     """
-    Formation obligatoire ou recommandée par poste de travail (habilitation).
+    Formation obligatoire ou recommandée par poste de travail (certification).
     """
     training_type = models.ForeignKey(
         TrainingType,

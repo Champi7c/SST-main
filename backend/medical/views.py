@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, filters, status
+from rest_framework import serializers as drf_serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
@@ -18,7 +19,36 @@ class AgentViewSet(viewsets.ModelViewSet):
     """
     queryset = Agent.objects.all()
     serializer_class = AgentSerializer
-    permission_classes = [permissions.IsAuthenticated, CanManageAgents]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """
+        Permet la lecture à tous les utilisateurs authentifiés,
+        mais restreint la création/modification/suppression aux rôles autorisés
+        """
+        if self.action in ['list', 'retrieve']:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), CanManageAgents()]
+    
+    def create(self, request, *args, **kwargs):
+        """Création avec gestion d'erreurs améliorée"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except drf_serializers.ValidationError as e:
+            logger.error(f"Erreur de validation lors de la création d'un agent: {e.detail}")
+            logger.error(f"Données reçues: {request.data}")
+            raise
+        except Exception as e:
+            logger.error(f"Erreur inattendue lors de la création d'un agent: {e}", exc_info=True)
+            raise
+        
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['company', 'site', 'service', 'is_active', 'is_archived', 'job_position', 'professional_category']
     search_fields = ['matricule', 'last_name', 'first_name', 'email', 'phone']
@@ -218,7 +248,7 @@ class DMSTViewSet(viewsets.ModelViewSet):
             evolution_data.append({
                 'date': visit.scheduled_date,
                 'diagnosis': visit.diagnosis,
-                'decision': visit.get_decision_display() if visit.decision else None,
+                'avis': visit.get_avis_display() if visit.avis else None,
                 'doctor': visit.doctor.get_full_name() if visit.doctor else None,
                 'visit_type': visit.visit_type.name if visit.visit_type else None,
             })

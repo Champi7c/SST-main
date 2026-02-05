@@ -31,10 +31,23 @@ class Vaccination(models.Model):
     """
     Vaccination d'un agent
     """
+    DOSE_CHOICES = [
+        (1, '1ère dose'),
+        (2, '2ème dose'),
+        (3, '3ème dose'),
+    ]
+    
+    INTERVAL_CHOICES = [
+        (1, '1 mois'),
+        (6, '6 mois'),
+    ]
+    
     agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='vaccinations', verbose_name="Agent")
     vaccine = models.ForeignKey(Vaccine, on_delete=models.PROTECT, related_name='vaccinations', verbose_name="Vaccin")
     
     vaccination_date = models.DateField(verbose_name="Date de vaccination")
+    dose_number = models.IntegerField(choices=DOSE_CHOICES, default=1, verbose_name="Numéro de dose")
+    dose_interval_months = models.IntegerField(choices=INTERVAL_CHOICES, default=1, verbose_name="Intervalle entre doses (mois)")
     batch_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="Numéro de lot")
     next_due_date = models.DateField(blank=True, null=True, verbose_name="Date de rappel")
     
@@ -51,8 +64,8 @@ class Vaccination(models.Model):
     # Personnel médical
     administered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='vaccinations_administered', verbose_name="Administré par")
     
-    # Notes
-    notes = models.TextField(blank=True, null=True, verbose_name="Notes")
+    # Observation
+    observation = models.TextField(blank=True, null=True, verbose_name="Observation")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -127,7 +140,7 @@ class VaccineContraindication(models.Model):
         related_name='vaccine_contraindications_recorded',
         verbose_name="Constaté par",
     )
-    notes = models.TextField(blank=True, null=True, verbose_name="Notes")
+    observation = models.TextField(blank=True, null=True, verbose_name="Observation")
     
     class Meta:
         verbose_name = "Contre-indication vaccinale"

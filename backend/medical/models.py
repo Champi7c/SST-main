@@ -149,6 +149,60 @@ class DMST(models.Model):
     under_surveillance = models.BooleanField(default=False, verbose_name="Sous surveillance médicale")
     surveillance_type = models.CharField(max_length=100, blank=True, null=True, verbose_name="Type de surveillance")
     
+    # Fiche d'observation - Section I: Identification Agent
+    observation_date = models.DateField(blank=True, null=True, verbose_name="Date d'observation")
+    observation_direction = models.CharField(max_length=200, blank=True, null=True, verbose_name="Direction")
+    observation_function = models.CharField(max_length=200, blank=True, null=True, verbose_name="Fonction")
+    observation_site = models.CharField(max_length=200, blank=True, null=True, verbose_name="Site")
+    
+    # Section II: Antécédents et terrains particuliers
+    medical_antecedents = models.TextField(blank=True, null=True, verbose_name="Antécédents médicaux")
+    surgical_antecedents = models.TextField(blank=True, null=True, verbose_name="Antécédents chirurgicaux")
+    sport_activity = models.BooleanField(default=False, verbose_name="Activité sportive")
+    physical_activity = models.BooleanField(default=False, verbose_name="Activité physique")
+    tobacco = models.BooleanField(default=False, verbose_name="Tabac")
+    alcohol_obs = models.BooleanField(default=False, verbose_name="Alcool")
+    coffee = models.BooleanField(default=False, verbose_name="Café")
+    tea = models.BooleanField(default=False, verbose_name="Thé")
+    at_mp_nature = models.CharField(max_length=500, blank=True, null=True, verbose_name="AT/MP (12 derniers mois) - Nature")
+    previous_companies = models.TextField(blank=True, null=True, verbose_name="Entreprises antérieures")
+    
+    # Section III: Etat général et constantes
+    blood_pressure_systolic = models.CharField(max_length=10, blank=True, null=True, verbose_name="TA Systolique")
+    blood_pressure_diastolic = models.CharField(max_length=10, blank=True, null=True, verbose_name="TA Diastolique")
+    temperature = models.CharField(max_length=10, blank=True, null=True, verbose_name="Température")
+    heart_rate = models.CharField(max_length=10, blank=True, null=True, verbose_name="Fréquence cardiaque (FC)")
+    dextro_jn = models.CharField(max_length=10, blank=True, null=True, verbose_name="Dextro (jn)")
+    dextro_pp = models.CharField(max_length=10, blank=True, null=True, verbose_name="Dextro (pp)")
+    weight = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name="Poids (kg)")
+    height = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name="Taille (cm)")
+    bmi = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name="IMC (kg/m²)")
+    
+    # Section IV: Examen clinique
+    clinical_exam = models.TextField(blank=True, null=True, verbose_name="Examen clinique")
+    
+    # Section V: Conclusion médicale
+    medical_conclusion_apte = models.BooleanField(default=False, verbose_name="Apte")
+    medical_conclusion_asr = models.BooleanField(default=False, verbose_name="ASR")
+    medical_conclusion_aar = models.BooleanField(default=False, verbose_name="AAR")
+    medical_conclusion_int = models.BooleanField(default=False, verbose_name="INT")
+    medical_conclusion_ind = models.BooleanField(default=False, verbose_name="IND")
+    
+    # Section VI: Education thérapeutique et sensibilisation
+    education_mhd = models.BooleanField(default=False, verbose_name="MHD")
+    education_mhv = models.BooleanField(default=False, verbose_name="MHV")
+    education_fdr_cvx = models.BooleanField(default=False, verbose_name="FDR-CVx")
+    education_ergo = models.BooleanField(default=False, verbose_name="Ergo")
+    education_spb_psy = models.BooleanField(default=False, verbose_name="SPB&Psy")
+    education_therapy = models.BooleanField(default=False, verbose_name="Thérapie")
+    education_other = models.CharField(max_length=500, blank=True, null=True, verbose_name="Autre (éducation)")
+    
+    # Signature
+    observer_name = models.CharField(max_length=200, blank=True, null=True, verbose_name="Nom du médecin du travail")
+
+    # Données complètes de la fiche d'observation (sections supplémentaires)
+    observation_form_data = models.JSONField(blank=True, null=True, verbose_name="Fiche d'observation (données complètes)")
+    
     # Dates
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

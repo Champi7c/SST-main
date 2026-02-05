@@ -10,8 +10,8 @@ class VisitTypeAdmin(admin.ModelAdmin):
 
 @admin.register(MedicalVisit)
 class MedicalVisitAdmin(admin.ModelAdmin):
-    list_display = ['agent', 'visit_type', 'scheduled_date', 'status', 'decision', 'doctor', 'created_at']
-    list_filter = ['status', 'decision', 'visit_type', 'scheduled_date', 'alert_rh', 'alert_direction']
+    list_display = ['agent', 'visit_type', 'scheduled_date', 'status', 'avis', 'doctor', 'created_at']
+    list_filter = ['status', 'avis', 'visit_type', 'scheduled_date', 'alert_rh', 'alert_direction']
     search_fields = ['agent__matricule', 'agent__last_name', 'agent__first_name']
     readonly_fields = ['created_at', 'updated_at', 'created_by']
     date_hierarchy = 'scheduled_date'

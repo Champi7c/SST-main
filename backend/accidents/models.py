@@ -2,6 +2,7 @@
 Modèles pour la gestion des accidents de travail et maladies professionnelles
 """
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from medical.models import Agent
 
@@ -14,6 +15,7 @@ class WorkAccident(models.Model):
         ('work', 'Accident de travail'),
         ('commute', 'Accident de trajet'),
         ('service', 'Accident de service'),
+        ('mission', 'Accident de mission'),
     ]
     
     SEVERITY_CHOICES = [
@@ -35,8 +37,16 @@ class WorkAccident(models.Model):
     accident_type = models.CharField(max_length=20, choices=ACCIDENT_TYPE_CHOICES, default='work', verbose_name="Type d'accident")
     accident_date = models.DateTimeField(verbose_name="Date et heure de l'accident")
     location = models.CharField(max_length=200, verbose_name="Lieu")
-    circumstances = models.TextField(verbose_name="Circonstances")
+    mechanism = models.TextField(verbose_name="Mécanisme")
     description = models.TextField(verbose_name="Description détaillée")
+    
+    # Date de reprise et IPP
+    return_to_work_date = models.DateField(blank=True, null=True, verbose_name="Date de reprise")
+    ipp = models.IntegerField(
+        blank=True, null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="IPP (%)"
+    )
     
     # Gravité et statut
     severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, verbose_name="Gravité")
@@ -111,8 +121,13 @@ class OccupationalDisease(models.Model):
     """
     Maladie professionnelle
     """
+    DISEASE_TYPE_CHOICES = [
+        ('mp', 'Maladie professionnelle'),
+        ('mcp', 'Maladie à caractère professionnel'),
+        ('ms', 'Maladie suspecte'),
+    ]
+    
     STATUS_CHOICES = [
-        ('suspected', 'Suspectée'),
         ('declared', 'Déclarée'),
         ('recognized', 'Reconnue'),
         ('rejected', 'Rejetée'),
@@ -120,17 +135,30 @@ class OccupationalDisease(models.Model):
     
     agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='occupational_diseases', verbose_name="Agent")
     
-    # Informations sur la maladie
-    disease_name = models.CharField(max_length=200, verbose_name="Nom de la maladie")
-    disease_code = models.CharField(max_length=50, blank=True, null=True, verbose_name="Code maladie")
+    # Type et désignation
+    disease_type = models.CharField(max_length=10, choices=DISEASE_TYPE_CHOICES, default='mp', verbose_name="Type")
+    disease_name = models.CharField(max_length=200, verbose_name="Désignation maladie")
+    table_number = models.IntegerField(
+        blank=True, null=True,
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+        verbose_name="Numéro de tableau"
+    )
     first_symptoms_date = models.DateField(verbose_name="Date des premiers symptômes")
     diagnosis_date = models.DateField(blank=True, null=True, verbose_name="Date de diagnostic")
     
     # Statut
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='suspected', verbose_name="Statut")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='declared', verbose_name="Statut")
     
-    # Exposition professionnelle
-    exposure_period = models.CharField(max_length=200, blank=True, null=True, verbose_name="Période d'exposition")
+    # Délai de reprise (0-100)
+    return_delay = models.IntegerField(
+        blank=True, null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="Délai de reprise"
+    )
+    
+    # Durée d'exposition (deux dates, la durée est calculée)
+    exposure_start_date = models.DateField(blank=True, null=True, verbose_name="Début d'exposition")
+    exposure_end_date = models.DateField(blank=True, null=True, verbose_name="Fin d'exposition")
     exposure_factors = models.TextField(blank=True, null=True, verbose_name="Facteurs d'exposition")
     
     # Suivi médical

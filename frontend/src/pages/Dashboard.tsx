@@ -97,13 +97,13 @@ export default function Dashboard() {
       color: '#2e7d32',
     },
     {
-      title: 'Accidents de travail',
+      title: 'ATMP',
       value: stats?.total_accidents || 0,
       icon: <WarningIcon sx={{ fontSize: 40 }} />,
       color: '#d32f2f',
     },
     {
-      title: 'Sous surveillance',
+      title: 'Entreprise',
       value: stats?.agents_under_surveillance || 0,
       icon: <VaccinesIcon sx={{ fontSize: 40 }} />,
       color: '#ed6c02',

@@ -49,10 +49,12 @@ interface VaccinationRecord {
   vaccine: number
   vaccine_name: string
   vaccination_date: string
+  dose_number?: number
+  dose_interval_months?: number
   next_due_date?: string
   batch_number?: string
   is_due: boolean
-  notes?: string
+  observation?: string
 }
 
 interface MedicalSurveillanceRecord {
@@ -90,7 +92,7 @@ interface ContraindicationRecord {
   vaccine: number
   vaccine_name: string
   reason: string
-  notes?: string
+  observation?: string
   recorded_at: string
 }
 
@@ -135,18 +137,30 @@ export default function Vaccination() {
 
   const [formData, setFormData] = useState({
     agent: '',
-    vaccine: '',
+    vaccine_name: '',
     vaccination_date: '',
+    dose_number: '1',
+    dose_interval_months: '1',
     next_due_date: '',
     batch_number: '',
-    notes: '',
+    observation: '',
   })
   const [contraindicationForm, setContraindicationForm] = useState({
     agent: '',
-    vaccine: '',
+    vaccine_name: '',
     reason: '',
-    notes: '',
+    observation: '',
   })
+  const [surveillanceForm, setSurveillanceForm] = useState({
+    agent: '',
+    surveillance_type: 'quinquennial',
+    start_date: new Date().toISOString().split('T')[0],
+    next_review_date: '',
+    reason: '',
+    medical_findings: '',
+    recommendations: '',
+  })
+  const [openSurveillanceDialog, setOpenSurveillanceDialog] = useState(false)
 
   useEffect(() => {
     fetchCompanies()
@@ -272,31 +286,64 @@ export default function Vaccination() {
   const handleOpenDialog = () => {
     setFormData({
       agent: '',
-      vaccine: '',
+      vaccine_name: '',
       vaccination_date: new Date().toISOString().split('T')[0],
+      dose_number: '1',
+      dose_interval_months: '1',
       next_due_date: '',
       batch_number: '',
-      notes: '',
+      observation: '',
     })
     setOpenDialog(true)
   }
 
+  const calculateNextDoseDate = (vaccinationDate: string, doseNumber: string, intervalMonths: string) => {
+    if (!vaccinationDate || doseNumber === '3') return '' // Pas de prochaine dose si c'est la 3ème
+    
+    const date = new Date(vaccinationDate)
+    const interval = parseInt(intervalMonths)
+    date.setMonth(date.getMonth() + interval)
+    return date.toISOString().split('T')[0]
+  }
+
   const handleSubmit = async () => {
     try {
-      await client.post('/vaccination/vaccinations/', {
+      if (!formData.vaccine_name || !formData.vaccine_name.trim()) {
+        showSnackbar('Le nom du vaccin est requis', 'error')
+        return
+      }
+      
+      const nextDueDate = formData.next_due_date || calculateNextDoseDate(
+        formData.vaccination_date,
+        formData.dose_number,
+        formData.dose_interval_months
+      )
+      
+      const payload = {
         agent: parseInt(formData.agent),
-        vaccine: parseInt(formData.vaccine),
+        vaccine_name_input: formData.vaccine_name.trim(),
         vaccination_date: formData.vaccination_date,
-        next_due_date: formData.next_due_date || null,
-        batch_number: formData.batch_number || null,
-        notes: formData.notes || null,
-      })
+        dose_number: parseInt(formData.dose_number),
+        dose_interval_months: parseInt(formData.dose_interval_months),
+        next_due_date: nextDueDate || null,
+        batch_number: formData.batch_number?.trim() || null,
+        observation: formData.observation?.trim() || null,
+      }
+      
+      console.log('Envoi de la vaccination:', payload)
+      
+      await client.post('/vaccination/vaccinations/', payload)
       showSnackbar('Vaccination enregistrée', 'success')
       setOpenDialog(false)
       fetchVaccinations()
       fetchAlerts()
     } catch (err: any) {
-      showSnackbar(err.response?.data?.detail || 'Erreur lors de l\'enregistrement', 'error')
+      console.error('Erreur vaccination:', err.response?.data)
+      const errorMessage = err.response?.data?.vaccine_name_input?.[0] || 
+                          err.response?.data?.detail || 
+                          Object.values(err.response?.data || {}).flat().join(', ') ||
+                          'Erreur lors de l\'enregistrement'
+      showSnackbar(errorMessage, 'error')
     }
   }
 
@@ -311,23 +358,69 @@ export default function Vaccination() {
   }
 
   const handleOpenContraindicationDialog = () => {
-    setContraindicationForm({ agent: '', vaccine: '', reason: '', notes: '' })
+    setContraindicationForm({ agent: '', vaccine_name: '', reason: '', observation: '' })
     setOpenContraindicationDialog(true)
+  }
+
+  const handleOpenSurveillanceDialog = () => {
+    setSurveillanceForm({
+      agent: '',
+      surveillance_type: 'quinquennial',
+      start_date: new Date().toISOString().split('T')[0],
+      next_review_date: '',
+      reason: '',
+      medical_findings: '',
+      recommendations: '',
+    })
+    setOpenSurveillanceDialog(true)
+  }
+
+  const handleSubmitSurveillance = async () => {
+    try {
+      await client.post('/vaccination/surveillances/', {
+        agent: parseInt(surveillanceForm.agent),
+        surveillance_type: surveillanceForm.surveillance_type,
+        start_date: surveillanceForm.start_date,
+        next_review_date: surveillanceForm.next_review_date || null,
+        reason: surveillanceForm.reason,
+        medical_findings: surveillanceForm.medical_findings || null,
+        recommendations: surveillanceForm.recommendations || null,
+      })
+      showSnackbar('Surveillance médicale enregistrée', 'success')
+      setOpenSurveillanceDialog(false)
+      fetchSurveillances()
+    } catch (err: any) {
+      console.error('Erreur surveillance:', err.response?.data)
+      const errorMessage = err.response?.data?.detail || 
+                          Object.values(err.response?.data || {}).flat().join(', ') ||
+                          'Erreur lors de l\'enregistrement'
+      showSnackbar(errorMessage, 'error')
+    }
   }
 
   const handleSubmitContraindication = async () => {
     try {
+      if (!contraindicationForm.vaccine_name || !contraindicationForm.vaccine_name.trim()) {
+        showSnackbar('Le nom du vaccin est requis', 'error')
+        return
+      }
+      
       await client.post('/vaccination/contraindications/', {
         agent: parseInt(contraindicationForm.agent),
-        vaccine: parseInt(contraindicationForm.vaccine),
+        vaccine_name_input: contraindicationForm.vaccine_name.trim(),
         reason: contraindicationForm.reason,
-        notes: contraindicationForm.notes || null,
+        observation: contraindicationForm.observation?.trim() || null,
       })
       showSnackbar('Contre-indication enregistrée', 'success')
       setOpenContraindicationDialog(false)
       fetchContraindications()
     } catch (err: any) {
-      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
+      console.error('Erreur contre-indication:', err.response?.data)
+      const errorMessage = err.response?.data?.vaccine_name_input?.[0] || 
+                          err.response?.data?.detail || 
+                          Object.values(err.response?.data || {}).flat().join(', ') ||
+                          'Erreur lors de l\'enregistrement'
+      showSnackbar(errorMessage, 'error')
     }
   }
 
@@ -457,6 +550,7 @@ export default function Vaccination() {
                       <TableRow>
                         <TableCell>Agent</TableCell>
                         <TableCell>Vaccin</TableCell>
+                        <TableCell>Dose</TableCell>
                         <TableCell>Date</TableCell>
                         <TableCell>Rappel</TableCell>
                         <TableCell>Statut</TableCell>
@@ -465,7 +559,7 @@ export default function Vaccination() {
                     <TableBody>
                       {vaccinations.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} align="center">
+                          <TableCell colSpan={6} align="center">
                             <Typography variant="body2" color="text.secondary">Aucune vaccination</Typography>
                           </TableCell>
                         </TableRow>
@@ -474,6 +568,10 @@ export default function Vaccination() {
                           <TableRow key={v.id}>
                             <TableCell>{v.agent_name} ({v.agent_matricule})</TableCell>
                             <TableCell>{v.vaccine_name}</TableCell>
+                            <TableCell>
+                              {v.dose_number ? `${v.dose_number}ère dose` : '–'}
+                              {v.dose_interval_months && ` (${v.dose_interval_months} mois)`}
+                            </TableCell>
                             <TableCell>{new Date(v.vaccination_date).toLocaleDateString('fr-FR')}</TableCell>
                             <TableCell>{v.next_due_date ? new Date(v.next_due_date).toLocaleDateString('fr-FR') : '–'}</TableCell>
                             <TableCell>
@@ -518,7 +616,14 @@ export default function Vaccination() {
 
           {tabValue === 2 && (
             <>
-              {hasMedicalAccess && renderFilters()}
+              {hasMedicalAccess && (
+                <>
+                  {renderFilters()}
+                  <Button startIcon={<AddIcon />} variant="outlined" sx={{ mb: 2 }} onClick={handleOpenSurveillanceDialog}>
+                    Ajouter une surveillance médicale
+                  </Button>
+                </>
+              )}
               {!hasMedicalAccess ? (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
                   Accès aux surveillances médicales réservé au personnel médical.
@@ -582,36 +687,59 @@ export default function Vaccination() {
                         <TableCell>Vaccin</TableCell>
                         <TableCell>Type</TableCell>
                         <TableCell>Date rappel</TableCell>
+                        <TableCell>Retard</TableCell>
                         <TableCell>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {alerts.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} align="center">
+                          <TableCell colSpan={6} align="center">
                             <Typography variant="body2" color="text.secondary">Aucune alerte non prise en compte</Typography>
                           </TableCell>
                         </TableRow>
                       ) : (
-                        alerts.map((a) => (
-                          <TableRow key={a.id}>
-                            <TableCell>{a.agent_name} ({a.agent_matricule})</TableCell>
-                            <TableCell>{a.vaccine_name}</TableCell>
-                            <TableCell>
-                              <Chip
-                                label={a.alert_type_display}
-                                size="small"
-                                color={a.alert_type === 'overdue' ? 'error' : 'warning'}
-                              />
-                            </TableCell>
-                            <TableCell>{new Date(a.due_date).toLocaleDateString('fr-FR')}</TableCell>
-                            <TableCell>
-                              <IconButton size="small" onClick={() => handleAcknowledgeAlert(a.id)} title="Prise en compte">
-                                <CheckIcon fontSize="small" />
-                              </IconButton>
-                            </TableCell>
-                          </TableRow>
-                        ))
+                        alerts.map((a) => {
+                          const dueDate = new Date(a.due_date)
+                          const today = new Date()
+                          const daysDiff = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+                          const isOverdue = daysDiff > 0
+                          
+                          return (
+                            <TableRow key={a.id}>
+                              <TableCell>{a.agent_name} ({a.agent_matricule})</TableCell>
+                              <TableCell>{a.vaccine_name}</TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={a.alert_type_display}
+                                  size="small"
+                                  color={a.alert_type === 'overdue' ? 'error' : 'warning'}
+                                />
+                              </TableCell>
+                              <TableCell>{dueDate.toLocaleDateString('fr-FR')}</TableCell>
+                              <TableCell>
+                                {isOverdue ? (
+                                  <Chip 
+                                    label={`${daysDiff} jour${daysDiff > 1 ? 's' : ''} de retard`} 
+                                    size="small" 
+                                    color="error" 
+                                  />
+                                ) : (
+                                  <Chip 
+                                    label={`Dans ${Math.abs(daysDiff)} jour${Math.abs(daysDiff) > 1 ? 's' : ''}`} 
+                                    size="small" 
+                                    color="warning" 
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <IconButton size="small" onClick={() => handleAcknowledgeAlert(a.id)} title="Prise en compte">
+                                  <CheckIcon fontSize="small" />
+                                </IconButton>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -690,18 +818,14 @@ export default function Vaccination() {
               </FormControl>
             </Grid>
             <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel>Vaccin *</InputLabel>
-                <Select
-                  value={formData.vaccine}
-                  onChange={(e) => setFormData({ ...formData, vaccine: e.target.value })}
-                  label="Vaccin *"
-                >
-                  {vaccines.map((v) => (
-                    <MenuItem key={v.id} value={String(v.id)}>{v.name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                label="Nom du vaccin *"
+                value={formData.vaccine_name}
+                onChange={(e) => setFormData({ ...formData, vaccine_name: e.target.value })}
+                required
+                placeholder="Ex: Vaccin contre l'hépatite B"
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -709,19 +833,60 @@ export default function Vaccination() {
                 label="Date de vaccination *"
                 type="date"
                 value={formData.vaccination_date}
-                onChange={(e) => setFormData({ ...formData, vaccination_date: e.target.value })}
+                onChange={(e) => {
+                  const newDate = e.target.value
+                  const nextDue = calculateNextDoseDate(newDate, formData.dose_number, formData.dose_interval_months)
+                  setFormData({ ...formData, vaccination_date: newDate, next_due_date: nextDue })
+                }}
                 InputLabelProps={{ shrink: true }}
                 required
               />
             </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth required>
+                <InputLabel>Numéro de dose *</InputLabel>
+                <Select
+                  value={formData.dose_number}
+                  onChange={(e) => {
+                    const newDose = e.target.value
+                    const nextDue = calculateNextDoseDate(formData.vaccination_date, newDose, formData.dose_interval_months)
+                    setFormData({ ...formData, dose_number: newDose, next_due_date: nextDue })
+                  }}
+                  label="Numéro de dose *"
+                >
+                  <MenuItem value="1">1ère dose</MenuItem>
+                  <MenuItem value="2">2ème dose</MenuItem>
+                  <MenuItem value="3">3ème dose</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth required>
+                <InputLabel>Intervalle *</InputLabel>
+                <Select
+                  value={formData.dose_interval_months}
+                  onChange={(e) => {
+                    const newInterval = e.target.value
+                    const nextDue = calculateNextDoseDate(formData.vaccination_date, formData.dose_number, newInterval)
+                    setFormData({ ...formData, dose_interval_months: newInterval, next_due_date: nextDue })
+                  }}
+                  label="Intervalle *"
+                >
+                  <MenuItem value="1">1 mois</MenuItem>
+                  <MenuItem value="6">6 mois</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Date de rappel"
+                label="Date de rappel (calculée automatiquement)"
                 type="date"
                 value={formData.next_due_date}
                 onChange={(e) => setFormData({ ...formData, next_due_date: e.target.value })}
                 InputLabelProps={{ shrink: true }}
+                disabled={formData.dose_number === '3'}
+                helperText={formData.dose_number === '3' ? 'Pas de rappel pour la 3ème dose' : 'Calculée automatiquement selon l\'intervalle'}
               />
             </Grid>
             <Grid item xs={12}>
@@ -738,8 +903,8 @@ export default function Vaccination() {
                 label="Notes"
                 multiline
                 rows={2}
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                value={formData.observation}
+                onChange={(e) => setFormData({ ...formData, observation: e.target.value })}
               />
             </Grid>
           </Grid>
@@ -749,7 +914,7 @@ export default function Vaccination() {
           <Button
             variant="contained"
             onClick={handleSubmit}
-            disabled={!formData.agent || !formData.vaccine || !formData.vaccination_date}
+            disabled={!formData.agent || !formData.vaccine_name || !formData.vaccination_date}
           >
             Enregistrer
           </Button>
@@ -775,18 +940,14 @@ export default function Vaccination() {
               </FormControl>
             </Grid>
             <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel>Vaccin *</InputLabel>
-                <Select
-                  value={contraindicationForm.vaccine}
-                  onChange={(e) => setContraindicationForm({ ...contraindicationForm, vaccine: e.target.value })}
-                  label="Vaccin *"
-                >
-                  {vaccines.map((v) => (
-                    <MenuItem key={v.id} value={String(v.id)}>{v.name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                label="Nom du vaccin *"
+                value={contraindicationForm.vaccine_name}
+                onChange={(e) => setContraindicationForm({ ...contraindicationForm, vaccine_name: e.target.value })}
+                required
+                placeholder="Ex: Vaccin contre l'hépatite B"
+              />
             </Grid>
             <Grid item xs={12}>
               <TextField
@@ -805,8 +966,8 @@ export default function Vaccination() {
                 label="Notes"
                 multiline
                 rows={2}
-                value={contraindicationForm.notes}
-                onChange={(e) => setContraindicationForm({ ...contraindicationForm, notes: e.target.value })}
+                value={contraindicationForm.observation}
+                onChange={(e) => setContraindicationForm({ ...contraindicationForm, observation: e.target.value })}
               />
             </Grid>
           </Grid>
@@ -816,7 +977,106 @@ export default function Vaccination() {
           <Button
             variant="contained"
             onClick={handleSubmitContraindication}
-            disabled={!contraindicationForm.agent || !contraindicationForm.vaccine || !contraindicationForm.reason}
+            disabled={!contraindicationForm.agent || !contraindicationForm.vaccine_name || !contraindicationForm.reason}
+          >
+            Enregistrer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Surveillance médicale */}
+      <Dialog open={openSurveillanceDialog} onClose={() => setOpenSurveillanceDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Nouvelle surveillance médicale</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Agent *</InputLabel>
+                <Select
+                  value={surveillanceForm.agent}
+                  onChange={(e) => setSurveillanceForm({ ...surveillanceForm, agent: e.target.value })}
+                  label="Agent *"
+                >
+                  {agents.map((a) => (
+                    <MenuItem key={a.id} value={String(a.id)}>{a.full_name} ({a.matricule})</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Type de surveillance *</InputLabel>
+                <Select
+                  value={surveillanceForm.surveillance_type}
+                  onChange={(e) => setSurveillanceForm({ ...surveillanceForm, surveillance_type: e.target.value })}
+                  label="Type de surveillance *"
+                >
+                  <MenuItem value="quinquennial">Quinquennale</MenuItem>
+                  <MenuItem value="specific">Spécifique</MenuItem>
+                  <MenuItem value="chronic">Maladie chronique</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date de début *"
+                type="date"
+                value={surveillanceForm.start_date}
+                onChange={(e) => setSurveillanceForm({ ...surveillanceForm, start_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date de prochaine révision"
+                type="date"
+                value={surveillanceForm.next_review_date}
+                onChange={(e) => setSurveillanceForm({ ...surveillanceForm, next_review_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Raison de la surveillance *"
+                multiline
+                rows={3}
+                value={surveillanceForm.reason}
+                onChange={(e) => setSurveillanceForm({ ...surveillanceForm, reason: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Constats médicaux"
+                multiline
+                rows={3}
+                value={surveillanceForm.medical_findings}
+                onChange={(e) => setSurveillanceForm({ ...surveillanceForm, medical_findings: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Recommandations"
+                multiline
+                rows={3}
+                value={surveillanceForm.recommendations}
+                onChange={(e) => setSurveillanceForm({ ...surveillanceForm, recommendations: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenSurveillanceDialog(false)}>Annuler</Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmitSurveillance}
+            disabled={!surveillanceForm.agent || !surveillanceForm.reason || !surveillanceForm.start_date}
           >
             Enregistrer
           </Button>

@@ -39,9 +39,13 @@ import {
   Visibility as VisibilityIcon,
   CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
+  PictureAsPdf as PictureAsPdfIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import client, { getApiErrorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 
 interface WorkAccident {
   id: number
@@ -55,8 +59,10 @@ interface WorkAccident {
   accident_type_display: string
   accident_date: string
   location: string
-  circumstances: string
+  mechanism: string
   description: string
+  return_to_work_date?: string
+  ipp?: number
   severity: string
   severity_display: string
   status: string
@@ -83,13 +89,18 @@ interface OccupationalDisease {
   agent_name: string
   agent_matricule: string
   agent_company: string
+  disease_type: string
+  disease_type_display: string
   disease_name: string
-  disease_code?: string
+  table_number?: number
   first_symptoms_date: string
   diagnosis_date?: string
   status: string
   status_display: string
-  exposure_period?: string
+  return_delay?: number
+  exposure_start_date?: string
+  exposure_end_date?: string
+  exposure_duration_days?: number
   exposure_factors?: string
   medical_follow_up?: string
   treatment?: string
@@ -120,8 +131,11 @@ export default function Accidents() {
   const [loading, setLoading] = useState(true)
   const [openDialog, setOpenDialog] = useState(false)
   const [openViewDialog, setOpenViewDialog] = useState(false)
+  const [openDiseaseDialog, setOpenDiseaseDialog] = useState(false)
+  const [openViewDiseaseDialog, setOpenViewDiseaseDialog] = useState(false)
   const [editingAccident, setEditingAccident] = useState<WorkAccident | null>(null)
   const [viewingAccident, setViewingAccident] = useState<WorkAccident | null>(null)
+  const [viewingDisease, setViewingDisease] = useState<OccupationalDisease | null>(null)
   const [statistics, setStatistics] = useState<any>(null)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const { user } = useAuth()
@@ -136,8 +150,10 @@ export default function Accidents() {
     accident_date: '',
     accident_time: '',
     location: '',
-    circumstances: '',
+    mechanism: '',
     description: '',
+    return_to_work_date: '',
+    ipp: '',
     severity: 'light',
     work_stoppage: false,
     work_stoppage_days: '',
@@ -147,6 +163,24 @@ export default function Accidents() {
     contributing_factors: '',
     corrective_actions: '',
     preventive_actions: '',
+  })
+
+  const [diseaseFormData, setDiseaseFormData] = useState({
+    agent: '',
+    disease_type: 'mp',
+    disease_name: '',
+    table_number: '',
+    first_symptoms_date: '',
+    diagnosis_date: '',
+    status: 'declared',
+    return_delay: '',
+    exposure_start_date: '',
+    exposure_end_date: '',
+    exposure_factors: '',
+    medical_follow_up: '',
+    treatment: '',
+    recognition_date: '',
+    recognition_number: '',
   })
 
   useEffect(() => {
@@ -209,8 +243,10 @@ export default function Accidents() {
         accident_date: accidentDate.toISOString().split('T')[0],
         accident_time: accidentDate.toTimeString().slice(0, 5),
         location: accident.location,
-        circumstances: accident.circumstances,
+        mechanism: accident.mechanism,
         description: accident.description,
+        return_to_work_date: accident.return_to_work_date || '',
+        ipp: accident.ipp != null ? String(accident.ipp) : '',
         severity: accident.severity,
         work_stoppage: accident.work_stoppage,
         work_stoppage_days: accident.work_stoppage_days?.toString() || '',
@@ -229,8 +265,10 @@ export default function Accidents() {
         accident_date: '',
         accident_time: '',
         location: '',
-        circumstances: '',
+        mechanism: '',
         description: '',
+        return_to_work_date: '',
+        ipp: '',
         severity: 'light',
         work_stoppage: false,
         work_stoppage_days: '',
@@ -257,8 +295,8 @@ export default function Accidents() {
 
   const handleSubmit = async () => {
     const agentId = formData.agent ? parseInt(formData.agent, 10) : NaN
-    if (!Number.isFinite(agentId) || !formData.accident_date?.trim() || !formData.location?.trim() || !formData.circumstances?.trim() || !formData.description?.trim()) {
-      showSnackbar('Veuillez remplir agent, date, lieu, circonstances et description.', 'error')
+    if (!Number.isFinite(agentId) || !formData.accident_date?.trim() || !formData.location?.trim() || !formData.mechanism?.trim() || !formData.description?.trim()) {
+      showSnackbar('Veuillez remplir agent, date, lieu, mécanisme et description.', 'error')
       return
     }
     const time = formData.accident_time?.trim() || '09:00'
@@ -269,8 +307,10 @@ export default function Accidents() {
         accident_type: formData.accident_type,
         accident_date: accidentDateTime,
         location: formData.location.trim(),
-        circumstances: formData.circumstances.trim(),
+        mechanism: formData.mechanism.trim(),
         description: formData.description.trim(),
+        return_to_work_date: formData.return_to_work_date?.trim() || null,
+        ipp: formData.ipp !== '' ? Math.min(100, Math.max(0, parseInt(formData.ipp, 10) || 0)) : null,
         severity: formData.severity,
         work_stoppage: formData.work_stoppage,
         work_stoppage_days: formData.work_stoppage_days ? parseInt(formData.work_stoppage_days, 10) : null,
@@ -285,11 +325,12 @@ export default function Accidents() {
       if (editingAccident) {
         await client.put(`/accidents/work-accidents/${editingAccident.id}/`, data)
         showSnackbar('Accident modifié avec succès', 'success')
+        handleCloseDialog()
       } else {
         await client.post('/accidents/work-accidents/', data)
         showSnackbar('Accident déclaré avec succès', 'success')
+        handleCloseDialog()
       }
-      handleCloseDialog()
       fetchAccidents()
       fetchStatistics()
     } catch (error: any) {
@@ -319,12 +360,201 @@ export default function Accidents() {
     }
   }
 
+  const handleSubmitDisease = async () => {
+    const agentId = diseaseFormData.agent ? parseInt(diseaseFormData.agent, 10) : NaN
+    if (!Number.isFinite(agentId) || !diseaseFormData.disease_name?.trim() || !diseaseFormData.first_symptoms_date?.trim()) {
+      showSnackbar('Veuillez remplir agent, désignation maladie et date des premiers symptômes.', 'error')
+      return
+    }
+    try {
+      const data: Record<string, unknown> = {
+        agent: agentId,
+        disease_type: diseaseFormData.disease_type,
+        disease_name: diseaseFormData.disease_name.trim(),
+        table_number: diseaseFormData.table_number !== '' ? Math.min(100, Math.max(1, parseInt(diseaseFormData.table_number, 10) || 1)) : null,
+        first_symptoms_date: diseaseFormData.first_symptoms_date,
+        diagnosis_date: diseaseFormData.diagnosis_date || null,
+        status: diseaseFormData.status,
+        return_delay: diseaseFormData.return_delay !== '' ? Math.min(100, Math.max(0, parseInt(diseaseFormData.return_delay, 10) || 0)) : null,
+        exposure_start_date: diseaseFormData.exposure_start_date?.trim() || null,
+        exposure_end_date: diseaseFormData.exposure_end_date?.trim() || null,
+        exposure_factors: diseaseFormData.exposure_factors?.trim() || null,
+        medical_follow_up: diseaseFormData.medical_follow_up?.trim() || null,
+        treatment: diseaseFormData.treatment?.trim() || null,
+        recognition_date: diseaseFormData.recognition_date || null,
+        recognition_number: diseaseFormData.recognition_number?.trim() || null,
+      }
+
+      await client.post('/accidents/occupational-diseases/', data)
+      showSnackbar('Maladie professionnelle déclarée avec succès', 'success')
+      setOpenDiseaseDialog(false)
+      setDiseaseFormData({
+        agent: '',
+        disease_type: 'mp',
+        disease_name: '',
+        table_number: '',
+        first_symptoms_date: '',
+        diagnosis_date: '',
+        status: 'declared',
+        return_delay: '',
+        exposure_start_date: '',
+        exposure_end_date: '',
+        exposure_factors: '',
+        medical_follow_up: '',
+        treatment: '',
+        recognition_date: '',
+        recognition_number: '',
+      })
+      fetchDiseases()
+    } catch (error: any) {
+      showSnackbar(getApiErrorMessage(error), 'error')
+    }
+  }
+
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity })
   }
 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false })
+  }
+
+  const handleViewDisease = (disease: OccupationalDisease) => {
+    setViewingDisease(disease)
+    setOpenViewDiseaseDialog(true)
+  }
+
+  const handlePrintATMP = () => {
+    window.print()
+  }
+
+  const PRINT_SECTION_ID = 'print-section-atmp-mp'
+  const handleExportPDFATMP = async () => {
+    if (!viewingAccident && !viewingDisease) {
+      showSnackbar('Aucun élément à exporter', 'error')
+      return
+    }
+    try {
+      showSnackbar('Génération du PDF en cours...', 'success')
+      const printSection = document.getElementById(PRINT_SECTION_ID)
+      if (!printSection) {
+        showSnackbar("Section d'impression introuvable", 'error')
+        return
+      }
+      const mmToPx = 3.779527559
+      const widthPx = 210 * mmToPx
+      const paddingPx = 20 * mmToPx
+      const orig = {
+        display: printSection.style.display,
+        position: printSection.style.position,
+        left: printSection.style.left,
+        top: printSection.style.top,
+        width: printSection.style.width,
+        zIndex: printSection.style.zIndex,
+      }
+      printSection.style.display = 'block'
+      printSection.style.position = 'fixed'
+      printSection.style.left = '0'
+      printSection.style.top = '0'
+      printSection.style.width = `${widthPx}px`
+      printSection.style.minWidth = `${widthPx}px`
+      printSection.style.maxWidth = `${widthPx}px`
+      printSection.style.padding = `${paddingPx}px`
+      printSection.style.margin = '0'
+      printSection.style.zIndex = '9999'
+      printSection.style.backgroundColor = '#ffffff'
+      printSection.style.boxSizing = 'border-box'
+      await new Promise((r) => setTimeout(r, 150))
+      const images = printSection.querySelectorAll('img')
+      if (images.length > 0) {
+        await Promise.all(
+          Array.from(images).map(
+            (img: HTMLImageElement) =>
+              new Promise<void>((resolve) => {
+                if (img.complete && img.naturalHeight !== 0) {
+                  resolve()
+                  return
+                }
+                img.onload = () => resolve()
+                img.onerror = () => resolve()
+                setTimeout(() => resolve(), 3000)
+              })
+          )
+        )
+      }
+      await new Promise((r) => setTimeout(r, 400))
+      const canvas = await html2canvas(printSection, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: printSection.offsetWidth,
+        height: printSection.scrollHeight,
+        allowTaint: false,
+        imageTimeout: 15000,
+        onclone: (clonedDoc) => {
+          const cloned = clonedDoc.getElementById(PRINT_SECTION_ID)
+          if (cloned) {
+            cloned.style.display = 'block'
+            cloned.style.visibility = 'visible'
+            cloned.style.width = `${widthPx}px`
+            cloned.style.padding = `${paddingPx}px`
+            cloned.style.backgroundColor = '#ffffff'
+          }
+        },
+      })
+      printSection.style.display = orig.display
+      printSection.style.position = orig.position
+      printSection.style.left = orig.left
+      printSection.style.top = orig.top
+      printSection.style.width = orig.width
+      printSection.style.zIndex = orig.zIndex
+      const imgData = canvas.toDataURL('image/png', 1.0)
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      })
+      const pdfWidth = 210
+      const pdfHeight = 297
+      const actualWidthPx = canvas.width
+      const actualHeightPx = canvas.height
+      const pxToMm = pdfWidth / actualWidthPx
+      const imgWidthMm = actualWidthPx * pxToMm
+      const imgHeightMm = actualHeightPx * pxToMm
+      if (imgHeightMm <= pdfHeight) {
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidthMm, imgHeightMm, undefined, 'FAST')
+      } else {
+        let remainingHeight = imgHeightMm
+        let sourceY = 0
+        while (remainingHeight > 0) {
+          const pageContentHeight = Math.min(pdfHeight, remainingHeight)
+          const sourceHeightPx = (pageContentHeight / imgHeightMm) * actualHeightPx
+          const pageCanvas = document.createElement('canvas')
+          pageCanvas.width = canvas.width
+          pageCanvas.height = Math.ceil(sourceHeightPx)
+          const ctx = pageCanvas.getContext('2d')
+          if (ctx) {
+            ctx.drawImage(canvas, 0, sourceY, canvas.width, sourceHeightPx, 0, 0, canvas.width, sourceHeightPx)
+            const pageImgData = pageCanvas.toDataURL('image/png', 1.0)
+            pdf.addImage(pageImgData, 'PNG', 0, 0, imgWidthMm, pageContentHeight, undefined, 'FAST')
+          }
+          sourceY += sourceHeightPx
+          remainingHeight -= pageContentHeight
+          if (remainingHeight > 0) pdf.addPage()
+        }
+      }
+      const prefix = (openViewDiseaseDialog && viewingDisease)
+        ? `maladie_${viewingDisease.agent_matricule}_${viewingDisease.first_symptoms_date?.slice(0, 10)}`
+        : viewingAccident
+          ? `accident_${viewingAccident.agent_matricule}_${viewingAccident.accident_date?.slice(0, 10)}`
+          : 'atmp'
+      pdf.save(`${prefix}_${new Date().toISOString().split('T')[0]}.pdf`)
+      showSnackbar('PDF exporté avec succès', 'success')
+    } catch (error) {
+      console.error(error)
+      showSnackbar(`Erreur export PDF: ${error instanceof Error ? error.message : 'Erreur inconnue'}`, 'error')
+    }
   }
 
   const canManage = user?.role ? ['super_admin', 'medecin', 'rh', 'hse'].includes(user.role) : false
@@ -358,13 +588,24 @@ export default function Accidents() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Accidents de travail & Maladies professionnelles</Typography>
-        {canManage && (
-          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
-            Déclarer un accident
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+        <Typography variant="h4">ATMP (Accidents de travail & Maladies professionnelles)</Typography>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Button
+            variant="outlined"
+            startIcon={<PictureAsPdfIcon />}
+            href={`${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/bareme-reference-indemnisation.pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Barème de référence d&apos;indemnisation (PDF)
           </Button>
-        )}
+          {canManage && (
+            <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+              Déclarer un accident
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {/* Statistiques */}
@@ -407,31 +648,47 @@ export default function Accidents() {
 
       <Paper>
         <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-          <Tab label="Accidents de travail" />
+          <Tab label="ATMP" />
           <Tab label="Maladies professionnelles" />
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
-          <Box display="flex" gap={2} mb={2}>
-            <FormControl sx={{ minWidth: 150 }}>
-              <InputLabel>Statut</InputLabel>
-              <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Statut">
-                <MenuItem value="all">Tous</MenuItem>
-                <MenuItem value="declared">Déclaré</MenuItem>
-                <MenuItem value="investigating">En investigation</MenuItem>
-                <MenuItem value="closed">Clôturé</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl sx={{ minWidth: 150 }}>
-              <InputLabel>Gravité</InputLabel>
-              <Select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} label="Gravité">
-                <MenuItem value="all">Toutes</MenuItem>
-                <MenuItem value="light">Léger</MenuItem>
-                <MenuItem value="moderate">Modéré</MenuItem>
-                <MenuItem value="severe">Grave</MenuItem>
-                <MenuItem value="fatal">Mortel</MenuItem>
-              </Select>
-            </FormControl>
+          <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={2}>
+            <Box display="flex" flexWrap="wrap" gap={2} alignItems="center">
+              <Button
+                variant="outlined"
+                startIcon={<PictureAsPdfIcon />}
+                href={`${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/bareme-reference-indemnisation.pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Barème de référence d&apos;indemnisation (PDF)
+              </Button>
+              <FormControl sx={{ minWidth: 150 }}>
+                <InputLabel>Statut</InputLabel>
+                <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Statut">
+                  <MenuItem value="all">Tous</MenuItem>
+                  <MenuItem value="declared">Déclaré</MenuItem>
+                  <MenuItem value="investigating">En investigation</MenuItem>
+                  <MenuItem value="closed">Clôturé</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl sx={{ minWidth: 150 }}>
+                <InputLabel>Gravité</InputLabel>
+                <Select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} label="Gravité">
+                  <MenuItem value="all">Toutes</MenuItem>
+                  <MenuItem value="light">Léger</MenuItem>
+                  <MenuItem value="moderate">Modéré</MenuItem>
+                  <MenuItem value="severe">Grave</MenuItem>
+                  <MenuItem value="fatal">Mortel</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            {canManage && (
+              <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+                Déclarer un accident
+              </Button>
+            )}
           </Box>
 
           <TableContainer>
@@ -510,12 +767,38 @@ export default function Accidents() {
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={2}>
+            <Box display="flex" flexWrap="wrap" gap={2}>
+              <Button
+                variant="outlined"
+                startIcon={<PictureAsPdfIcon />}
+                href={`${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/bareme-reference-indemnisation.pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Barème de référence d&apos;indemnisation (PDF)
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<PictureAsPdfIcon />}
+                href={`${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}/tableaux-maladies-professionnelles.pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Tableaux de la liste des maladies professionnelles (PDF)
+              </Button>
+            </Box>
+            <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={() => setOpenDiseaseDialog(true)}>
+              Ajouter une maladie
+            </Button>
+          </Box>
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow>
                   <TableCell>Agent</TableCell>
-                  <TableCell>Maladie</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Désignation maladie</TableCell>
                   <TableCell>Premiers symptômes</TableCell>
                   <TableCell>Statut</TableCell>
                   <TableCell>Reconnaissance</TableCell>
@@ -525,7 +808,7 @@ export default function Accidents() {
               <TableBody>
                 {diseases.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center">
                       <Typography variant="body2" color="text.secondary">
                         Aucune maladie professionnelle trouvée
                       </Typography>
@@ -537,6 +820,7 @@ export default function Accidents() {
                       <TableCell>
                         {disease.agent_name} ({disease.agent_matricule})
                       </TableCell>
+                      <TableCell>{disease.disease_type_display || '-'}</TableCell>
                       <TableCell>{disease.disease_name}</TableCell>
                       <TableCell>
                         {new Date(disease.first_symptoms_date).toLocaleDateString('fr-FR')}
@@ -548,9 +832,9 @@ export default function Accidents() {
                         {disease.recognition_number || '-'}
                       </TableCell>
                       <TableCell>
-                        <IconButton size="small">
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
+                        <Button size="small" variant="outlined" startIcon={<VisibilityIcon />} onClick={() => handleViewDisease(disease)}>
+                          Voir
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -596,6 +880,7 @@ export default function Accidents() {
                   <MenuItem value="work">Accident de travail</MenuItem>
                   <MenuItem value="commute">Accident de trajet</MenuItem>
                   <MenuItem value="service">Accident de service</MenuItem>
+                  <MenuItem value="mission">Accident de mission</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -633,11 +918,11 @@ export default function Accidents() {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Circonstances *"
+                label="Mécanisme *"
                 multiline
                 rows={3}
-                value={formData.circumstances}
-                onChange={(e) => setFormData({ ...formData, circumstances: e.target.value })}
+                value={formData.mechanism}
+                onChange={(e) => setFormData({ ...formData, mechanism: e.target.value })}
                 required
               />
             </Grid>
@@ -650,6 +935,28 @@ export default function Accidents() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date de reprise"
+                type="date"
+                value={formData.return_to_work_date}
+                onChange={(e) => setFormData({ ...formData, return_to_work_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="IPP (%)"
+                type="number"
+                inputProps={{ min: 0, max: 100, step: 1 }}
+                value={formData.ipp}
+                onChange={(e) => setFormData({ ...formData, ipp: e.target.value })}
+                placeholder="0 à 100"
+                helperText="Pourcentage d'incapacité permanente (0-100 %)"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -798,13 +1105,25 @@ export default function Accidents() {
                 <Chip label={viewingAccident.status_display} size="small" color={getStatusColor(viewingAccident.status)} />
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="subtitle2" color="text.secondary">Circonstances</Typography>
-                <Typography variant="body1">{viewingAccident.circumstances}</Typography>
+                <Typography variant="subtitle2" color="text.secondary">Mécanisme</Typography>
+                <Typography variant="body1">{viewingAccident.mechanism}</Typography>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle2" color="text.secondary">Description</Typography>
                 <Typography variant="body1">{viewingAccident.description}</Typography>
               </Grid>
+              {viewingAccident.return_to_work_date && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">Date de reprise</Typography>
+                  <Typography variant="body1">{new Date(viewingAccident.return_to_work_date).toLocaleDateString('fr-FR')}</Typography>
+                </Grid>
+              )}
+              {viewingAccident.ipp != null && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">IPP</Typography>
+                  <Typography variant="body1">{viewingAccident.ipp} %</Typography>
+                </Grid>
+              )}
               {viewingAccident.root_causes && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" color="text.secondary">Causes racines</Typography>
@@ -815,9 +1134,473 @@ export default function Accidents() {
           )}
         </DialogContent>
         <DialogActions>
+          <Button startIcon={<PrintIcon />} onClick={handlePrintATMP}>Imprimer</Button>
+          <Button startIcon={<PictureAsPdfIcon />} onClick={handleExportPDFATMP} color="error">Exporter PDF</Button>
           <Button onClick={() => setOpenViewDialog(false)}>Fermer</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Dialog de visualisation maladie professionnelle */}
+      <Dialog open={openViewDiseaseDialog} onClose={() => { setOpenViewDiseaseDialog(false); setViewingDisease(null) }} maxWidth="md" fullWidth>
+        <DialogTitle>Détails de la maladie professionnelle</DialogTitle>
+        <DialogContent>
+          {viewingDisease && (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Agent</Typography>
+                <Typography variant="body1">{viewingDisease.agent_name} ({viewingDisease.agent_matricule})</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Type</Typography>
+                <Typography variant="body1">{viewingDisease.disease_type_display || '-'}</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" color="text.secondary">Désignation maladie</Typography>
+                <Typography variant="body1">{viewingDisease.disease_name}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Numéro de tableau</Typography>
+                <Typography variant="body1">{viewingDisease.table_number ?? '-'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Statut</Typography>
+                <Chip label={viewingDisease.status_display} size="small" />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">Date des premiers symptômes</Typography>
+                <Typography variant="body1">{new Date(viewingDisease.first_symptoms_date).toLocaleDateString('fr-FR')}</Typography>
+              </Grid>
+              {viewingDisease.diagnosis_date && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">Date de diagnostic</Typography>
+                  <Typography variant="body1">{new Date(viewingDisease.diagnosis_date).toLocaleDateString('fr-FR')}</Typography>
+                </Grid>
+              )}
+              {viewingDisease.return_delay != null && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">Délai de reprise</Typography>
+                  <Typography variant="body1">{viewingDisease.return_delay} jour(s)</Typography>
+                </Grid>
+              )}
+              {(viewingDisease.exposure_start_date || viewingDisease.exposure_end_date) && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">Durée d'exposition</Typography>
+                  <Typography variant="body1">
+                    {viewingDisease.exposure_start_date ? new Date(viewingDisease.exposure_start_date).toLocaleDateString('fr-FR') : '?'}
+                    {' — '}
+                    {viewingDisease.exposure_end_date ? new Date(viewingDisease.exposure_end_date).toLocaleDateString('fr-FR') : '?'}
+                    {viewingDisease.exposure_duration_days != null ? ` (${viewingDisease.exposure_duration_days} j)` : ''}
+                  </Typography>
+                </Grid>
+              )}
+              {viewingDisease.exposure_factors && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">Facteurs d'exposition</Typography>
+                  <Typography variant="body1">{viewingDisease.exposure_factors}</Typography>
+                </Grid>
+              )}
+              {viewingDisease.medical_follow_up && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">Suivi médical</Typography>
+                  <Typography variant="body1">{viewingDisease.medical_follow_up}</Typography>
+                </Grid>
+              )}
+              {viewingDisease.treatment && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">Traitement</Typography>
+                  <Typography variant="body1">{viewingDisease.treatment}</Typography>
+                </Grid>
+              )}
+              {(viewingDisease.recognition_date || viewingDisease.recognition_number) && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Date de reconnaissance</Typography>
+                    <Typography variant="body1">{viewingDisease.recognition_date ? new Date(viewingDisease.recognition_date).toLocaleDateString('fr-FR') : '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Numéro de reconnaissance</Typography>
+                    <Typography variant="body1">{viewingDisease.recognition_number || '-'}</Typography>
+                  </Grid>
+                </>
+              )}
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button startIcon={<PrintIcon />} onClick={handlePrintATMP}>Imprimer</Button>
+          <Button startIcon={<PictureAsPdfIcon />} onClick={handleExportPDFATMP} color="error">Exporter PDF</Button>
+          <Button onClick={() => { setOpenViewDiseaseDialog(false); setViewingDisease(null) }}>Fermer</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de déclaration de maladie professionnelle */}
+      <Dialog open={openDiseaseDialog} onClose={() => setOpenDiseaseDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Déclarer une maladie professionnelle</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Agent *</InputLabel>
+                <Select
+                  value={diseaseFormData.agent}
+                  onChange={(e) => setDiseaseFormData({ ...diseaseFormData, agent: e.target.value })}
+                  label="Agent *"
+                >
+                  {agents.map((agent) => (
+                    <MenuItem key={agent.id} value={agent.id}>
+                      {agent.full_name} ({agent.matricule})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Type *</InputLabel>
+                <Select
+                  value={diseaseFormData.disease_type}
+                  onChange={(e) => setDiseaseFormData({ ...diseaseFormData, disease_type: e.target.value })}
+                  label="Type *"
+                >
+                  <MenuItem value="mp">Maladie professionnelle</MenuItem>
+                  <MenuItem value="mcp">Maladie à caractère professionnel</MenuItem>
+                  <MenuItem value="ms">Maladie suspecte</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Statut *</InputLabel>
+                <Select
+                  value={diseaseFormData.status}
+                  onChange={(e) => setDiseaseFormData({ ...diseaseFormData, status: e.target.value })}
+                  label="Statut *"
+                >
+                  <MenuItem value="declared">Déclarée</MenuItem>
+                  <MenuItem value="recognized">Reconnue</MenuItem>
+                  <MenuItem value="rejected">Rejetée</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Désignation maladie *"
+                value={diseaseFormData.disease_name}
+                onChange={(e) => setDiseaseFormData({ ...diseaseFormData, disease_name: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Numéro de tableau</InputLabel>
+                <Select
+                  value={diseaseFormData.table_number || ''}
+                  onChange={(e) => setDiseaseFormData({ ...diseaseFormData, table_number: e.target.value })}
+                  label="Numéro de tableau"
+                >
+                  <MenuItem value="">—</MenuItem>
+                  {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => (
+                    <MenuItem key={n} value={String(n)}>{n}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date des premiers symptômes *"
+                type="date"
+                value={diseaseFormData.first_symptoms_date}
+                onChange={(e) => setDiseaseFormData({ ...diseaseFormData, first_symptoms_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date de diagnostic"
+                type="date"
+                value={diseaseFormData.diagnosis_date}
+                onChange={(e) => setDiseaseFormData({ ...diseaseFormData, diagnosis_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Délai de reprise</InputLabel>
+                <Select
+                  value={diseaseFormData.return_delay || ''}
+                  onChange={(e) => setDiseaseFormData({ ...diseaseFormData, return_delay: e.target.value })}
+                  label="Délai de reprise"
+                >
+                  <MenuItem value="">—</MenuItem>
+                  {Array.from({ length: 101 }, (_, i) => i).map((n) => (
+                    <MenuItem key={n} value={String(n)}>{n}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>Durée d&apos;exposition</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Début d'exposition"
+                    type="date"
+                    value={diseaseFormData.exposure_start_date}
+                    onChange={(e) => setDiseaseFormData({ ...diseaseFormData, exposure_start_date: e.target.value })}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Fin d'exposition"
+                    type="date"
+                    value={diseaseFormData.exposure_end_date}
+                    onChange={(e) => setDiseaseFormData({ ...diseaseFormData, exposure_end_date: e.target.value })}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                {diseaseFormData.exposure_start_date && diseaseFormData.exposure_end_date && (() => {
+                  const start = new Date(diseaseFormData.exposure_start_date).getTime()
+                  const end = new Date(diseaseFormData.exposure_end_date).getTime()
+                  const days = end >= start ? Math.round((end - start) / (1000 * 60 * 60 * 24)) : null
+                  return days != null ? (
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary">
+                        Durée calculée : {days} jour{days !== 1 ? 's' : ''}
+                      </Typography>
+                    </Grid>
+                  ) : null
+                })()}
+              </Grid>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Facteurs d'exposition"
+                multiline
+                rows={3}
+                value={diseaseFormData.exposure_factors}
+                onChange={(e) => setDiseaseFormData({ ...diseaseFormData, exposure_factors: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Suivi médical"
+                multiline
+                rows={3}
+                value={diseaseFormData.medical_follow_up}
+                onChange={(e) => setDiseaseFormData({ ...diseaseFormData, medical_follow_up: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Traitement"
+                multiline
+                rows={3}
+                value={diseaseFormData.treatment}
+                onChange={(e) => setDiseaseFormData({ ...diseaseFormData, treatment: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date de reconnaissance"
+                type="date"
+                value={diseaseFormData.recognition_date}
+                onChange={(e) => setDiseaseFormData({ ...diseaseFormData, recognition_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Numéro de reconnaissance"
+                value={diseaseFormData.recognition_number}
+                onChange={(e) => setDiseaseFormData({ ...diseaseFormData, recognition_number: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDiseaseDialog(false)}>Annuler</Button>
+          <Button onClick={handleSubmitDisease} variant="contained" color="primary">
+            Déclarer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Section d'impression / PDF — même format que le dossier médical */}
+      {(viewingAccident || viewingDisease) && (
+        <Box
+          id={PRINT_SECTION_ID}
+          className="print-section"
+          sx={{
+            display: 'none',
+            width: '210mm',
+            minHeight: '297mm',
+            padding: '20mm',
+            backgroundColor: '#ffffff',
+            '@media print': {
+              display: 'block !important',
+              padding: '20mm',
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: '100%',
+              zIndex: 9999,
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ flex: '0 0 80px', mr: 2, display: 'flex', alignItems: 'center' }}>
+              <img
+                src="/coly.png"
+                alt="Logo"
+                style={{ width: '80px', height: 'auto', maxWidth: '80px' }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.src = `${window.location.origin}/coly.png`
+                }}
+              />
+            </Box>
+            <Box
+              sx={{
+                flex: 1,
+                backgroundColor: '#0D47A1',
+                color: 'white',
+                padding: '10px 20px',
+                textAlign: 'center',
+                fontWeight: 'bold',
+                fontSize: '16px',
+                borderRadius: '50px',
+                minHeight: '50px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {(openViewDiseaseDialog && viewingDisease)
+                ? 'MALADIE PROFESSIONNELLE'
+                : viewingAccident
+                  ? 'ACCIDENT DU TRAVAIL / ATMP'
+                  : ''}
+            </Box>
+          </Box>
+
+          {!(openViewDiseaseDialog && viewingDisease) && viewingAccident && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="h6" fontWeight="bold" gutterBottom>Identification</Typography>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={6}><Typography><strong>Agent :</strong> {viewingAccident.agent_name} ({viewingAccident.agent_matricule})</Typography></Grid>
+                <Grid item xs={6}><Typography><strong>Type :</strong> {viewingAccident.accident_type_display}</Typography></Grid>
+                <Grid item xs={6}><Typography><strong>Date et heure :</strong> {new Date(viewingAccident.accident_date).toLocaleString('fr-FR')}</Typography></Grid>
+                <Grid item xs={6}><Typography><strong>Lieu :</strong> {viewingAccident.location}</Typography></Grid>
+                <Grid item xs={6}><Typography><strong>Gravité :</strong> {viewingAccident.severity_display}</Typography></Grid>
+                <Grid item xs={6}><Typography><strong>Statut :</strong> {viewingAccident.status_display}</Typography></Grid>
+              </Grid>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="h6" fontWeight="bold" gutterBottom>Mécanisme</Typography>
+              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{viewingAccident.mechanism || ''}</Typography>
+              <Typography variant="h6" fontWeight="bold" gutterBottom>Description</Typography>
+              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{viewingAccident.description || ''}</Typography>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                {viewingAccident.return_to_work_date && (
+                  <Grid item xs={6}><Typography><strong>Date de reprise :</strong> {new Date(viewingAccident.return_to_work_date).toLocaleDateString('fr-FR')}</Typography></Grid>
+                )}
+                {viewingAccident.ipp != null && (
+                  <Grid item xs={6}><Typography><strong>IPP :</strong> {viewingAccident.ipp} %</Typography></Grid>
+                )}
+                {viewingAccident.work_stoppage && (
+                  <Grid item xs={6}><Typography><strong>Arrêt de travail :</strong> {viewingAccident.work_stoppage_days ?? 0} jour(s)</Typography></Grid>
+                )}
+              </Grid>
+              {viewingAccident.root_causes && (
+                <>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Causes racines</Typography>
+                  <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{viewingAccident.root_causes}</Typography>
+                </>
+              )}
+              {viewingAccident.corrective_actions && (
+                <>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Actions correctives</Typography>
+                  <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{viewingAccident.corrective_actions}</Typography>
+                </>
+              )}
+              {viewingAccident.preventive_actions && (
+                <>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Actions préventives</Typography>
+                  <Typography sx={{ whiteSpace: 'pre-wrap' }}>{viewingAccident.preventive_actions}</Typography>
+                </>
+              )}
+            </Box>
+          )}
+
+          {(openViewDiseaseDialog && viewingDisease) && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="h6" fontWeight="bold" gutterBottom>Identification</Typography>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={6}><Typography><strong>Agent :</strong> {viewingDisease.agent_name} ({viewingDisease.agent_matricule})</Typography></Grid>
+                <Grid item xs={6}><Typography><strong>Type :</strong> {viewingDisease.disease_type_display || '-'}</Typography></Grid>
+                <Grid item xs={12}><Typography><strong>Désignation maladie :</strong> {viewingDisease.disease_name}</Typography></Grid>
+                <Grid item xs={6}><Typography><strong>Numéro de tableau :</strong> {viewingDisease.table_number ?? '-'}</Typography></Grid>
+                <Grid item xs={6}><Typography><strong>Statut :</strong> {viewingDisease.status_display}</Typography></Grid>
+                <Grid item xs={6}><Typography><strong>Premiers symptômes :</strong> {new Date(viewingDisease.first_symptoms_date).toLocaleDateString('fr-FR')}</Typography></Grid>
+                {viewingDisease.diagnosis_date && (
+                  <Grid item xs={6}><Typography><strong>Diagnostic :</strong> {new Date(viewingDisease.diagnosis_date).toLocaleDateString('fr-FR')}</Typography></Grid>
+                )}
+                {viewingDisease.return_delay != null && (
+                  <Grid item xs={6}><Typography><strong>Délai de reprise :</strong> {viewingDisease.return_delay} jour(s)</Typography></Grid>
+                )}
+                {(viewingDisease.exposure_start_date || viewingDisease.exposure_end_date) && (
+                  <Grid item xs={6}>
+                    <Typography><strong>Exposition :</strong> {viewingDisease.exposure_start_date ? new Date(viewingDisease.exposure_start_date).toLocaleDateString('fr-FR') : '?'}
+                    {' — '}
+                    {viewingDisease.exposure_end_date ? new Date(viewingDisease.exposure_end_date).toLocaleDateString('fr-FR') : '?'}
+                    {viewingDisease.exposure_duration_days != null ? ` (${viewingDisease.exposure_duration_days} j)` : ''}</Typography>
+                  </Grid>
+                )}
+              </Grid>
+              {viewingDisease.exposure_factors && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Facteurs d'exposition</Typography>
+                  <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{viewingDisease.exposure_factors}</Typography>
+                </>
+              )}
+              {viewingDisease.medical_follow_up && (
+                <>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Suivi médical</Typography>
+                  <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{viewingDisease.medical_follow_up}</Typography>
+                </>
+              )}
+              {viewingDisease.treatment && (
+                <>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Traitement</Typography>
+                  <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{viewingDisease.treatment}</Typography>
+                </>
+              )}
+              {(viewingDisease.recognition_date || viewingDisease.recognition_number) && (
+                <Grid container spacing={2}>
+                  <Grid item xs={6}><Typography><strong>Date de reconnaissance :</strong> {viewingDisease.recognition_date ? new Date(viewingDisease.recognition_date).toLocaleDateString('fr-FR') : '-'}</Typography></Grid>
+                  <Grid item xs={6}><Typography><strong>Numéro de reconnaissance :</strong> {viewingDisease.recognition_number || '-'}</Typography></Grid>
+                </Grid>
+              )}
+            </Box>
+          )}
+
+          <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #ccc' }}>
+            <Typography variant="caption">Document confidentiel — Secret médical</Typography>
+          </Box>
+        </Box>
+      )}
 
       <Snackbar
         open={snackbar.open}

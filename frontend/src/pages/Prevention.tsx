@@ -133,6 +133,7 @@ export default function Prevention() {
   const [openActionDialog, setOpenActionDialog] = useState(false)
   const [openFieDialog, setOpenFieDialog] = useState(false)
   const [openFirDialog, setOpenFirDialog] = useState(false)
+  const [openCategoryDialog, setOpenCategoryDialog] = useState(false)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const [companyFilter, setCompanyFilter] = useState<string>('')
   const [siteFilter, setSiteFilter] = useState<string>('')
@@ -179,6 +180,7 @@ export default function Prevention() {
 
   const [fieForm, setFieForm] = useState({ agent: '', exposure_period: '', exposed_risks: [] as number[] })
   const [firForm, setFirForm] = useState({ agent: '', risks_description: '', preventive_measures: '' })
+  const [categoryForm, setCategoryForm] = useState({ name: '', code: '', category_type: '', description: '' })
 
   const canManage = user?.role ? ['super_admin', 'admin', 'consultant', 'hse', 'direction'].includes(user.role) : false
 
@@ -397,6 +399,23 @@ export default function Prevention() {
       showSnackbar('Fiche des risques créée', 'success')
       setOpenFirDialog(false)
       fetchRiskSheets()
+    } catch (err: any) {
+      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
+    }
+  }
+
+  const handleCreateCategory = async () => {
+    try {
+      await client.post('/prevention/categories/', {
+        name: categoryForm.name,
+        code: categoryForm.code || null,
+        category_type: categoryForm.category_type || null,
+        description: categoryForm.description || null,
+      })
+      showSnackbar('Catégorie créée', 'success')
+      setOpenCategoryDialog(false)
+      setCategoryForm({ name: '', code: '', category_type: '', description: '' })
+      fetchCategories()
     } catch (err: any) {
       showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
     }
@@ -1147,6 +1166,69 @@ export default function Prevention() {
             variant="contained"
             onClick={handleCreateFir}
             disabled={!firForm.agent || !firForm.risks_description}
+          >
+            Créer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog Catégorie de risque */}
+      <Dialog open={openCategoryDialog} onClose={() => setOpenCategoryDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Nouvelle catégorie de risque</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Nom *"
+                value={categoryForm.name}
+                onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Code"
+                value={categoryForm.code}
+                onChange={(e) => setCategoryForm({ ...categoryForm, code: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Type</InputLabel>
+                <Select
+                  value={categoryForm.category_type}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, category_type: e.target.value })}
+                  label="Type"
+                >
+                  <MenuItem value="">–</MenuItem>
+                  <MenuItem value="physical">Physique</MenuItem>
+                  <MenuItem value="biological">Biologique</MenuItem>
+                  <MenuItem value="chemical">Chimique</MenuItem>
+                  <MenuItem value="psychosocial">Psychosocial</MenuItem>
+                  <MenuItem value="ergonomic">Ergonomique</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Description"
+                multiline
+                rows={3}
+                value={categoryForm.description}
+                onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCategoryDialog(false)}>Annuler</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateCategory}
+            disabled={!categoryForm.name}
           >
             Créer
           </Button>

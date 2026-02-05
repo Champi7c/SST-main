@@ -74,10 +74,12 @@ def build_dashboard_stats(company_id=None, site_id=None, service_id=None,
     total_accidents = accidents_qs.count()
     work_stoppages = accidents_qs.filter(work_stoppage=True).count()
 
-    surveillance_filters = {k: v for k, v in fr.items() if 'company' in k}
-    agents_under_surveillance = MedicalSurveillance.objects.filter(
-        **surveillance_filters, is_active=True
-    ).values('agent').distinct().count()
+    # Nombre d'entreprises (au lieu d'agents sous surveillance)
+    company_filters = {}
+    if company_id:
+        company_filters['pk'] = company_id
+    total_companies = Company.objects.filter(**company_filters).count()
+    agents_under_surveillance = total_companies  # Utilisé pour le nombre d'entreprises dans le dashboard
 
     # Alertes vaccination (agrégats uniquement)
     alert_filters = {k: v for k, v in fr.items() if 'company' in k}
