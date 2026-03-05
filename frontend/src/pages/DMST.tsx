@@ -1365,7 +1365,6 @@ export default function DMST() {
         sx={{
           display: 'none',
           width: '210mm',
-          minHeight: '297mm',
           padding: '20mm',
           backgroundColor: '#ffffff',
           '@media print': {
@@ -1387,9 +1386,9 @@ export default function DMST() {
               alt="Logo" 
               style={{ width: '80px', height: 'auto', maxWidth: '80px' }}
               onError={(e) => {
-                // Si le logo ne charge pas, essayer avec le chemin absolu
+                // Ne pas afficher l'URL en cas d'erreur (évite le https en haut à droite)
                 const target = e.target as HTMLImageElement
-                target.src = `${window.location.origin}/coly.png`
+                target.style.display = 'none'
               }}
             />
           </Box>
@@ -1502,7 +1501,6 @@ export default function DMST() {
                 <Box sx={{ mt: 2, height: '40px', borderBottom: '1px solid #000', width: '200px', mx: 'auto' }} />
               </Box>
             </Box>
-            <Typography variant="caption" sx={{ mt: 2, display: 'block' }}>Document confidentiel — Secret médical — Article L. 4624-1 du Code du Travail</Typography>
           </Box>
         </Box>
       </Box>

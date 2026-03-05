@@ -28,6 +28,7 @@ import VaccinesIcon from '@mui/icons-material/Vaccines'
 import SecurityIcon from '@mui/icons-material/Security'
 import SchoolIcon from '@mui/icons-material/School'
 import AssessmentIcon from '@mui/icons-material/Assessment'
+import VideoCallIcon from '@mui/icons-material/VideoCall'
 import SettingsIcon from '@mui/icons-material/Settings'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { useAuth } from '../contexts/AuthContext'
@@ -46,6 +47,7 @@ const menuItems = [
   { text: 'GRILLE EVRP', icon: <SecurityIcon />, path: '/prevention' },
   { text: 'Formation', icon: <SchoolIcon />, path: '/training' },
   { text: 'Reporting', icon: <AssessmentIcon />, path: '/reporting' },
+  { text: 'Consultation en ligne', icon: <VideoCallIcon />, path: '/consultation-en-ligne' },
   { text: 'Paramètres', icon: <SettingsIcon />, path: '/settings' },
 ]
 

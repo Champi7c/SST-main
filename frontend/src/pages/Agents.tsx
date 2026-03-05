@@ -27,8 +27,9 @@ import {
   FormControl,
   InputLabel,
   Autocomplete,
+  InputAdornment,
 } from '@mui/material'
-import { Edit as EditIcon, Unarchive as UnarchiveIcon, Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { Edit as EditIcon, Unarchive as UnarchiveIcon, Add as AddIcon, Delete as DeleteIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import client, { getApiErrorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -101,6 +102,7 @@ export default function Agents() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const [submitLoading, setSubmitLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [searchQuery, setSearchQuery] = useState('')
   const navigate = useNavigate()
   const { hasMedicalAccess, user } = useAuth()
 
@@ -446,7 +448,22 @@ export default function Agents() {
   }
 
   // Vérifier si l'utilisateur peut gérer les agents
-  const canManageAgents = user?.role ? ['super_admin', 'admin', 'rh', 'hse'].includes(user.role) : false
+  const canManageAgents = user?.role ? ['super_admin', 'admin', 'rh', 'hse', 'medecin', 'infirmier', 'direction'].includes(user.role) : false
+
+  // Filtrer les agents selon la barre de recherche (nom, prénom, matricule, email, entreprise, téléphone)
+  const searchLower = searchQuery.trim().toLowerCase()
+  const filteredAgents = searchLower
+    ? agents.filter(
+        (a) =>
+          (a.full_name && a.full_name.toLowerCase().includes(searchLower)) ||
+          (a.first_name && a.first_name.toLowerCase().includes(searchLower)) ||
+          (a.last_name && a.last_name.toLowerCase().includes(searchLower)) ||
+          (a.matricule && a.matricule.toLowerCase().includes(searchLower)) ||
+          (a.email && a.email.toLowerCase().includes(searchLower)) ||
+          (a.company_name && a.company_name.toLowerCase().includes(searchLower)) ||
+          (a.phone && a.phone.replace(/\s/g, '').includes(searchQuery.trim().replace(/\s/g, '')))
+      )
+    : agents
 
   if (loading) {
     return (
@@ -458,7 +475,7 @@ export default function Agents() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h4">Gestion des Agents</Typography>
         <Box>
           <FormControlLabel
@@ -479,6 +496,22 @@ export default function Agents() {
         </Box>
       </Box>
 
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Rechercher par nom, prénom, matricule, email, entreprise, téléphone..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        sx={{ mb: 2 }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon color="action" />
+            </InputAdornment>
+          ),
+        }}
+      />
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -498,16 +531,16 @@ export default function Agents() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {agents.length === 0 ? (
+            {filteredAgents.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={12} align="center">
                   <Typography variant="body2" color="text.secondary">
-                    Aucun agent trouvé
+                    {agents.length === 0 ? 'Aucun agent trouvé' : 'Aucun agent ne correspond à la recherche'}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              agents.map((agent) => (
+              filteredAgents.map((agent) => (
                 <TableRow key={agent.id}>
                   <TableCell>{agent.matricule}</TableCell>
                   <TableCell>{agent.last_name}</TableCell>

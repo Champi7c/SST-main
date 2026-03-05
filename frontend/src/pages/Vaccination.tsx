@@ -30,7 +30,7 @@ import {
   CardContent,
   IconButton,
 } from '@mui/material'
-import { Add as AddIcon, CheckCircle as CheckIcon } from '@mui/icons-material'
+import { Add as AddIcon, CheckCircle as CheckIcon, Print as PrintIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -127,6 +127,7 @@ export default function Vaccination() {
   const [openDialog, setOpenDialog] = useState(false)
   const [openContraindicationDialog, setOpenContraindicationDialog] = useState(false)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
+  const [carnetPrintData, setCarnetPrintData] = useState<{ agent_name: string; agent_matricule: string; vaccinations: VaccinationRecord[] } | null>(null)
   const [companyFilter, setCompanyFilter] = useState<string>('')
   const [siteFilter, setSiteFilter] = useState<string>('')
   const [serviceFilter, setServiceFilter] = useState<string>('')
@@ -186,6 +187,25 @@ export default function Vaccination() {
     fetchContraindications()
     fetchAgents()
   }, [companyFilter, siteFilter, serviceFilter, hasMedicalAccess])
+
+  useEffect(() => {
+    if (!carnetPrintData) return
+    const t = setTimeout(() => {
+      window.print()
+      setCarnetPrintData(null)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [carnetPrintData])
+
+  const handlePrintCarnet = async (agentId: number, agentName: string, agentMatricule: string) => {
+    try {
+      const r = await client.get('/vaccination/vaccinations/', { params: { agent: agentId } })
+      const list = r.data.results || r.data
+      setCarnetPrintData({ agent_name: agentName, agent_matricule: agentMatricule, vaccinations: list || [] })
+    } catch (e) {
+      showSnackbar('Erreur lors du chargement des vaccinations', 'error')
+    }
+  }
 
   const fetchCompanies = async () => {
     try {
@@ -533,6 +553,7 @@ export default function Vaccination() {
           <Tab label="Surveillances" />
           <Tab label="Alertes" />
           <Tab label="Contre-indications" />
+          <Tab label="Carnets de vaccination" />
         </Tabs>
 
         <Box sx={{ px: 2, pb: 2 }}>
@@ -796,8 +817,155 @@ export default function Vaccination() {
               )}
             </>
           )}
+
+          {tabValue === 5 && (
+            <>
+              {!hasMedicalAccess ? (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
+                  Accès aux carnets de vaccination réservé au personnel médical.
+                </Typography>
+              ) : (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Sélectionnez un agent pour imprimer son carnet de vaccination.
+                  </Typography>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Agent</TableCell>
+                          <TableCell>Matricule</TableCell>
+                          <TableCell align="right">Action</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {agents.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} align="center">
+                              <Typography variant="body2" color="text.secondary">Aucun agent ou charger les agents via les filtres.</Typography>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          agents.map((a) => (
+                            <TableRow key={a.id}>
+                              <TableCell>{a.full_name}</TableCell>
+                              <TableCell>{a.matricule}</TableCell>
+                              <TableCell align="right">
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<PrintIcon />}
+                                  onClick={() => handlePrintCarnet(a.id, a.full_name, a.matricule)}
+                                >
+                                  Imprimer le carnet
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </>
+              )}
+            </>
+          )}
         </Box>
       </Paper>
+
+      {carnetPrintData && (
+        <Box
+          id="carnet-print-section"
+          className="print-section carnet-print-section"
+          sx={{
+            position: 'absolute',
+            left: -9999,
+            top: 0,
+            width: '210mm',
+            padding: '20mm',
+            backgroundColor: '#fff',
+            '@media print': {
+              left: 0,
+              top: 0,
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ flex: '0 0 80px', mr: 2, display: 'flex', alignItems: 'center' }}>
+              <img
+                src="/coly.png"
+                alt="Logo"
+                style={{ width: '80px', height: 'auto', maxWidth: '80px' }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.style.display = 'none'
+                }}
+              />
+            </Box>
+            <Box
+              sx={{
+                flex: 1,
+                backgroundColor: '#0D47A1',
+                color: 'white',
+                padding: '10px 20px',
+                textAlign: 'center',
+                fontWeight: 'bold',
+                fontSize: '16px',
+                borderRadius: '50px',
+                minHeight: '50px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              CARNET DE VACCINATION — SERVICE DE SANTÉ AU TRAVAIL
+            </Box>
+            <Box sx={{ flex: '0 0 140px', textAlign: 'right', ml: 2 }}>
+              <Typography variant="body2">Fait à Dakar, le {new Date().toLocaleDateString('fr-FR')}</Typography>
+              <Typography variant="body2">Imprimé le {new Date().toLocaleDateString('fr-FR')}</Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+              {carnetPrintData.agent_name} — Matricule : {carnetPrintData.agent_matricule}
+            </Typography>
+          </Box>
+          <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell><strong>Vaccin</strong></TableCell>
+                  <TableCell><strong>Date</strong></TableCell>
+                  <TableCell><strong>Rappel</strong></TableCell>
+                  <TableCell><strong>Dose</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {carnetPrintData.vaccinations.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4}>Aucune vaccination enregistrée</TableCell>
+                  </TableRow>
+                ) : (
+                  carnetPrintData.vaccinations
+                    .sort((a, b) => new Date(b.vaccination_date).getTime() - new Date(a.vaccination_date).getTime())
+                    .map((v) => (
+                      <TableRow key={v.id}>
+                        <TableCell>{v.vaccine_name}</TableCell>
+                        <TableCell>{new Date(v.vaccination_date).toLocaleDateString('fr-FR')}</TableCell>
+                        <TableCell>{v.next_due_date ? new Date(v.next_due_date).toLocaleDateString('fr-FR') : '–'}</TableCell>
+                        <TableCell>{v.dose_number ? `${v.dose_number}ère dose` : '–'}</TableCell>
+                      </TableRow>
+                    ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Typography variant="caption" sx={{ mt: 2, display: 'block' }}>
+            Document confidentiel — Secret médical — Données de vaccination
+          </Typography>
+        </Box>
+      )}
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Enregistrer une vaccination</DialogTitle>

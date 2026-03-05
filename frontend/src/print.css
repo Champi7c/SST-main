@@ -1,3 +1,9 @@
+/* Supprimer l'URL et les en-têtes/pieds de page du navigateur à l'impression */
+@page {
+  size: A4;
+  margin: 0;
+}
+
 @media print {
   body * {
     visibility: hidden;
@@ -6,10 +12,15 @@
   .print-section * {
     visibility: visible !important;
   }
-  .print-section {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+  /* Ramener la section à l'écran (annule left: -9999) pour que l'impression ne soit pas blanche */
+  .print-section,
+  .carnet-print-section {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 210mm;
+    background: #fff !important;
+    z-index: 9999;
   }
 }

@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'training',
     'reporting',
     'audit',
+    'consultations',
 ]
 
 MIDDLEWARE = [
@@ -47,6 +48,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'sst_platform.middleware.DisableCSRFForAPIMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -101,18 +103,22 @@ if _database_url:
             }
         }
 else:
-    # En local : SQLite par défaut. Pour MySQL, définir USE_MYSQL=True et DB_NAME dans .env
-    _use_mysql = config('USE_MYSQL', default=False, cast=bool)
+    # En local : SQLite par défaut. Pour MySQL : SST_DB_* (priorité) ou USE_MYSQL + DB_*
+    # SST_DB_* évite les conflits avec des variables d'environnement d'autres projets (ex. feedback_db)
+    _sst_db_name = config('SST_DB_NAME', default='').strip()
     _db_name = config('DB_NAME', default='').strip()
-    if _use_mysql and _db_name:
+    _use_mysql = config('USE_MYSQL', default=False, cast=bool)
+    _name = _sst_db_name or _db_name
+    _use_mysql = _use_mysql or bool(_sst_db_name)
+    if _use_mysql and _name:
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.mysql',
-                'NAME': config('DB_NAME', default='sst'),
-                'HOST': config('DB_HOST', default='127.0.0.1'),
-                'PORT': config('DB_PORT', default=3308, cast=int),
-                'USER': config('DB_USER', default='root'),
-                'PASSWORD': config('DB_PASSWORD', default=''),
+                'NAME': _name,
+                'HOST': config('SST_DB_HOST', default='127.0.0.1'),
+                'PORT': config('SST_DB_PORT', default=3306, cast=int),
+                'USER': config('SST_DB_USER', default='root'),
+                'PASSWORD': config('SST_DB_PASSWORD', default=''),
                 'OPTIONS': {'charset': 'utf8mb4'},
             }
         }

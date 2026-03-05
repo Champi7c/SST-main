@@ -40,7 +40,8 @@ class Training(models.Model):
     ]
     
     training_type = models.ForeignKey(TrainingType, on_delete=models.PROTECT, related_name='trainings', verbose_name="Type de formation")
-    agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='trainings', verbose_name="Agent")
+    agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='trainings', null=True, blank=True, verbose_name="Agent")
+    participants_count = models.PositiveIntegerField(default=1, verbose_name="Effectif (nombre de participants)")
     
     # Dates
     start_date = models.DateField(verbose_name="Date de début")

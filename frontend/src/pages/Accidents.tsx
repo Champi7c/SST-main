@@ -1445,7 +1445,6 @@ export default function Accidents() {
           sx={{
             display: 'none',
             width: '210mm',
-            minHeight: '297mm',
             padding: '20mm',
             backgroundColor: '#ffffff',
             '@media print': {
@@ -1467,7 +1466,7 @@ export default function Accidents() {
                 style={{ width: '80px', height: 'auto', maxWidth: '80px' }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement
-                  target.src = `${window.location.origin}/coly.png`
+                  target.style.display = 'none'
                 }}
               />
             </Box>

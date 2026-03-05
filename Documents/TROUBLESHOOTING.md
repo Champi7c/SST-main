@@ -64,15 +64,14 @@ python manage.py makemigrations
 python manage.py migrate
 ```
 
-#### 1b. `seed_data --flush` : "Table 'sst.audit_medicaldataaccess' doesn't exist"
-**Symptôme** : Le flush plante lors de la suppression des agents, avec une erreur sur `audit_medicaldataaccess`.
+#### 1b. Table audit manquante
+**Symptôme** : Erreur sur une table `audit_*` (ex. `audit_medicaldataaccess`).
 
 **Solution** : La commande exécute désormais `migrate` automatiquement avant le flush. Si l’erreur persiste :
 ```bash
 cd backend
 source venv/bin/activate
 python manage.py migrate
-python manage.py seed_data --flush
 ```
 Vérifiez que l’app `audit` possède des migrations (`audit/migrations/0001_initial.py`) et qu’elles sont appliquées.
 

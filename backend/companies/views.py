@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions
+from rest_framework.pagination import PageNumberPagination
 from .models import Company, Site, Service, CompanyMembership, JobPosition
 from .serializers import (
     CompanySerializer, SiteSerializer, ServiceSerializer,
@@ -7,10 +8,18 @@ from .serializers import (
 from accounts.permissions import IsSuperAdminOrAdmin
 
 
+class CompanyPagination(PageNumberPagination):
+    """Retourne toutes les entreprises (liste souvent utilisée dans les filtres)."""
+    page_size = 200
+    page_size_query_param = 'page_size'
+    max_page_size = 500
+
+
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CompanyPagination
     
     def get_permissions(self):
         """

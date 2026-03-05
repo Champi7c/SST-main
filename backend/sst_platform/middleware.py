@@ -1,5 +1,5 @@
 """
-Middleware pour le logging des erreurs
+Middleware pour le logging des erreurs et exemption CSRF API
 """
 import logging
 import traceback
@@ -7,6 +7,20 @@ from django.http import JsonResponse
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+
+class DisableCSRFForAPIMiddleware:
+    """
+    Désactive la vérification CSRF pour les requêtes /api/ (authentification JWT).
+    À placer avant CsrfViewMiddleware.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path.startswith('/api/'):
+            setattr(request, '_dont_enforce_csrf_checks', True)
+        return self.get_response(request)
 
 
 class ErrorLoggingMiddleware:

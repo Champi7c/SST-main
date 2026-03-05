@@ -11,10 +11,15 @@ class TrainingTypeSerializer(serializers.ModelSerializer):
 
 class TrainingSerializer(serializers.ModelSerializer):
     agent_name = serializers.SerializerMethodField()
-    agent_matricule = serializers.CharField(source='agent.matricule', read_only=True)
+    agent_matricule = serializers.SerializerMethodField()
     
     def get_agent_name(self, obj):
-        return f"{obj.agent.last_name} {obj.agent.first_name}"
+        if obj.agent_id:
+            return f"{obj.agent.last_name} {obj.agent.first_name}"
+        return None
+    
+    def get_agent_matricule(self, obj):
+        return obj.agent.matricule if obj.agent_id else None
     training_type_name = serializers.CharField(source='training_type.name', read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, allow_null=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)

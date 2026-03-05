@@ -44,9 +44,10 @@ interface TrainingType {
 
 interface TrainingRecord {
   id: number
-  agent: number
-  agent_name: string
-  agent_matricule: string
+  agent?: number | null
+  agent_name?: string | null
+  agent_matricule?: string | null
+  participants_count: number
   training_type: number
   training_type_name: string
   start_date: string
@@ -144,7 +145,7 @@ export default function Training() {
   })
 
   const [trainingForm, setTrainingForm] = useState({
-    agent: '',
+    participants_count: '1',
     training_type: '',
     start_date: '',
     end_date: '',
@@ -262,7 +263,7 @@ export default function Training() {
   }
 
   const initialTrainingForm = () => ({
-    agent: '',
+    participants_count: '1',
     training_type: '',
     start_date: new Date().toISOString().split('T')[0],
     end_date: '',
@@ -278,7 +279,8 @@ export default function Training() {
   const handleCreateTraining = async () => {
     try {
       await client.post('/training/trainings/', {
-        agent: parseInt(trainingForm.agent),
+        agent: null,
+        participants_count: Math.max(1, parseInt(trainingForm.participants_count, 10) || 1),
         training_type: parseInt(trainingForm.training_type),
         start_date: trainingForm.start_date,
         end_date: trainingForm.end_date || null,
@@ -385,10 +387,9 @@ export default function Training() {
   }
 
   const exportFormationsCsv = () => {
-    const headers = ['Agent', 'Matricule', 'Type de formation', 'Date début', 'Date fin', 'Date rappel', 'Statut', 'Résultat', 'N° certificat', 'Organisme formateur', 'Formateur', 'Notes']
+    const headers = ['Effectif', 'Type de formation', 'Date début', 'Date fin', 'Date rappel', 'Statut', 'Résultat', 'N° certificat', 'Organisme formateur', 'Formateur', 'Notes']
     const rows = trainings.map((t) => [
-      escapeCsv(t.agent_name),
-      escapeCsv(t.agent_matricule),
+      escapeCsv(String(t.participants_count ?? 1)),
       escapeCsv(t.training_type_name),
       escapeCsv(t.start_date ? new Date(t.start_date).toLocaleDateString('fr-FR') : ''),
       escapeCsv(t.end_date ? new Date(t.end_date).toLocaleDateString('fr-FR') : ''),
@@ -566,13 +567,15 @@ export default function Training() {
           <Typography variant="h6" gutterBottom>Ajouter une formation</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Remplissez le formulaire ci-dessous pour enregistrer une nouvelle formation.</Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Effectif *"
-                value={trainingForm.agent}
-                onChange={(e) => setTrainingForm({ ...trainingForm, agent: e.target.value })}
-                placeholder="Numéro (ex. matricule ou ID agent)"
+                label="Effectif (nombre de participants) *"
+                type="number"
+                inputProps={{ min: 1, step: 1 }}
+                value={trainingForm.participants_count}
+                onChange={(e) => setTrainingForm({ ...trainingForm, participants_count: e.target.value || '1' })}
+                placeholder="Ex. 25"
                 required
               />
             </Grid>
@@ -683,7 +686,7 @@ export default function Training() {
                 variant="contained"
                 color="primary"
                 onClick={handleCreateTraining}
-                disabled={!trainingForm.agent || !trainingForm.training_type || !trainingForm.start_date}
+                disabled={!trainingForm.participants_count || !trainingForm.training_type || !trainingForm.start_date}
               >
                 Enregistrer la formation
               </Button>
@@ -793,7 +796,7 @@ export default function Training() {
                   ) : (
                     trainings.map((t) => (
                       <TableRow key={t.id}>
-                        <TableCell>{t.agent_name} ({t.agent_matricule})</TableCell>
+                        <TableCell>{t.participants_count ?? 1}</TableCell>
                         <TableCell>{t.training_type_name}</TableCell>
                         <TableCell>{new Date(t.start_date).toLocaleDateString('fr-FR')}</TableCell>
                         <TableCell>{t.end_date ? new Date(t.end_date).toLocaleDateString('fr-FR') : '–'}</TableCell>
@@ -958,13 +961,15 @@ export default function Training() {
         <DialogTitle>Nouvelle formation</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Effectif *"
-                value={trainingForm.agent}
-                onChange={(e) => setTrainingForm({ ...trainingForm, agent: e.target.value })}
-                placeholder="Numéro (ex. matricule ou ID agent)"
+                label="Effectif (nombre de participants) *"
+                type="number"
+                inputProps={{ min: 1, step: 1 }}
+                value={trainingForm.participants_count}
+                onChange={(e) => setTrainingForm({ ...trainingForm, participants_count: e.target.value || '1' })}
+                placeholder="Ex. 25"
                 required
               />
             </Grid>
@@ -1077,7 +1082,7 @@ export default function Training() {
           <Button
             variant="contained"
             onClick={handleCreateTraining}
-            disabled={!trainingForm.agent || !trainingForm.training_type || !trainingForm.start_date}
+            disabled={!trainingForm.participants_count || !trainingForm.training_type || !trainingForm.start_date}
           >
             Enregistrer
           </Button>

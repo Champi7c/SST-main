@@ -27,8 +27,9 @@ import {
   Card,
   CardContent,
   Divider,
+  IconButton,
 } from '@mui/material'
-import { Add as AddIcon, Person as PersonIcon, Settings as SettingsIcon } from '@mui/icons-material'
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Person as PersonIcon, Settings as SettingsIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -79,6 +80,9 @@ interface Company {
   id: number
   name: string
   siret?: string
+  address?: string
+  phone?: string | null
+  email?: string | null
 }
 interface Site {
   id: number
@@ -126,6 +130,9 @@ export default function Settings() {
   const [openCategoryDialog, setOpenCategoryDialog] = useState(false)
   const [openVisitTypeDialog, setOpenVisitTypeDialog] = useState(false)
   const [openVaccineReqDialog, setOpenVaccineReqDialog] = useState(false)
+  const [openCompanyDialog, setOpenCompanyDialog] = useState(false)
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null)
+  const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const { user, canManageUsers } = useAuth()
 
@@ -138,6 +145,13 @@ export default function Settings() {
     job_position: '',
     risk_category: '',
     mandatory: true,
+  })
+  const [companyForm, setCompanyForm] = useState({
+    name: '',
+    siret: '',
+    address: '',
+    phone: '',
+    email: '',
   })
 
   useEffect(() => {
@@ -329,6 +343,87 @@ export default function Settings() {
       fetchVaccineReqs()
     } catch (err: any) {
       showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
+    }
+  }
+
+  const handleCreateCompany = async () => {
+    const siret = companyForm.siret.replace(/\s/g, '')
+    if (siret.length !== 14) {
+      showSnackbar('Le SIRET doit contenir exactement 14 chiffres', 'error')
+      return
+    }
+    try {
+      await client.post('/companies/companies/', {
+        name: companyForm.name.trim(),
+        siret,
+        address: companyForm.address.trim(),
+        phone: companyForm.phone.trim() || null,
+        email: companyForm.email.trim() || null,
+        is_active: true,
+      })
+      showSnackbar('Entreprise ajoutée', 'success')
+      setOpenCompanyDialog(false)
+      setCompanyForm({ name: '', siret: '', address: '', phone: '', email: '' })
+      fetchCompanies()
+    } catch (err: any) {
+      const msg = err.response?.data
+      const detail = typeof msg === 'string' ? msg : msg?.siret?.[0] || msg?.detail || 'Erreur'
+      showSnackbar(String(detail), 'error')
+    }
+  }
+
+  const openEditCompany = (c: Company) => {
+    setCompanyForm({
+      name: c.name,
+      siret: c.siret || '',
+      address: c.address || '',
+      phone: c.phone || '',
+      email: c.email || '',
+    })
+    setEditingCompany(c)
+    setOpenCompanyDialog(true)
+  }
+
+  const handleUpdateCompany = async () => {
+    if (!editingCompany) return
+    const siret = companyForm.siret.replace(/\s/g, '')
+    if (siret.length !== 14) {
+      showSnackbar('Le SIRET doit contenir exactement 14 chiffres', 'error')
+      return
+    }
+    try {
+      await client.patch(`/companies/companies/${editingCompany.id}/`, {
+        name: companyForm.name.trim(),
+        siret,
+        address: companyForm.address.trim(),
+        phone: companyForm.phone.trim() || null,
+        email: companyForm.email.trim() || null,
+      })
+      showSnackbar('Entreprise modifiée', 'success')
+      setOpenCompanyDialog(false)
+      setEditingCompany(null)
+      setCompanyForm({ name: '', siret: '', address: '', phone: '', email: '' })
+      fetchCompanies()
+    } catch (err: any) {
+      const msg = err.response?.data
+      const detail = typeof msg === 'string' ? msg : msg?.siret?.[0] || msg?.detail || 'Erreur'
+      showSnackbar(String(detail), 'error')
+    }
+  }
+
+  const handleConfirmDeleteCompany = async () => {
+    if (!companyToDelete) return
+    try {
+      await client.delete(`/companies/companies/${companyToDelete.id}/`)
+      showSnackbar('Entreprise supprimée', 'success')
+      setCompanyToDelete(null)
+      fetchCompanies()
+      fetchSites()
+      fetchServices()
+      fetchJobPositions()
+    } catch (err: any) {
+      const detail = err.response?.data?.detail || err.response?.data?.siret?.[0] || 'Erreur'
+      showSnackbar(String(detail), 'error')
     }
   }
 
@@ -573,15 +668,49 @@ export default function Settings() {
             <Typography variant="body2" color="text.secondary" gutterBottom>
               Entreprises, sites, services et postes de travail. Gestion complète via l’admin Django ou les API.
             </Typography>
-            <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>Entreprises</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2, mb: 1 }}>
+              <Typography variant="subtitle1">Entreprises</Typography>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setEditingCompany(null)
+                  setCompanyForm({ name: '', siret: '', address: '', phone: '', email: '' })
+                  setOpenCompanyDialog(true)
+                }}
+              >
+                Ajouter une entreprise
+              </Button>
+            </Box>
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
               <Table size="small">
                 <TableHead>
-                  <TableRow><TableCell>Nom</TableCell><TableCell>SIRET</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell>Nom</TableCell>
+                    <TableCell>SIRET</TableCell>
+                    <TableCell>Adresse</TableCell>
+                    <TableCell>Téléphone</TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
                 </TableHead>
                 <TableBody>
                   {companies.map((c) => (
-                    <TableRow key={c.id}><TableCell>{c.name}</TableCell><TableCell>{c.siret || '–'}</TableCell></TableRow>
+                    <TableRow key={c.id}>
+                      <TableCell>{c.name}</TableCell>
+                      <TableCell>{c.siret || '–'}</TableCell>
+                      <TableCell>{c.address || '–'}</TableCell>
+                      <TableCell>{c.phone || '–'}</TableCell>
+                      <TableCell>{c.email || '–'}</TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" color="primary" onClick={() => openEditCompany(c)} title="Modifier" aria-label="Modifier">
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => setCompanyToDelete(c)} title="Supprimer" aria-label="Supprimer">
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
                   ))}
                 </TableBody>
               </Table>
@@ -806,6 +935,77 @@ export default function Settings() {
             disabled={!vaccineReqForm.vaccine || (!vaccineReqForm.job_position && !vaccineReqForm.risk_category)}
           >
             Créer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openCompanyDialog}
+        onClose={() => { setOpenCompanyDialog(false); setEditingCompany(null) }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{editingCompany ? 'Modifier l\'entreprise' : 'Nouvelle entreprise'}</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Nom de l'entreprise *" value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} required />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="SIRET *"
+                value={companyForm.siret}
+                onChange={(e) => setCompanyForm({ ...companyForm, siret: e.target.value.replace(/\D/g, '') })}
+                inputProps={{ maxLength: 14 }}
+                helperText="14 chiffres"
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Adresse *" value={companyForm.address} onChange={(e) => setCompanyForm({ ...companyForm, address: e.target.value })} multiline rows={2} required />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Téléphone" value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Email" type="email" value={companyForm.email} onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setOpenCompanyDialog(false); setEditingCompany(null) }}>Annuler</Button>
+          {editingCompany ? (
+            <Button
+              variant="contained"
+              onClick={handleUpdateCompany}
+              disabled={!companyForm.name.trim() || companyForm.siret.replace(/\s/g, '').length !== 14 || !companyForm.address.trim()}
+            >
+              Enregistrer
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={handleCreateCompany}
+              disabled={!companyForm.name.trim() || companyForm.siret.replace(/\s/g, '').length !== 14 || !companyForm.address.trim()}
+            >
+              Créer
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!companyToDelete} onClose={() => setCompanyToDelete(null)}>
+        <DialogTitle>Supprimer l&apos;entreprise</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Supprimer l&apos;entreprise &quot;{companyToDelete?.name}&quot; ? Cette action est irréversible (sites, services et postes liés seront également supprimés).
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCompanyToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleConfirmDeleteCompany}>
+            Supprimer
           </Button>
         </DialogActions>
       </Dialog>

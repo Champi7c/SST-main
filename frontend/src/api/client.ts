@@ -45,9 +45,13 @@ client.interceptors.response.use(
   }
 )
 
-/** Retourne un message d'erreur lisible à partir d'une erreur API (400, etc.). */
+/** Retourne un message d'erreur lisible à partir d'une erreur API (400, 403, etc.). */
 export function getApiErrorMessage(error: any): string {
+  const status = error?.response?.status
   const d = error?.response?.data
+  if (status === 403 && (!d?.detail || typeof d.detail !== 'string')) {
+    return "Vous n'avez pas les droits pour effectuer cette action."
+  }
   if (!d) return error?.message || 'Erreur lors de la requête'
   if (typeof d.detail === 'string') return d.detail
   if (typeof d.detail === 'object' && d.detail !== null) {

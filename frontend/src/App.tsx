@@ -6,11 +6,14 @@ import Dashboard from './pages/Dashboard'
 import Agents from './pages/Agents'
 import DMST from './pages/DMST'
 import Visits from './pages/Visits'
+import VisitDetail from './pages/VisitDetail'
 import Accidents from './pages/Accidents'
 import Vaccination from './pages/Vaccination'
 import Prevention from './pages/Prevention'
 import Training from './pages/Training'
 import Reporting from './pages/Reporting'
+import ConsultationEnLigne from './pages/ConsultationEnLigne'
+import ConsultationRoom from './pages/ConsultationRoom'
 import Settings from './pages/Settings'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -39,11 +42,14 @@ function App() {
         <Route path="agents" element={<Agents />} />
         <Route path="dmst/:agentId" element={<DMST />} />
         <Route path="visits" element={<Visits />} />
+        <Route path="visits/:id" element={<VisitDetail />} />
         <Route path="accidents" element={<Accidents />} />
         <Route path="vaccination" element={<Vaccination />} />
         <Route path="prevention" element={<Prevention />} />
         <Route path="training" element={<Training />} />
         <Route path="reporting" element={<Reporting />} />
+        <Route path="consultation-en-ligne" element={<ConsultationEnLigne />} />
+        <Route path="consultation-en-ligne/room/:meetingId" element={<ConsultationRoom />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>

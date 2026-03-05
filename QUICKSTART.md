@@ -27,10 +27,10 @@ pip install -r requirements.txt
 
 # Créer le fichier .env (copier depuis .env.example)
 # Modifier SECRET_KEY avec une clé sécurisée
-# Pour MySQL (sst, port 3308) : renseigner DB_NAME, DB_USER, DB_PASSWORD dans .env,
-# puis : pip install PyMySQL && python manage.py migrate
+# MySQL (base sst_coly, port 3306) : .env est déjà configuré avec USE_MYSQL=True, DB_NAME=sst_coly.
+# Vérifier que MySQL/phpMyAdmin tourne sur le port 3306, puis :
 
-# Appliquer les migrations
+# Appliquer les migrations (crée les tables dans sst_coly)
 python manage.py migrate
 
 # Créer un super utilisateur
@@ -60,31 +60,16 @@ Le frontend sera accessible sur http://localhost:3000
 ## 🔑 Première connexion
 
 1. Ouvrir http://localhost:3000
-2. **Compte démo** (prérempli) : `demo` / `demo1234` — ou créer un superuser puis l'utiliser
-3. Pour créer/réinitialiser le compte démo seul : `python manage.py create_demo_user`
-4. **Mode démo sans backend** : cliquer sur « Voir la démo (sans backend) » pour explorer l'interface sans configurer la base de données ni le backend (données fictives)
-5. Le tableau de bord s'affichera
+2. Se connecter avec le compte créé via `python manage.py createsuperuser`
+3. Le tableau de bord s'affichera
 
-## 📝 Création de données de test
+## 📝 Données et contenu
 
-### Insérer >20 enregistrements par rubrique (démo)
+Les données (entreprises, agents, visites, etc.) se créent via l’interface (http://localhost:3000) ou l’admin Django (http://localhost:8000/admin). Aucune commande de données de test n’est fournie.
 
-Après avoir créé un **superuser** (`create_admin` ou `createsuperuser`) :
+Pour supprimer toutes les données fictives en gardant les utilisateurs : `python manage.py flush_fake_data` (répondre `oui` pour confirmer).
 
-```bash
-cd backend
-source venv/bin/activate   # ou venv\Scripts\activate sur Windows
-python manage.py seed_data
-```
-
-Cela crée des **entreprises**, **sites**, **services**, **postes**, **agents**, **visites médicales**, **accidents de travail**, **maladies professionnelles**, **vaccinations**, **surveillances**, **risques**, **actions préventives**, **FIE/FIR**, **formations**, **articles éducatifs**, etc. (au moins 20 par rubrique).  
-**Pour supprimer les anciennes données puis tout réinsérer** (entreprises, noms et prénoms sénégalais, etc.) :
-
-```bash
-python manage.py seed_data --flush
-```
-
-Utilisez `--force` pour ajouter même si des données existent déjà (sans supprimer).
+Pour importer la liste des entreprises (EIFFAGE, CRBC, CDE, etc.) : `python manage.py load_entreprises`. Option `--force` pour mettre à jour téléphone/email/adresse des entreprises déjà présentes.
 
 ### Créer une entreprise
 
