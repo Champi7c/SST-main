@@ -100,7 +100,10 @@ export default function Layout() {
           <ListItem key={item.text} disablePadding>
             <ListItemButton
               selected={location.pathname === item.path}
-              onClick={() => navigate(item.path)}
+              onClick={() => {
+                navigate(item.path)
+                setMobileOpen(false)
+              }}
             >
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.text} />
@@ -156,11 +159,11 @@ export default function Layout() {
               <MedicalServicesIcon sx={{ fontSize: 28 }} />
             )}
           </Box>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
             {menuItems.find(item => item.path === location.pathname)?.text || 'Plateforme SST'}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="body2">{user?.full_name}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 2 } }}>
+            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>{user?.full_name}</Typography>
             <IconButton onClick={handleMenuClick} size="small">
               <Avatar sx={{ width: 32, height: 32 }}>
                 {user?.first_name?.[0]}{user?.last_name?.[0]}
@@ -214,8 +217,10 @@ export default function Layout() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 1.5, sm: 3 },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
+          minWidth: 0,
+          overflowX: 'hidden',
         }}
       >
         <Toolbar />

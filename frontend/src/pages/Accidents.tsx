@@ -1178,7 +1178,7 @@ export default function Accidents() {
               )}
               {viewingDisease.return_delay != null && (
                 <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2" color="text.secondary">Délai de reprise</Typography>
+                  <Typography variant="subtitle2" color="text.secondary">Durée d'absence</Typography>
                   <Typography variant="body1">{viewingDisease.return_delay} jour(s)</Typography>
                 </Grid>
               )}
@@ -1329,11 +1329,11 @@ export default function Accidents() {
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Délai de reprise</InputLabel>
+                <InputLabel>Durée d'absence (jours)</InputLabel>
                 <Select
                   value={diseaseFormData.return_delay || ''}
                   onChange={(e) => setDiseaseFormData({ ...diseaseFormData, return_delay: e.target.value })}
-                  label="Délai de reprise"
+                  label="Durée d'absence (jours)"
                 >
                   <MenuItem value="">—</MenuItem>
                   {Array.from({ length: 101 }, (_, i) => i).map((n) => (
@@ -1544,54 +1544,126 @@ export default function Accidents() {
 
           {(openViewDiseaseDialog && viewingDisease) && (
             <Box sx={{ mt: 3 }}>
-              <Typography variant="h6" fontWeight="bold" gutterBottom>Identification</Typography>
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={6}><Typography><strong>Agent :</strong> {viewingDisease.agent_name} ({viewingDisease.agent_matricule})</Typography></Grid>
-                <Grid item xs={6}><Typography><strong>Type :</strong> {viewingDisease.disease_type_display || '-'}</Typography></Grid>
-                <Grid item xs={12}><Typography><strong>Désignation maladie :</strong> {viewingDisease.disease_name}</Typography></Grid>
-                <Grid item xs={6}><Typography><strong>Numéro de tableau :</strong> {viewingDisease.table_number ?? '-'}</Typography></Grid>
-                <Grid item xs={6}><Typography><strong>Statut :</strong> {viewingDisease.status_display}</Typography></Grid>
-                <Grid item xs={6}><Typography><strong>Premiers symptômes :</strong> {new Date(viewingDisease.first_symptoms_date).toLocaleDateString('fr-FR')}</Typography></Grid>
-                {viewingDisease.diagnosis_date && (
-                  <Grid item xs={6}><Typography><strong>Diagnostic :</strong> {new Date(viewingDisease.diagnosis_date).toLocaleDateString('fr-FR')}</Typography></Grid>
-                )}
-                {viewingDisease.return_delay != null && (
-                  <Grid item xs={6}><Typography><strong>Délai de reprise :</strong> {viewingDisease.return_delay} jour(s)</Typography></Grid>
-                )}
-                {(viewingDisease.exposure_start_date || viewingDisease.exposure_end_date) && (
-                  <Grid item xs={6}>
-                    <Typography><strong>Exposition :</strong> {viewingDisease.exposure_start_date ? new Date(viewingDisease.exposure_start_date).toLocaleDateString('fr-FR') : '?'}
-                    {' — '}
-                    {viewingDisease.exposure_end_date ? new Date(viewingDisease.exposure_end_date).toLocaleDateString('fr-FR') : '?'}
-                    {viewingDisease.exposure_duration_days != null ? ` (${viewingDisease.exposure_duration_days} j)` : ''}</Typography>
-                  </Grid>
-                )}
-              </Grid>
-              {viewingDisease.exposure_factors && (
-                <>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Facteurs d'exposition</Typography>
-                  <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{viewingDisease.exposure_factors}</Typography>
-                </>
-              )}
-              {viewingDisease.medical_follow_up && (
-                <>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Suivi médical</Typography>
-                  <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{viewingDisease.medical_follow_up}</Typography>
-                </>
-              )}
-              {viewingDisease.treatment && (
-                <>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Traitement</Typography>
-                  <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{viewingDisease.treatment}</Typography>
-                </>
-              )}
-              {(viewingDisease.recognition_date || viewingDisease.recognition_number) && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>1) Identification</Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={6}><Typography><strong>Date de reconnaissance :</strong> {viewingDisease.recognition_date ? new Date(viewingDisease.recognition_date).toLocaleDateString('fr-FR') : '-'}</Typography></Grid>
-                  <Grid item xs={6}><Typography><strong>Numéro de reconnaissance :</strong> {viewingDisease.recognition_number || '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography><strong>Agent :</strong> {viewingDisease.agent_name} ({viewingDisease.agent_matricule})</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography><strong>Entreprise :</strong> {viewingDisease.agent_company || '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography><strong>Type :</strong> {viewingDisease.disease_type_display || '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography><strong>Statut :</strong> {viewingDisease.status_display || '-'}</Typography>
+                  </Grid>
+                  {viewingDisease.declared_by_name && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography><strong>Déclarée par :</strong> {viewingDisease.declared_by_name}</Typography>
+                    </Grid>
+                  )}
                 </Grid>
-              )}
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>2) Maladie</Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Typography><strong>Désignation :</strong> {viewingDisease.disease_name || '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography><strong>N° de tableau :</strong> {viewingDisease.table_number ?? '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography><strong>Premiers symptômes :</strong> {viewingDisease.first_symptoms_date ? new Date(viewingDisease.first_symptoms_date).toLocaleDateString('fr-FR') : '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography><strong>Date de diagnostic :</strong> {viewingDisease.diagnosis_date ? new Date(viewingDisease.diagnosis_date).toLocaleDateString('fr-FR') : '-'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography><strong>Durée d'absence :</strong> {viewingDisease.return_delay != null ? `${viewingDisease.return_delay} jour(s)` : '-'}</Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>3) Exposition</Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Début :</strong>{' '}
+                      {viewingDisease.exposure_start_date ? new Date(viewingDisease.exposure_start_date).toLocaleDateString('fr-FR') : '-'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Fin :</strong>{' '}
+                      {viewingDisease.exposure_end_date ? new Date(viewingDisease.exposure_end_date).toLocaleDateString('fr-FR') : '-'}
+                      {viewingDisease.exposure_duration_days != null ? ` (${viewingDisease.exposure_duration_days} j)` : ''}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ mt: 1 }}>
+                      Facteurs d'exposition
+                    </Typography>
+                    <Box
+                      sx={{
+                        border: '1px solid #e0e0e0',
+                        borderRadius: 1,
+                        p: 2,
+                        minHeight: '48px',
+                      }}
+                    >
+                      <Typography sx={{ whiteSpace: 'pre-wrap' }}>
+                        {viewingDisease.exposure_factors || '—'}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>4) Suivi / Traitement</Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Suivi médical</Typography>
+                    <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2, minHeight: '48px' }}>
+                      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{viewingDisease.medical_follow_up || '—'}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Traitement</Typography>
+                    <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2, minHeight: '48px' }}>
+                      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{viewingDisease.treatment || '—'}</Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>5) Reconnaissance</Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Date de reconnaissance :</strong>{' '}
+                      {viewingDisease.recognition_date ? new Date(viewingDisease.recognition_date).toLocaleDateString('fr-FR') : '-'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography><strong>N° de reconnaissance :</strong> {viewingDisease.recognition_number || '-'}</Typography>
+                  </Grid>
+                </Grid>
+              </Box>
             </Box>
           )}
 

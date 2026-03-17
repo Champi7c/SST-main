@@ -20,6 +20,32 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
+          minHeight: 44,
+          '@media (min-width: 600px)': { minHeight: 36 },
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          minWidth: 44,
+          minHeight: 44,
+          '@media (min-width: 600px)': { minWidth: 40, minHeight: 40 },
+        },
+      },
+    },
+    MuiTableContainer: {
+      styleOverrides: {
+        root: {
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          '@media (max-width: 600px)': { paddingLeft: 12, paddingRight: 12, fontSize: '0.8125rem' },
         },
       },
     },

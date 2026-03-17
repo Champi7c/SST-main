@@ -12,6 +12,33 @@
   .print-section * {
     visibility: visible !important;
   }
+  /* Par défaut : masquer les sections ordonnance et demande d'examen (fiche seule visible) */
+  body:not([data-print]) #print-section-ordonnance,
+  body:not([data-print]) #print-section-examen {
+    visibility: hidden !important;
+  }
+  body:not([data-print]) #print-section-ordonnance *,
+  body:not([data-print]) #print-section-examen * {
+    visibility: hidden !important;
+  }
+  /* Imprimer uniquement l'ordonnance */
+  body[data-print="ordonnance"] #print-section,
+  body[data-print="ordonnance"] #print-section-examen {
+    visibility: hidden !important;
+  }
+  body[data-print="ordonnance"] #print-section *,
+  body[data-print="ordonnance"] #print-section-examen * {
+    visibility: hidden !important;
+  }
+  /* Imprimer uniquement la demande d'examen */
+  body[data-print="examen"] #print-section,
+  body[data-print="examen"] #print-section-ordonnance {
+    visibility: hidden !important;
+  }
+  body[data-print="examen"] #print-section *,
+  body[data-print="examen"] #print-section-ordonnance * {
+    visibility: hidden !important;
+  }
   /* Ramener la section à l'écran (annule left: -9999) pour que l'impression ne soit pas blanche */
   .print-section,
   .carnet-print-section {

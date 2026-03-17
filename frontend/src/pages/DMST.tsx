@@ -31,7 +31,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material'
-import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon } from '@mui/icons-material'
+import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon } from '@mui/icons-material'
 import client, { getApiErrorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { jsPDF } from 'jspdf'
@@ -251,7 +251,7 @@ export default function DMST() {
   }, [agentId, hasMedicalAccess])
 
   useEffect(() => {
-    if (dmst && tabValue === 1) {
+    if (dmst && tabValue === 3) {
       fetchVisits()
     }
   }, [dmst, tabValue])
@@ -459,7 +459,148 @@ export default function DMST() {
   }
 
   const handlePrint = () => {
+    document.body.removeAttribute('data-print')
     window.print()
+  }
+
+  const handlePrintOrdonnance = () => {
+    document.body.setAttribute('data-print', 'ordonnance')
+    window.print()
+    setTimeout(() => document.body.removeAttribute('data-print'), 500)
+  }
+
+  const handlePrintExamen = () => {
+    document.body.setAttribute('data-print', 'examen')
+    window.print()
+    setTimeout(() => document.body.removeAttribute('data-print'), 500)
+  }
+
+  const exportSectionToPDF = async (sectionId: string, fileName: string) => {
+    const printSection = document.getElementById(sectionId)
+    if (!printSection) {
+      showSnackbar(`Section d'impression introuvable`, 'error')
+      return
+    }
+    const mmToPx = 3.779527559
+    const widthPx = 210 * mmToPx
+    const paddingPx = 20 * mmToPx
+    const orig = {
+      display: window.getComputedStyle(printSection).display,
+      position: window.getComputedStyle(printSection).position,
+      left: window.getComputedStyle(printSection).left,
+      top: window.getComputedStyle(printSection).top,
+      width: window.getComputedStyle(printSection).width,
+      zIndex: window.getComputedStyle(printSection).zIndex,
+    }
+    printSection.style.display = 'block'
+    printSection.style.position = 'fixed'
+    printSection.style.left = '0'
+    printSection.style.top = '0'
+    printSection.style.width = `${widthPx}px`
+    printSection.style.minWidth = `${widthPx}px`
+    printSection.style.maxWidth = `${widthPx}px`
+    printSection.style.padding = `${paddingPx}px`
+    printSection.style.margin = '0'
+    printSection.style.zIndex = '9999'
+    printSection.style.backgroundColor = '#ffffff'
+    printSection.style.boxSizing = 'border-box'
+    await new Promise((r) => setTimeout(r, 100))
+    const images = printSection.querySelectorAll('img')
+    if (images.length > 0) {
+      await Promise.all(
+        Array.from(images).map((img: Element) => {
+          const i = img as HTMLImageElement
+          if (i.complete && i.naturalHeight !== 0) return Promise.resolve()
+          return new Promise((resolve) => {
+            i.onload = () => resolve(null)
+            i.onerror = () => resolve(null)
+            setTimeout(() => resolve(null), 3000)
+          })
+        })
+      )
+    }
+    await new Promise((r) => setTimeout(r, 300))
+    const canvas = await html2canvas(printSection, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      width: printSection.offsetWidth,
+      height: printSection.scrollHeight,
+      allowTaint: false,
+      onclone: (clonedDoc) => {
+        const cloned = clonedDoc.getElementById(sectionId)
+        if (cloned) {
+          cloned.style.display = 'block'
+          cloned.style.visibility = 'visible'
+          cloned.style.width = `${widthPx}px`
+          cloned.style.padding = `${paddingPx}px`
+          cloned.style.backgroundColor = '#ffffff'
+        }
+      },
+    })
+    printSection.style.display = orig.display
+    printSection.style.position = orig.position
+    printSection.style.left = orig.left
+    printSection.style.top = orig.top
+    printSection.style.width = orig.width
+    printSection.style.zIndex = orig.zIndex
+    const imgData = canvas.toDataURL('image/png', 1.0)
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = pdf.internal.pageSize.getHeight()
+    const actualWidthPx = widthPx * 2
+    const pxToMm = pdfWidth / actualWidthPx
+    const imgHeightMm = (canvas.height * pxToMm)
+    if (imgHeightMm <= pdfHeight) {
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeightMm, undefined, 'FAST')
+    } else {
+      let remaining = imgHeightMm
+      let sourceY = 0
+      while (remaining > 0) {
+        const pageH = Math.min(pdfHeight, remaining)
+        const sourceH = (pageH / imgHeightMm) * canvas.height
+        const pageCanvas = document.createElement('canvas')
+        pageCanvas.width = canvas.width
+        pageCanvas.height = Math.ceil(sourceH)
+        const ctx = pageCanvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(canvas, 0, sourceY, canvas.width, sourceH, 0, 0, canvas.width, sourceH)
+          pdf.addImage(pageCanvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, pdfWidth, pageH, undefined, 'FAST')
+        }
+        sourceY += sourceH
+        remaining -= pageH
+        if (remaining > 0) pdf.addPage()
+      }
+    }
+    pdf.save(fileName)
+    showSnackbar('PDF exporté avec succès', 'success')
+  }
+
+  const handleExportPDFOrdonnance = async () => {
+    if (!dmst) return
+    try {
+      showSnackbar('Génération du PDF en cours...', 'success')
+      await exportSectionToPDF(
+        'print-section-ordonnance',
+        `ordonnance_${dmst.agent_matricule}_${new Date().toISOString().split('T')[0]}.pdf`
+      )
+    } catch (e) {
+      showSnackbar(`Erreur PDF: ${e instanceof Error ? e.message : 'Erreur'}`, 'error')
+    }
+  }
+
+  const handleExportPDFExamen = async () => {
+    if (!dmst) return
+    try {
+      showSnackbar('Génération du PDF en cours...', 'success')
+      await exportSectionToPDF(
+        'print-section-examen',
+        `demande_examen_${dmst.agent_matricule}_${new Date().toISOString().split('T')[0]}.pdf`
+      )
+    } catch (e) {
+      showSnackbar(`Erreur PDF: ${e instanceof Error ? e.message : 'Erreur'}`, 'error')
+    }
   }
 
   const handleExportPDF = async () => {
@@ -779,12 +920,42 @@ export default function DMST() {
                 <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ mr: 1 }}>
                   {tabValue === 0 ? 'Remplir la fiche' : 'Modifier'}
                 </Button>
-                <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ mr: 1 }}>
-                  Imprimer
-                </Button>
-                <Button variant="outlined" startIcon={<PdfIcon />} onClick={handleExportPDF} color="error">
-                  Exporter PDF
-                </Button>
+                {tabValue === 0 && (
+                  <>
+                    <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ mr: 1 }}>
+                      Imprimer
+                    </Button>
+                    <Button variant="outlined" startIcon={<PdfIcon />} onClick={handleExportPDF} color="error">
+                      Exporter PDF
+                    </Button>
+                  </>
+                )}
+                {tabValue === 1 && (
+                  <>
+                    <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ mr: 1 }}>
+                      Modifier
+                    </Button>
+                    <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintOrdonnance} sx={{ mr: 1 }}>
+                      Imprimer l'ordonnance
+                    </Button>
+                    <Button variant="outlined" startIcon={<PdfIcon />} onClick={handleExportPDFOrdonnance} color="error">
+                      Exporter PDF
+                    </Button>
+                  </>
+                )}
+                {tabValue === 2 && (
+                  <>
+                    <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ mr: 1 }}>
+                      Modifier
+                    </Button>
+                    <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintExamen} sx={{ mr: 1 }}>
+                      Imprimer la demande
+                    </Button>
+                    <Button variant="outlined" startIcon={<PdfIcon />} onClick={handleExportPDFExamen} color="error">
+                      Exporter PDF
+                    </Button>
+                  </>
+                )}
               </>
             )}
           </Box>
@@ -794,6 +965,8 @@ export default function DMST() {
       <Paper>
         <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
           <Tab label="Fiche d'observation" icon={<MedicalServicesIcon />} iconPosition="start" />
+          <Tab label="Ordonnance" icon={<DescriptionIcon />} iconPosition="start" />
+          <Tab label="Demande d'examen" icon={<ScienceIcon />} iconPosition="start" />
           <Tab label={`Visites (${dmst.visits_count})`} icon={<MedicalServicesIcon />} iconPosition="start" />
         </Tabs>
 
@@ -1223,7 +1396,150 @@ export default function DMST() {
           </Grid>
         </TabPanel>
 
+        {/* Onglet Ordonnance */}
         <TabPanel value={tabValue} index={1}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom>
+                ORDONNANCE MÉDICALE
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date"
+                type="date"
+                value={getObs('ordonnance_date') || formData.observation_date || ''}
+                onChange={(e) => setObs('ordonnance_date', e.target.value)}
+                disabled={!editMode}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Médecin"
+                value={getObs('ordonnance_medecin') || formData.observer_name || ''}
+                onChange={(e) => setObs('ordonnance_medecin', e.target.value)}
+                disabled={!editMode}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Médicaments prescrits"
+                multiline
+                rows={6}
+                placeholder="Liste des médicaments avec posologie (ex : Paracétamol 1000mg - 3×/j pendant 5 jours)"
+                value={getObs('ordonnance_medicaments')}
+                onChange={(e) => setObs('ordonnance_medicaments', e.target.value)}
+                disabled={!editMode}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Instructions particulières"
+                multiline
+                rows={3}
+                value={getObs('ordonnance_instructions')}
+                onChange={(e) => setObs('ordonnance_instructions', e.target.value)}
+                disabled={!editMode}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Suivi recommandé"
+                multiline
+                rows={2}
+                value={getObs('ordonnance_suivi')}
+                onChange={(e) => setObs('ordonnance_suivi', e.target.value)}
+                disabled={!editMode}
+              />
+            </Grid>
+          </Grid>
+        </TabPanel>
+
+        {/* Onglet Demande d'examen */}
+        <TabPanel value={tabValue} index={2}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom>
+                DEMANDE D'EXAMEN MÉDICAL
+              </Typography>
+              <Divider sx={{ mb: 3 }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date"
+                type="date"
+                value={getObs('examen_date') || formData.observation_date || ''}
+                onChange={(e) => setObs('examen_date', e.target.value)}
+                disabled={!editMode}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Médecin demandeur"
+                value={getObs('examen_medecin') || formData.observer_name || ''}
+                onChange={(e) => setObs('examen_medecin', e.target.value)}
+                disabled={!editMode}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Types d'examens demandés :</Typography>
+              <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
+                <FormControlLabel control={<Checkbox checked={getObsBool('examen_biologie')} onChange={(e) => setObs('examen_biologie', e.target.checked)} disabled={!editMode} />} label="Biologie / Analyses de sang" />
+                <FormControlLabel control={<Checkbox checked={getObsBool('examen_radiologie')} onChange={(e) => setObs('examen_radiologie', e.target.checked)} disabled={!editMode} />} label="Radiologie" />
+                <FormControlLabel control={<Checkbox checked={getObsBool('examen_ecg')} onChange={(e) => setObs('examen_ecg', e.target.checked)} disabled={!editMode} />} label="ECG" />
+                <FormControlLabel control={<Checkbox checked={getObsBool('examen_spiro')} onChange={(e) => setObs('examen_spiro', e.target.checked)} disabled={!editMode} />} label="Spirométrie" />
+                <FormControlLabel control={<Checkbox checked={getObsBool('examen_audiometrie')} onChange={(e) => setObs('examen_audiometrie', e.target.checked)} disabled={!editMode} />} label="Audiométrie" />
+                <FormControlLabel control={<Checkbox checked={getObsBool('examen_acuite')} onChange={(e) => setObs('examen_acuite', e.target.checked)} disabled={!editMode} />} label="Acuité visuelle" />
+              </Box>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Examens spécifiques demandés"
+                multiline
+                rows={3}
+                placeholder="Décrire les examens demandés (ex : NFS, bilan hépatique, radiographie thoracique)"
+                value={getObs('examen_specifique')}
+                onChange={(e) => setObs('examen_specifique', e.target.value)}
+                disabled={!editMode}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Motif de la demande"
+                multiline
+                rows={3}
+                value={getObs('examen_motif')}
+                onChange={(e) => setObs('examen_motif', e.target.value)}
+                disabled={!editMode}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Observations cliniques"
+                multiline
+                rows={2}
+                value={getObs('examen_observations')}
+                onChange={(e) => setObs('examen_observations', e.target.value)}
+                disabled={!editMode}
+              />
+            </Grid>
+          </Grid>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={3}>
           <Box display="flex" justifyContent="flex-end" mb={2}>
             <Button
               variant="contained"
@@ -1500,6 +1816,132 @@ export default function DMST() {
                 <Typography variant="body2">{formData.observer_name || ''}</Typography>
                 <Box sx={{ mt: 2, height: '40px', borderBottom: '1px solid #000', width: '200px', mx: 'auto' }} />
               </Box>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Section d'impression Ordonnance (logo + même style que les autres) */}
+      <Box
+        id="print-section-ordonnance"
+        className="print-section"
+        sx={{
+          display: 'none',
+          width: '210mm',
+          padding: '20mm',
+          backgroundColor: '#ffffff',
+          '@media print': {
+            display: 'block !important',
+            padding: '20mm',
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: '100%',
+            zIndex: 9999,
+          },
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ flex: '0 0 80px', mr: 2, display: 'flex', alignItems: 'center' }}>
+            <img src="/coly.png" alt="Logo" style={{ width: '80px', height: 'auto', maxWidth: '80px' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+          </Box>
+          <Box sx={{ flex: 1, backgroundColor: '#0D47A1', color: 'white', padding: '10px 20px', textAlign: 'center', fontWeight: 'bold', fontSize: '16px', borderRadius: '50px', minHeight: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            ORDONNANCE MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL
+          </Box>
+          <Box sx={{ flex: '0 0 140px', textAlign: 'right', ml: 2 }}>
+            <Typography variant="body2">Fait à Dakar, le {getObs('ordonnance_date') || formData.observation_date ? new Date(String(getObs('ordonnance_date') || formData.observation_date)).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}</Typography>
+            <Typography variant="body2">Médecin : {getObs('ordonnance_medecin') || formData.observer_name || ''}</Typography>
+          </Box>
+        </Box>
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Patient</Typography>
+          <Typography variant="body2" sx={{ mb: 2 }}><strong>Nom et prénoms :</strong> {dmst.agent_name} — <strong>Matricule :</strong> {dmst.agent_matricule}</Typography>
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Médicaments prescrits</Typography>
+          <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('ordonnance_medicaments') || '—'}</Typography>
+          {getObs('ordonnance_instructions') && (
+            <>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Instructions particulières</Typography>
+              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('ordonnance_instructions')}</Typography>
+            </>
+          )}
+          {getObs('ordonnance_suivi') && (
+            <>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Suivi recommandé</Typography>
+              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('ordonnance_suivi')}</Typography>
+            </>
+          )}
+          <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #ccc', display: 'flex', justifyContent: 'flex-end' }}>
+            <Box sx={{ textAlign: 'right', minWidth: '250px' }}>
+              <Typography variant="body2" sx={{ mb: 1 }}><strong>Le médecin du travail — Signature et cachet</strong></Typography>
+              <Typography variant="body2">{getObs('ordonnance_medecin') || formData.observer_name || ''}</Typography>
+              <Box sx={{ mt: 2, height: '40px', borderBottom: '1px solid #000', width: '200px', mx: 'auto' }} />
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Section d'impression Demande d'examen (logo + même style) */}
+      <Box
+        id="print-section-examen"
+        className="print-section"
+        sx={{
+          display: 'none',
+          width: '210mm',
+          padding: '20mm',
+          backgroundColor: '#ffffff',
+          '@media print': {
+            display: 'block !important',
+            padding: '20mm',
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: '100%',
+            zIndex: 9999,
+          },
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ flex: '0 0 80px', mr: 2, display: 'flex', alignItems: 'center' }}>
+            <img src="/coly.png" alt="Logo" style={{ width: '80px', height: 'auto', maxWidth: '80px' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+          </Box>
+          <Box sx={{ flex: 1, backgroundColor: '#0D47A1', color: 'white', padding: '10px 20px', textAlign: 'center', fontWeight: 'bold', fontSize: '16px', borderRadius: '50px', minHeight: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            DEMANDE D'EXAMEN MÉDICAL — SERVICE DE SANTÉ AU TRAVAIL
+          </Box>
+          <Box sx={{ flex: '0 0 140px', textAlign: 'right', ml: 2 }}>
+            <Typography variant="body2">Date : {getObs('examen_date') || formData.observation_date ? new Date(String(getObs('examen_date') || formData.observation_date)).toLocaleDateString('fr-FR') : ''}</Typography>
+            <Typography variant="body2">Médecin : {getObs('examen_medecin') || formData.observer_name || ''}</Typography>
+          </Box>
+        </Box>
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Patient</Typography>
+          <Typography variant="body2" sx={{ mb: 2 }}><strong>Nom et prénoms :</strong> {dmst.agent_name} — <strong>Matricule :</strong> {dmst.agent_matricule}</Typography>
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Types d'examens demandés</Typography>
+          <Typography variant="body2" sx={{ mb: 2 }}>{[obs.examen_biologie && 'Biologie / Analyses de sang', obs.examen_radiologie && 'Radiologie', obs.examen_ecg && 'ECG', obs.examen_spiro && 'Spirométrie', obs.examen_audiometrie && 'Audiométrie', obs.examen_acuite && 'Acuité visuelle'].filter(Boolean).join(' ; ') || '—'}</Typography>
+          {getObs('examen_specifique') && (
+            <>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Examens spécifiques</Typography>
+              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('examen_specifique')}</Typography>
+            </>
+          )}
+          {getObs('examen_motif') && (
+            <>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Motif de la demande</Typography>
+              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('examen_motif')}</Typography>
+            </>
+          )}
+          {getObs('examen_observations') && (
+            <>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Observations cliniques</Typography>
+              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('examen_observations')}</Typography>
+            </>
+          )}
+          <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #ccc', display: 'flex', justifyContent: 'flex-end' }}>
+            <Box sx={{ textAlign: 'right', minWidth: '250px' }}>
+              <Typography variant="body2" sx={{ mb: 1 }}><strong>Le médecin du travail — Signature et cachet</strong></Typography>
+              <Typography variant="body2">{getObs('examen_medecin') || formData.observer_name || ''}</Typography>
+              <Box sx={{ mt: 2, height: '40px', borderBottom: '1px solid #000', width: '200px', mx: 'auto' }} />
             </Box>
           </Box>
         </Box>

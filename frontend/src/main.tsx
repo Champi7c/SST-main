@@ -7,6 +7,7 @@ import App from './App'
 import theme from './theme'
 import { AuthProvider } from './contexts/AuthContext'
 import './print.css'
+import './mobile.css'
 
 const queryClient = new QueryClient()
 

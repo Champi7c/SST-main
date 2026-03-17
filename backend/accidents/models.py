@@ -149,11 +149,11 @@ class OccupationalDisease(models.Model):
     # Statut
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='declared', verbose_name="Statut")
     
-    # Délai de reprise (0-100)
+    # Durée d'absence en jours (0-100)
     return_delay = models.IntegerField(
         blank=True, null=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
-        verbose_name="Délai de reprise"
+        verbose_name="Durée d'absence (jours)"
     )
     
     # Durée d'exposition (deux dates, la durée est calculée)
