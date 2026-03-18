@@ -28,8 +28,9 @@ import {
   Select,
   Card,
   CardContent,
+  Divider,
 } from '@mui/material'
-import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon, Download as DownloadIcon, Upload as UploadIcon } from '@mui/icons-material'
+import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon, Download as DownloadIcon, Upload as UploadIcon, Print as PrintIcon, WorkspacePremium as CertIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -136,6 +137,11 @@ export default function Training() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [importLoading, setImportLoading] = useState(false)
   const importFileInputRef = useRef<HTMLInputElement>(null)
+  const [certDialog, setCertDialog] = useState<{ open: boolean; training: TrainingRecord | null; participantName: string }>({ open: false, training: null, participantName: '' })
+  const emptyCertForm = { formationName: '', dateDebut: '', dateFin: '', organisation: '', formateur: '', certificatNo: '', resultat: '', validiteDate: '' }
+  const [newCertDialog, setNewCertDialog] = useState(false)
+  const [newCertForm, setNewCertForm] = useState(emptyCertForm)
+  const [newCertParticipant, setNewCertParticipant] = useState('')
   const { user, canManageUsers } = useAuth()
   const [requirementForm, setRequirementForm] = useState({
     company: '',
@@ -432,6 +438,182 @@ export default function Training() {
     showSnackbar('Export des cours téléchargé', 'success')
   }
 
+  const handlePrintCertificate = (training: TrainingRecord, participantName: string) => {
+    const isPro = true
+    const dateDebut = training.start_date ? new Date(training.start_date).toLocaleDateString('fr-FR') : '–'
+    const dateFin = training.end_date ? new Date(training.end_date).toLocaleDateString('fr-FR') : dateDebut
+    const logoOrigin = window.location.origin
+
+    const proHeader = isPro ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <img src="${logoOrigin}/coly.png" alt="Logo" style="height:80px;object-fit:contain;" />
+        <div style="text-align:right;font-size:12px;color:#555;">
+          <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
+          <div>Département Hygiène, Sécurité et Environnement</div>
+        </div>
+      </div>
+      <hr style="border:none;border-top:2px solid #1976d2;margin-bottom:28px;" />
+    ` : ''
+
+    const accentColor = isPro ? '#1976d2' : '#333'
+    const borderStyle = isPro ? '3px double #1976d2' : '2px solid #333'
+    const innerBorder = isPro ? `<div style="position:absolute;top:10px;left:10px;right:10px;bottom:10px;border:1px solid #90caf9;pointer-events:none;"></div>` : ''
+
+    const detailRow = (label: string, value: string) =>
+      `<div class="detail-item"><div class="detail-label">${label}</div><div>${value}</div></div>`
+
+    const details = [
+      detailRow('Date de début', dateDebut),
+      detailRow('Date de fin', dateFin),
+      training.training_organization ? detailRow('Organisme formateur', training.training_organization) : '',
+      training.trainer_name ? detailRow('Formateur', training.trainer_name) : '',
+      training.result ? detailRow('Résultat', training.result) : '',
+      training.next_due_date ? detailRow("Valide jusqu'au", new Date(training.next_due_date).toLocaleDateString('fr-FR')) : '',
+    ].filter(Boolean).join('')
+
+    const html = `<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8" />
+  <title>Attestation – ${training.training_type_name}</title>
+  <style>
+    @page { size: A4; margin: 20mm; }
+    body { font-family: Georgia, serif; margin: 0; background: #fff; color: #222; }
+    .cert-container { max-width: 680px; margin: 20px auto; border: ${borderStyle}; padding: 48px; position: relative; }
+    h1 { text-align: center; text-transform: uppercase; letter-spacing: 3px; font-size: ${isPro ? '26px' : '22px'}; color: ${accentColor}; margin: 0 0 6px; }
+    .subtitle { text-align: center; font-size: 13px; color: #888; margin-bottom: 32px; }
+    .certify-text { text-align: center; font-size: 16px; margin-bottom: 12px; }
+    .name-wrap { text-align: center; margin-bottom: 20px; }
+    .name { font-size: 26px; font-weight: bold; border-bottom: 2px solid ${accentColor}; padding: 0 24px 6px; }
+    .training-name { text-align: center; font-size: 19px; font-style: italic; color: ${accentColor}; margin: 16px 0 28px; }
+    .details { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 32px; }
+    .detail-item { background: #f7f7f7; padding: 10px 14px; border-radius: 4px; border-left: 3px solid ${accentColor}; font-size: 14px; }
+    .detail-label { font-weight: bold; color: #666; font-size: 11px; text-transform: uppercase; margin-bottom: 2px; }
+    .signature-area { display: flex; justify-content: space-between; margin-top: 48px; }
+    .signature-box { text-align: center; width: 40%; }
+    .signature-line { border-top: 1px solid #555; padding-top: 8px; font-size: 12px; color: #555; }
+    .cert-number { text-align: center; font-size: 11px; color: #aaa; margin-top: 24px; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <div class="cert-container">
+    ${innerBorder}
+    ${proHeader}
+    <h1>Attestation de Formation</h1>
+    <div class="subtitle">Service de Santé au Travail</div>
+    <div class="certify-text">La présente attestation certifie que</div>
+    <div class="name-wrap"><span class="name">${participantName || 'Participant'}</span></div>
+    <div class="certify-text">a suivi et réussi avec succès la formation</div>
+    <div class="training-name">${training.training_type_name}</div>
+    <div class="details">${details}</div>
+    <div class="signature-area">
+      <div class="signature-box">
+        <div class="signature-line">Le Formateur<br/>${training.trainer_name || '..............................'}</div>
+      </div>
+      <div class="signature-box">
+        <div class="signature-line">Le Responsable SST</div>
+      </div>
+    </div>
+    ${training.certificate_number ? `<div class="cert-number">N° Attestation : ${training.certificate_number}</div>` : ''}
+  </div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=820,height=950')
+    if (win) {
+      win.document.write(html)
+      win.document.close()
+    }
+  }
+
+  const handlePrintCustomCertificate = (
+    participantName: string,
+    form: typeof emptyCertForm
+  ) => {
+    const isPro = true
+    const logoOrigin = window.location.origin
+    const accentColor = '#1976d2'
+    const borderStyle = '3px double #1976d2'
+    const proHeader = isPro ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <img src="${logoOrigin}/coly.png" alt="Logo" style="height:80px;object-fit:contain;" />
+        <div style="text-align:right;font-size:12px;color:#555;">
+          <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
+          <div>Département Hygiène, Sécurité et Environnement</div>
+        </div>
+      </div>
+      <hr style="border:none;border-top:2px solid #1976d2;margin-bottom:28px;" />
+    ` : ''
+    const innerBorder = isPro ? `<div style="position:absolute;top:10px;left:10px;right:10px;bottom:10px;border:1px solid #90caf9;pointer-events:none;"></div>` : ''
+
+    const detailRow = (label: string, value: string) =>
+      value ? `<div class="detail-item"><div class="detail-label">${label}</div><div>${value}</div></div>` : ''
+
+    const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
+    const details = [
+      detailRow('Date de début', fmtDate(form.dateDebut)),
+      detailRow('Date de fin', fmtDate(form.dateFin)),
+      detailRow('Organisme formateur', form.organisation),
+      detailRow('Formateur', form.formateur),
+      detailRow('Résultat', form.resultat),
+      detailRow("Valide jusqu'au", fmtDate(form.validiteDate)),
+    ].filter(Boolean).join('')
+
+    const html = `<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8" />
+  <title>Attestation – ${form.formationName}</title>
+  <style>
+    @page { size: A4; margin: 20mm; }
+    body { font-family: Georgia, serif; margin: 0; background: #fff; color: #222; }
+    .cert-container { max-width: 680px; margin: 20px auto; border: ${borderStyle}; padding: 48px; position: relative; }
+    h1 { text-align:center; text-transform:uppercase; letter-spacing:3px; font-size:${isPro ? '26px' : '22px'}; color:${accentColor}; margin:0 0 6px; }
+    .subtitle { text-align:center; font-size:13px; color:#888; margin-bottom:32px; }
+    .certify-text { text-align:center; font-size:16px; margin-bottom:12px; }
+    .name-wrap { text-align:center; margin-bottom:20px; }
+    .name { font-size:26px; font-weight:bold; border-bottom:2px solid ${accentColor}; padding:0 24px 6px; }
+    .training-name { text-align:center; font-size:19px; font-style:italic; color:${accentColor}; margin:16px 0 28px; }
+    .details { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 32px; }
+    .detail-item { background:#f7f7f7; padding:10px 14px; border-radius:4px; border-left:3px solid ${accentColor}; font-size:14px; }
+    .detail-label { font-weight:bold; color:#666; font-size:11px; text-transform:uppercase; margin-bottom:2px; }
+    .signature-area { display:flex; justify-content:space-between; margin-top:48px; }
+    .signature-box { text-align:center; width:40%; }
+    .signature-line { border-top:1px solid #555; padding-top:8px; font-size:12px; color:#555; }
+    .cert-number { text-align:center; font-size:11px; color:#aaa; margin-top:24px; }
+    @media print { body { margin:0; } }
+  </style>
+</head>
+<body>
+  <div class="cert-container">
+    ${innerBorder}
+    ${proHeader}
+    <h1>Attestation de Formation</h1>
+    <div class="subtitle">Service de Santé au Travail</div>
+    <div class="certify-text">La présente attestation certifie que</div>
+    <div class="name-wrap"><span class="name">${participantName || 'Participant'}</span></div>
+    <div class="certify-text">a suivi et réussi avec succès la formation</div>
+    <div class="training-name">${form.formationName || 'Formation'}</div>
+    <div class="details">${details}</div>
+    <div class="signature-area">
+      <div class="signature-box">
+        <div class="signature-line">Le Formateur<br/>${form.formateur || '..............................'}</div>
+      </div>
+      <div class="signature-box">
+        <div class="signature-line">Le Responsable SST</div>
+      </div>
+    </div>
+    ${form.certificatNo ? `<div class="cert-number">N° Attestation : ${form.certificatNo}</div>` : ''}
+  </div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=820,height=950')
+    if (win) {
+      win.document.write(html)
+      win.document.close()
+    }
+  }
+
   const parseCsvLine = (line: string): string[] => {
     const result: string[] = []
     let current = ''
@@ -701,6 +883,7 @@ export default function Training() {
           <Tab label="Types de formation" />
           <Tab label="Articles d'éducation sanitaire" />
           <Tab label="Certifications" />
+          <Tab label="Attestation" icon={<CertIcon />} iconPosition="start" />
         </Tabs>
 
         <Box sx={{ px: 2, pb: 2 }}>
@@ -947,6 +1130,68 @@ export default function Training() {
                         <TableCell>{r.training_type_name}</TableCell>
                         <TableCell>{r.job_position_name}</TableCell>
                         <TableCell>{r.mandatory ? <Chip label="Oui" size="small" color="primary" /> : 'Non'}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={4}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Sélectionnez une formation terminée pour générer une attestation, ou créez-en une nouvelle manuellement.
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setNewCertForm(emptyCertForm)
+                  setNewCertParticipant('')
+                  setNewCertDialog(true)
+                }}
+              >
+                Nouvelle attestation
+              </Button>
+            </Box>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Participant / Effectif</TableCell>
+                    <TableCell>Formation</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>N° Attestation</TableCell>
+                    <TableCell>Statut</TableCell>
+                    <TableCell>Imprimer</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {trainings.filter((t) => t.status === 'completed').length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        <Typography variant="body2" color="text.secondary">Aucune formation terminée</Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    trainings.filter((t) => t.status === 'completed').map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell>{t.agent_name ? `${t.agent_name} (${t.agent_matricule || '–'})` : `${t.participants_count ?? 1} participant(s)`}</TableCell>
+                        <TableCell>{t.training_type_name}</TableCell>
+                        <TableCell>{new Date(t.start_date).toLocaleDateString('fr-FR')}{t.end_date ? ` → ${new Date(t.end_date).toLocaleDateString('fr-FR')}` : ''}</TableCell>
+                        <TableCell>{t.certificate_number || '–'}</TableCell>
+                        <TableCell><Chip label={t.status_display} size="small" color="success" /></TableCell>
+                        <TableCell>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={<PrintIcon />}
+                            onClick={() => setCertDialog({ open: true, training: t, participantName: t.agent_name || '' })}
+                          >
+                            Imprimer
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -1275,6 +1520,268 @@ export default function Training() {
             disabled={!requirementForm.training_type || !requirementForm.job_position}
           >
             Créer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={certDialog.open} onClose={() => setCertDialog({ ...certDialog, open: false })} maxWidth="lg" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <CertIcon color="primary" />
+          Simuler l'attestation
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Grid container sx={{ minHeight: 560 }}>
+            {/* Colonne gauche : contrôles */}
+            <Grid item xs={12} md={4} sx={{ p: 3, borderRight: '1px solid', borderColor: 'divider', bgcolor: 'grey.50' }}>
+              <TextField
+                fullWidth
+                label="Nom du participant"
+                value={certDialog.participantName}
+                onChange={(e) => setCertDialog({ ...certDialog, participantName: e.target.value })}
+                placeholder="Entrez le nom complet..."
+                size="small"
+                sx={{ mb: 2 }}
+              />
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                <strong>Formation :</strong> {certDialog.training?.training_type_name}
+              </Typography>
+              {certDialog.training?.certificate_number && (
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  <strong>N° Attestation :</strong> {certDialog.training.certificate_number}
+                </Typography>
+              )}
+              {certDialog.training?.training_organization && (
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  <strong>Organisme :</strong> {certDialog.training.training_organization}
+                </Typography>
+              )}
+              {certDialog.training?.trainer_name && (
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  <strong>Formateur :</strong> {certDialog.training.trainer_name}
+                </Typography>
+              )}
+              <Box sx={{ mt: 'auto', pt: 3 }}>
+                <Alert severity="info" sx={{ fontSize: 12 }}>Logo clinique + encadrement décoratif + couleurs officielles</Alert>
+              </Box>
+            </Grid>
+
+            {/* Colonne droite : aperçu du certificat */}
+            <Grid item xs={12} md={8} sx={{ p: 3, bgcolor: '#e8e8e8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto' }}>
+              <Box sx={{ transform: 'scale(0.75)', transformOrigin: 'top center', width: '680px', flexShrink: 0 }}>
+                {/* Certificat simulé */}
+                <Box sx={{
+                  bgcolor: '#fff',
+                  border: '3px double #1976d2',
+                  p: '48px',
+                  fontFamily: 'Georgia, serif',
+                  position: 'relative',
+                  minHeight: 600,
+                }}>
+                  <Box sx={{ position: 'absolute', top: 10, left: 10, right: 10, bottom: 10, border: '1px solid #90caf9', pointerEvents: 'none' }} />
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                    <Box component="img" src="/coly.png" alt="Logo" sx={{ height: 72, objectFit: 'contain' }} />
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography sx={{ fontWeight: 'bold', fontSize: 15, color: '#1976d2' }}>SERVICE DE SANTÉ AU TRAVAIL</Typography>
+                      <Typography sx={{ fontSize: 12, color: '#555' }}>Département Hygiène, Sécurité et Environnement</Typography>
+                    </Box>
+                  </Box>
+                  <Divider sx={{ borderColor: '#1976d2', borderWidth: 2, mb: 3 }} />
+
+                  <Typography sx={{ textAlign: 'center', textTransform: 'uppercase', letterSpacing: 3, fontSize: 26, fontWeight: 'bold', color: '#1976d2', mb: 0.5 }}>
+                    Attestation de Formation
+                  </Typography>
+                  <Typography sx={{ textAlign: 'center', fontSize: 13, color: '#888', mb: 4 }}>Service de Santé au Travail</Typography>
+
+                  <Typography sx={{ textAlign: 'center', fontSize: 16, mb: 1.5 }}>La présente attestation certifie que</Typography>
+
+                  <Box sx={{ textAlign: 'center', mb: 3 }}>
+                    <Typography component="span" sx={{ fontSize: 26, fontWeight: 'bold', borderBottom: '2px solid #1976d2', px: 3, pb: 0.5, display: 'inline-block' }}>
+                      {certDialog.participantName || 'Nom du participant'}
+                    </Typography>
+                  </Box>
+
+                  <Typography sx={{ textAlign: 'center', fontSize: 16, mb: 1 }}>a suivi et réussi avec succès la formation</Typography>
+                  <Typography sx={{ textAlign: 'center', fontSize: 19, fontStyle: 'italic', color: '#1976d2', mb: 3 }}>
+                    {certDialog.training?.training_type_name || 'Nom de la formation'}
+                  </Typography>
+
+                  <Grid container spacing={1.5} sx={{ mb: 4 }}>
+                    {[
+                      { label: 'Date de début', val: certDialog.training?.start_date ? new Date(certDialog.training.start_date).toLocaleDateString('fr-FR') : '–' },
+                      { label: 'Date de fin', val: certDialog.training?.end_date ? new Date(certDialog.training.end_date).toLocaleDateString('fr-FR') : '–' },
+                      ...(certDialog.training?.training_organization ? [{ label: 'Organisme formateur', val: certDialog.training.training_organization }] : []),
+                      ...(certDialog.training?.trainer_name ? [{ label: 'Formateur', val: certDialog.training.trainer_name }] : []),
+                      ...(certDialog.training?.result ? [{ label: 'Résultat', val: certDialog.training.result }] : []),
+                      ...(certDialog.training?.next_due_date ? [{ label: "Valide jusqu'au", val: new Date(certDialog.training.next_due_date).toLocaleDateString('fr-FR') }] : []),
+                    ].map((item) => (
+                      <Grid item xs={6} key={item.label}>
+                        <Box sx={{ bgcolor: '#f7f7f7', p: 1.5, borderRadius: 1, borderLeft: '3px solid #1976d2' }}>
+                          <Typography sx={{ fontSize: 11, fontWeight: 'bold', color: '#666', textTransform: 'uppercase', mb: 0.3 }}>{item.label}</Typography>
+                          <Typography sx={{ fontSize: 14 }}>{item.val}</Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 6 }}>
+                    <Box sx={{ width: '40%', textAlign: 'center' }}>
+                      <Divider sx={{ borderColor: '#555', mb: 1 }} />
+                      <Typography sx={{ fontSize: 12, color: '#555' }}>Le Formateur<br />{certDialog.training?.trainer_name || '..............................'}</Typography>
+                    </Box>
+                    <Box sx={{ width: '40%', textAlign: 'center' }}>
+                      <Divider sx={{ borderColor: '#555', mb: 1 }} />
+                      <Typography sx={{ fontSize: 12, color: '#555' }}>Le Responsable SST</Typography>
+                    </Box>
+                  </Box>
+
+                  {certDialog.training?.certificate_number && (
+                    <Typography sx={{ textAlign: 'center', fontSize: 11, color: '#aaa', mt: 3 }}>
+                      N° Attestation : {certDialog.training.certificate_number}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid', borderColor: 'divider', p: 2 }}>
+          <Button onClick={() => setCertDialog({ ...certDialog, open: false })}>Annuler</Button>
+          <Button
+            variant="contained"
+            startIcon={<PrintIcon />}
+            onClick={() => {
+              if (certDialog.training) handlePrintCertificate(certDialog.training, certDialog.participantName)
+              setCertDialog({ ...certDialog, open: false })
+            }}
+          >
+            Imprimer cette attestation
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={newCertDialog} onClose={() => setNewCertDialog(false)} maxWidth="lg" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <CertIcon color="primary" />
+          Nouvelle attestation personnalisée
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Grid container sx={{ minHeight: 580 }}>
+            {/* Formulaire */}
+            <Grid item xs={12} md={5} sx={{ p: 3, borderRight: '1px solid', borderColor: 'divider', bgcolor: 'grey.50', overflowY: 'auto' }}>
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Informations</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" label="Nom du participant *" value={newCertParticipant} onChange={(e) => setNewCertParticipant(e.target.value)} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" label="Intitulé de la formation *" value={newCertForm.formationName} onChange={(e) => setNewCertForm({ ...newCertForm, formationName: e.target.value })} />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField fullWidth size="small" label="Date de début" type="date" value={newCertForm.dateDebut} onChange={(e) => setNewCertForm({ ...newCertForm, dateDebut: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField fullWidth size="small" label="Date de fin" type="date" value={newCertForm.dateFin} onChange={(e) => setNewCertForm({ ...newCertForm, dateFin: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" label="Organisme formateur" value={newCertForm.organisation} onChange={(e) => setNewCertForm({ ...newCertForm, organisation: e.target.value })} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" label="Formateur" value={newCertForm.formateur} onChange={(e) => setNewCertForm({ ...newCertForm, formateur: e.target.value })} />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField fullWidth size="small" label="Résultat" value={newCertForm.resultat} onChange={(e) => setNewCertForm({ ...newCertForm, resultat: e.target.value })} />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField fullWidth size="small" label="N° Attestation" value={newCertForm.certificatNo} onChange={(e) => setNewCertForm({ ...newCertForm, certificatNo: e.target.value })} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" label="Valide jusqu'au" type="date" value={newCertForm.validiteDate} onChange={(e) => setNewCertForm({ ...newCertForm, validiteDate: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+              </Grid>
+            </Grid>
+
+            {/* Aperçu live */}
+            <Grid item xs={12} md={7} sx={{ p: 3, bgcolor: '#e8e8e8', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto' }}>
+              <Box sx={{ transform: 'scale(0.72)', transformOrigin: 'top center', width: '660px', flexShrink: 0 }}>
+                <Box sx={{
+                  bgcolor: '#fff',
+                  border: '3px double #1976d2',
+                  p: '44px',
+                  fontFamily: 'Georgia, serif',
+                  position: 'relative',
+                }}>
+                  <Box sx={{ position: 'absolute', top: 10, left: 10, right: 10, bottom: 10, border: '1px solid #90caf9', pointerEvents: 'none' }} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                    <Box component="img" src="/coly.png" alt="Logo" sx={{ height: 68, objectFit: 'contain' }} />
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography sx={{ fontWeight: 'bold', fontSize: 14, color: '#1976d2' }}>SERVICE DE SANTÉ AU TRAVAIL</Typography>
+                      <Typography sx={{ fontSize: 11, color: '#555' }}>Département Hygiène, Sécurité et Environnement</Typography>
+                    </Box>
+                  </Box>
+                  <Divider sx={{ borderColor: '#1976d2', borderWidth: 2, mb: 3 }} />
+                  <Typography sx={{ textAlign: 'center', textTransform: 'uppercase', letterSpacing: 3, fontSize: 24, fontWeight: 'bold', color: '#1976d2', mb: 0.5 }}>
+                    Attestation de Formation
+                  </Typography>
+                  <Typography sx={{ textAlign: 'center', fontSize: 12, color: '#888', mb: 3.5 }}>Service de Santé au Travail</Typography>
+                  <Typography sx={{ textAlign: 'center', fontSize: 15, mb: 1.5 }}>La présente attestation certifie que</Typography>
+                  <Box sx={{ textAlign: 'center', mb: 2.5 }}>
+                    <Typography component="span" sx={{ fontSize: 24, fontWeight: 'bold', borderBottom: '2px solid #1976d2', px: 3, pb: 0.5, display: 'inline-block' }}>
+                      {newCertParticipant || 'Nom du participant'}
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ textAlign: 'center', fontSize: 15, mb: 1 }}>a suivi et réussi avec succès la formation</Typography>
+                  <Typography sx={{ textAlign: 'center', fontSize: 18, fontStyle: 'italic', color: '#1976d2', mb: 3 }}>
+                    {newCertForm.formationName || 'Intitulé de la formation'}
+                  </Typography>
+                  <Grid container spacing={1.5} sx={{ mb: 3 }}>
+                    {[
+                      { label: 'Date de début', val: newCertForm.dateDebut ? new Date(newCertForm.dateDebut).toLocaleDateString('fr-FR') : '' },
+                      { label: 'Date de fin', val: newCertForm.dateFin ? new Date(newCertForm.dateFin).toLocaleDateString('fr-FR') : '' },
+                      { label: 'Organisme formateur', val: newCertForm.organisation },
+                      { label: 'Formateur', val: newCertForm.formateur },
+                      { label: 'Résultat', val: newCertForm.resultat },
+                      { label: "Valide jusqu'au", val: newCertForm.validiteDate ? new Date(newCertForm.validiteDate).toLocaleDateString('fr-FR') : '' },
+                    ].filter((i) => i.val).map((item) => (
+                      <Grid item xs={6} key={item.label}>
+                        <Box sx={{ bgcolor: '#f7f7f7', p: 1.2, borderRadius: 1, borderLeft: '3px solid #1976d2' }}>
+                          <Typography sx={{ fontSize: 10, fontWeight: 'bold', color: '#666', textTransform: 'uppercase', mb: 0.2 }}>{item.label}</Typography>
+                          <Typography sx={{ fontSize: 13 }}>{item.val}</Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 5 }}>
+                    <Box sx={{ width: '40%', textAlign: 'center' }}>
+                      <Divider sx={{ borderColor: '#555', mb: 1 }} />
+                      <Typography sx={{ fontSize: 11, color: '#555' }}>Le Formateur<br />{newCertForm.formateur || '..............................'}</Typography>
+                    </Box>
+                    <Box sx={{ width: '40%', textAlign: 'center' }}>
+                      <Divider sx={{ borderColor: '#555', mb: 1 }} />
+                      <Typography sx={{ fontSize: 11, color: '#555' }}>Le Responsable SST</Typography>
+                    </Box>
+                  </Box>
+                  {newCertForm.certificatNo && (
+                    <Typography sx={{ textAlign: 'center', fontSize: 10, color: '#aaa', mt: 2.5 }}>N° Attestation : {newCertForm.certificatNo}</Typography>
+                  )}
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid', borderColor: 'divider', p: 2 }}>
+          <Button onClick={() => setNewCertDialog(false)}>Annuler</Button>
+          <Button
+            variant="contained"
+            startIcon={<PrintIcon />}
+            disabled={!newCertParticipant || !newCertForm.formationName}
+            onClick={() => {
+              handlePrintCustomCertificate(newCertParticipant, newCertForm)
+              setNewCertDialog(false)
+            }}
+          >
+            Imprimer cette attestation
           </Button>
         </DialogActions>
       </Dialog>

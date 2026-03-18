@@ -31,11 +31,9 @@ import {
   Select,
   MenuItem,
 } from '@mui/material'
-import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon } from '@mui/icons-material'
+import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon, WorkspacePremium as CertIcon } from '@mui/icons-material'
 import client, { getApiErrorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
-import { jsPDF } from 'jspdf'
-import html2canvas from 'html2canvas'
 
 interface DMST {
   id: number
@@ -168,6 +166,9 @@ export default function DMST() {
     reason: '',
   })
   const { hasMedicalAccess, user } = useAuth()
+  const emptyCertMed = { conclusion: 'apte', dateExamen: new Date().toISOString().split('T')[0], medecin: '', validiteDate: '', restrictions: '', certificatNo: '' }
+  const [certMedDialog, setCertMedDialog] = useState(false)
+  const [certMedForm, setCertMedForm] = useState(emptyCertMed)
 
   const [formData, setFormData] = useState({
     allergies: '',
@@ -449,6 +450,108 @@ export default function DMST() {
     window.print()
   }
 
+  const conclusionLabel = (c: string) => {
+    switch (c) {
+      case 'apte': return 'APTE AU POSTE DE TRAVAIL'
+      case 'asr': return 'APTE SOUS RÉSERVE'
+      case 'aar': return 'APTE AVEC AMÉNAGEMENT'
+      case 'int': return 'INAPTE TEMPORAIRE'
+      case 'ind': return 'INAPTE DÉFINITIF'
+      default: return c
+    }
+  }
+
+  const conclusionColor = (c: string) => {
+    switch (c) {
+      case 'apte': return '#2e7d32'
+      case 'asr': return '#f57c00'
+      case 'aar': return '#1976d2'
+      case 'int': return '#c62828'
+      case 'ind': return '#b71c1c'
+      default: return '#333'
+    }
+  }
+
+  const handlePrintAptitudeCert = (form: typeof emptyCertMed) => {
+    if (!dmst) return
+    const logoOrigin = window.location.origin
+    const color = conclusionColor(form.conclusion)
+    const label = conclusionLabel(form.conclusion)
+
+    const detailRow = (label: string, value: string) =>
+      `<div class="detail-item"><div class="detail-label">${label}</div><div>${value}</div></div>`
+
+    const details = [
+      detailRow("Date d'examen", form.dateExamen ? new Date(form.dateExamen).toLocaleDateString('fr-FR') : '–'),
+      form.validiteDate ? detailRow("Valide jusqu'au", new Date(form.validiteDate).toLocaleDateString('fr-FR')) : '',
+      form.medecin ? detailRow('Médecin du travail', form.medecin) : '',
+      dmst.agent_direction ? detailRow('Direction', dmst.agent_direction) : '',
+      dmst.agent_function ? detailRow('Fonction', dmst.agent_function) : '',
+      dmst.agent_site_name ? detailRow('Site', dmst.agent_site_name) : '',
+    ].filter(Boolean).join('')
+
+    const html = `<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8" />
+  <title>Attestation d'aptitude – ${dmst.agent_name}</title>
+  <style>
+    @page { size: A4; margin: 20mm; }
+    body { font-family: Georgia, serif; margin: 0; background: #fff; color: #222; }
+    .cert-container { max-width: 680px; margin: 20px auto; border: 3px double #1976d2; padding: 48px; position: relative; }
+    h1 { text-align: center; text-transform: uppercase; letter-spacing: 3px; font-size: 26px; color: #1976d2; margin: 0 0 6px; }
+    .subtitle { text-align: center; font-size: 13px; color: #888; margin-bottom: 32px; }
+    .certify-text { text-align: center; font-size: 16px; margin-bottom: 12px; }
+    .name-wrap { text-align: center; margin-bottom: 20px; }
+    .name { font-size: 26px; font-weight: bold; border-bottom: 2px solid #1976d2; padding: 0 24px 6px; }
+    .training-name { text-align: center; font-size: 19px; font-style: italic; color: ${color}; font-weight: bold; letter-spacing: 2px; margin: 16px 0 28px; padding: 12px; border: 2px solid ${color}; border-radius: 6px; background: ${color}11; }
+    .details { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 32px; }
+    .detail-item { background: #f7f7f7; padding: 10px 14px; border-radius: 4px; border-left: 3px solid #1976d2; font-size: 14px; }
+    .detail-label { font-weight: bold; color: #666; font-size: 11px; text-transform: uppercase; margin-bottom: 2px; }
+    .restrictions { background: #fff8e1; border-left: 3px solid #f57c00; padding: 12px 14px; border-radius: 4px; margin: 0 0 24px; font-size: 14px; }
+    .signature-area { display: flex; justify-content: space-between; margin-top: 48px; }
+    .signature-box { text-align: center; width: 40%; }
+    .signature-line { border-top: 1px solid #555; padding-top: 8px; font-size: 12px; color: #555; }
+    .cert-number { text-align: center; font-size: 11px; color: #aaa; margin-top: 24px; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <div class="cert-container">
+    <div style="position:absolute;top:10px;left:10px;right:10px;bottom:10px;border:1px solid #90caf9;pointer-events:none;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <img src="${logoOrigin}/coly.png" alt="Logo" style="height:80px;object-fit:contain;" />
+      <div style="text-align:right;font-size:12px;color:#555;">
+        <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
+        <div>Département Hygiène, Sécurité et Environnement</div>
+      </div>
+    </div>
+    <hr style="border:none;border-top:2px solid #1976d2;margin-bottom:28px;" />
+    <h1>Attestation d'Aptitude Médicale au Travail</h1>
+    <div class="subtitle">Service de Santé au Travail</div>
+    <div class="certify-text">La présente attestation certifie que</div>
+    <div class="name-wrap"><span class="name">${dmst.agent_name}</span></div>
+    ${dmst.agent_matricule ? `<div class="certify-text" style="font-size:13px;color:#666;">Matricule : ${dmst.agent_matricule}</div>` : ''}
+    <div class="certify-text">est déclaré(e)</div>
+    <div class="training-name">${label}</div>
+    ${form.restrictions ? `<div class="restrictions"><strong style="color:#f57c00;">Restrictions / Observations :</strong><br/>${form.restrictions}</div>` : ''}
+    <div class="details">${details}</div>
+    <div class="signature-area">
+      <div class="signature-box">
+        <div class="signature-line">Le Médecin du Travail<br/>${form.medecin || '..............................'}</div>
+      </div>
+      <div class="signature-box">
+        <div class="signature-line">Cachet du Service de Santé au Travail</div>
+      </div>
+    </div>
+    ${form.certificatNo ? `<div class="cert-number">N° Attestation : ${form.certificatNo}</div>` : ''}
+  </div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=820,height=950')
+    if (win) { win.document.write(html); win.document.close() }
+  }
+
   const handleSave = async () => {
     if (!dmst) return
     try {
@@ -568,7 +671,7 @@ export default function DMST() {
                 <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ mr: 1 }}>
                   Imprimer
                 </Button>
-                <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => showSnackbar('Fonctionnalité en cours de développement', 'info')} color="error">
+                <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => showSnackbar('Fonctionnalité en cours de développement', 'success')} color="error">
                   Exporter PDF
                 </Button>
               </>
@@ -583,6 +686,7 @@ export default function DMST() {
           <Tab label="Ordonnance" icon={<DescriptionIcon />} iconPosition="start" />
           <Tab label="Demande d'examen" icon={<ScienceIcon />} iconPosition="start" />
           <Tab label={`Visites (${dmst.visits_count})`} icon={<MedicalServicesIcon />} iconPosition="start" />
+          <Tab label="Attestations" icon={<CertIcon />} iconPosition="start" />
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
@@ -796,7 +900,175 @@ export default function DMST() {
           </TableContainer>
         </TabPanel>
 
+        <TabPanel value={tabValue} index={4}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+            <Typography variant="h6">Attestations d'aptitude médicale au travail</Typography>
+            <Button
+              variant="contained"
+              startIcon={<CertIcon />}
+              onClick={() => {
+                setCertMedForm({
+                  ...emptyCertMed,
+                  dateExamen: formData.observation_date || new Date().toISOString().split('T')[0],
+                  medecin: formData.observer_name || '',
+                  conclusion: formData.medical_conclusion_apte ? 'apte'
+                    : formData.medical_conclusion_asr ? 'asr'
+                    : formData.medical_conclusion_aar ? 'aar'
+                    : formData.medical_conclusion_int ? 'int'
+                    : formData.medical_conclusion_ind ? 'ind'
+                    : 'apte',
+                })
+                setCertMedDialog(true)
+              }}
+            >
+              Générer une attestation
+            </Button>
+          </Box>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Les données sont pré-remplies depuis la fiche d'observation. Vous pouvez les modifier avant d'imprimer.
+          </Alert>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Agent :</strong> {dmst.agent_name} ({dmst.agent_matricule})</Typography></Grid>
+            <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Direction :</strong> {dmst.agent_direction || '–'}</Typography></Grid>
+            <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Fonction :</strong> {dmst.agent_function || '–'}</Typography></Grid>
+            <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Site :</strong> {dmst.agent_site_name || '–'}</Typography></Grid>
+            <Grid item xs={12} sm={6}><Typography variant="body2"><strong>Dernière visite :</strong> {dmst.last_visit_date ? new Date(dmst.last_visit_date).toLocaleDateString('fr-FR') : '–'}</Typography></Grid>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="body2">
+                <strong>Conclusion actuelle :</strong>{' '}
+                {formData.medical_conclusion_apte ? 'Apte'
+                  : formData.medical_conclusion_asr ? 'Apte sous réserve'
+                  : formData.medical_conclusion_aar ? 'Apte avec aménagement'
+                  : formData.medical_conclusion_int ? 'Inapte temporaire'
+                  : formData.medical_conclusion_ind ? 'Inapte définitif'
+                  : '–'}
+              </Typography>
+            </Grid>
+          </Grid>
+        </TabPanel>
+
       </Paper>
+
+      <Dialog open={certMedDialog} onClose={() => setCertMedDialog(false)} maxWidth="lg" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <CertIcon color="primary" />
+          Attestation d'aptitude médicale au travail
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Grid container sx={{ minHeight: 560 }}>
+            {/* Formulaire */}
+            <Grid item xs={12} md={4} sx={{ p: 3, borderRight: '1px solid', borderColor: 'divider', bgcolor: 'grey.50', overflowY: 'auto' }}>
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>Informations</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Conclusion médicale</InputLabel>
+                    <Select value={certMedForm.conclusion} onChange={(e) => setCertMedForm({ ...certMedForm, conclusion: e.target.value })} label="Conclusion médicale">
+                      <MenuItem value="apte">Apte au poste de travail</MenuItem>
+                      <MenuItem value="asr">Apte sous réserve</MenuItem>
+                      <MenuItem value="aar">Apte avec aménagement</MenuItem>
+                      <MenuItem value="int">Inapte temporaire</MenuItem>
+                      <MenuItem value="ind">Inapte définitif</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" label="Date d'examen" type="date" value={certMedForm.dateExamen} onChange={(e) => setCertMedForm({ ...certMedForm, dateExamen: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" label="Médecin du travail" value={certMedForm.medecin} onChange={(e) => setCertMedForm({ ...certMedForm, medecin: e.target.value })} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" label="Valide jusqu'au" type="date" value={certMedForm.validiteDate} onChange={(e) => setCertMedForm({ ...certMedForm, validiteDate: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" label="Restrictions / Observations" multiline rows={3} value={certMedForm.restrictions} onChange={(e) => setCertMedForm({ ...certMedForm, restrictions: e.target.value })} placeholder="Ex : Éviter le port de charges lourdes..." />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" label="N° Attestation" value={certMedForm.certificatNo} onChange={(e) => setCertMedForm({ ...certMedForm, certificatNo: e.target.value })} />
+                </Grid>
+              </Grid>
+            </Grid>
+
+            {/* Aperçu live */}
+            <Grid item xs={12} md={8} sx={{ p: 3, bgcolor: '#e8e8e8', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto' }}>
+              <Box sx={{ transform: 'scale(0.73)', transformOrigin: 'top center', width: '680px', flexShrink: 0 }}>
+                <Box sx={{ bgcolor: '#fff', border: '3px double #1976d2', p: '44px', fontFamily: 'Georgia, serif', position: 'relative' }}>
+                  <Box sx={{ position: 'absolute', top: 10, left: 10, right: 10, bottom: 10, border: '1px solid #90caf9', pointerEvents: 'none' }} />
+                  {/* Header */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                    <Box component="img" src="/coly.png" alt="Logo" sx={{ height: 68, objectFit: 'contain' }} />
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography sx={{ fontWeight: 'bold', fontSize: 14, color: '#1976d2' }}>SERVICE DE SANTÉ AU TRAVAIL</Typography>
+                      <Typography sx={{ fontSize: 11, color: '#555' }}>Département Hygiène, Sécurité et Environnement</Typography>
+                    </Box>
+                  </Box>
+                  <Divider sx={{ borderColor: '#1976d2', borderWidth: 2, mb: 3 }} />
+                  <Typography sx={{ textAlign: 'center', textTransform: 'uppercase', letterSpacing: 3, fontSize: 20, fontWeight: 'bold', color: '#1976d2', mb: 0.5 }}>
+                    Attestation d'Aptitude Médicale au Travail
+                  </Typography>
+                  <Typography sx={{ textAlign: 'center', fontSize: 12, color: '#888', mb: 3 }}>Service de Santé au Travail</Typography>
+                  <Typography sx={{ textAlign: 'center', fontSize: 14, mb: 1.5 }}>Le médecin du travail soussigné certifie que</Typography>
+                  <Box sx={{ textAlign: 'center', mb: 1.5 }}>
+                    <Typography component="span" sx={{ fontSize: 24, fontWeight: 'bold', borderBottom: '2px solid #1976d2', px: 3, pb: 0.5, display: 'inline-block' }}>
+                      {dmst.agent_name}
+                    </Typography>
+                  </Box>
+                  {dmst.agent_matricule && <Typography sx={{ textAlign: 'center', fontSize: 12, color: '#666', mb: 0.5 }}>Matricule : {dmst.agent_matricule}</Typography>}
+                  {dmst.agent_direction && <Typography sx={{ textAlign: 'center', fontSize: 12, color: '#666', mb: 2 }}>Direction : {dmst.agent_direction}{dmst.agent_function ? ` — Fonction : ${dmst.agent_function}` : ''}</Typography>}
+                  {/* Conclusion */}
+                  <Box sx={{ textAlign: 'center', my: 2.5, p: 2, border: `2px solid ${conclusionColor(certMedForm.conclusion)}`, borderRadius: 1, bgcolor: `${conclusionColor(certMedForm.conclusion)}11` }}>
+                    <Typography sx={{ fontSize: 12, color: '#666', mb: 0.5 }}>est déclaré(e)</Typography>
+                    <Typography sx={{ fontSize: 20, fontWeight: 'bold', color: conclusionColor(certMedForm.conclusion), letterSpacing: 2 }}>
+                      {conclusionLabel(certMedForm.conclusion)}
+                    </Typography>
+                  </Box>
+                  {certMedForm.restrictions && (
+                    <Box sx={{ bgcolor: '#fff8e1', borderLeft: '3px solid #f57c00', p: 1.5, borderRadius: 1, mb: 2 }}>
+                      <Typography sx={{ fontSize: 12, fontWeight: 'bold', color: '#f57c00', mb: 0.3 }}>Restrictions / Observations :</Typography>
+                      <Typography sx={{ fontSize: 13 }}>{certMedForm.restrictions}</Typography>
+                    </Box>
+                  )}
+                  <Grid container spacing={1.5} sx={{ mb: 3 }}>
+                    {[
+                      { label: "Date d'examen", val: certMedForm.dateExamen ? new Date(certMedForm.dateExamen).toLocaleDateString('fr-FR') : '' },
+                      { label: "Valide jusqu'au", val: certMedForm.validiteDate ? new Date(certMedForm.validiteDate).toLocaleDateString('fr-FR') : '' },
+                      { label: 'Médecin du travail', val: certMedForm.medecin },
+                      { label: 'Site', val: dmst.agent_site_name || '' },
+                    ].filter((i) => i.val).map((item) => (
+                      <Grid item xs={6} key={item.label}>
+                        <Box sx={{ bgcolor: '#f7f7f7', p: 1.2, borderRadius: 1, borderLeft: '3px solid #1976d2' }}>
+                          <Typography sx={{ fontSize: 10, fontWeight: 'bold', color: '#666', textTransform: 'uppercase', mb: 0.2 }}>{item.label}</Typography>
+                          <Typography sx={{ fontSize: 13 }}>{item.val}</Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 5 }}>
+                    <Box sx={{ width: '42%', textAlign: 'center' }}>
+                      <Divider sx={{ borderColor: '#555', mb: 1 }} />
+                      <Typography sx={{ fontSize: 11, color: '#555' }}>Le Médecin du Travail<br />{certMedForm.medecin || '..............................'}</Typography>
+                    </Box>
+                    <Box sx={{ width: '42%', textAlign: 'center' }}>
+                      <Divider sx={{ borderColor: '#555', mb: 1 }} />
+                      <Typography sx={{ fontSize: 11, color: '#555' }}>Cachet du Service de Santé au Travail</Typography>
+                    </Box>
+                  </Box>
+                  {certMedForm.certificatNo && (
+                    <Typography sx={{ textAlign: 'center', fontSize: 10, color: '#aaa', mt: 2.5 }}>N° Attestation : {certMedForm.certificatNo}</Typography>
+                  )}
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid', borderColor: 'divider', p: 2 }}>
+          <Button onClick={() => setCertMedDialog(false)}>Annuler</Button>
+          <Button variant="contained" startIcon={<PrintIcon />} onClick={() => { handlePrintAptitudeCert(certMedForm); setCertMedDialog(false) }}>
+            Imprimer cette attestation
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={openVisitDialog} onClose={() => setOpenVisitDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Programmer une visite médicale</DialogTitle>
