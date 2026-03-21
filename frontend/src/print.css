@@ -12,32 +12,70 @@
   .print-section * {
     visibility: visible !important;
   }
-  /* Par défaut : masquer les sections ordonnance et demande d'examen (fiche seule visible) */
+  /* Par défaut (fiche médicale) : afficher #print-section, masquer ordonnance/examen */
+  body:not([data-print]) #print-section {
+    display: block !important;
+    visibility: visible !important;
+  }
+  body:not([data-print]) #print-section * {
+    visibility: visible !important;
+  }
   body:not([data-print]) #print-section-ordonnance,
   body:not([data-print]) #print-section-examen {
+    display: none !important;
     visibility: hidden !important;
   }
   body:not([data-print]) #print-section-ordonnance *,
   body:not([data-print]) #print-section-examen * {
     visibility: hidden !important;
   }
-  /* Imprimer uniquement l'ordonnance */
-  body[data-print="ordonnance"] #print-section,
-  body[data-print="ordonnance"] #print-section-examen {
+  body:not([data-print]) #print-section-bulletin {
+    display: none !important;
     visibility: hidden !important;
   }
-  body[data-print="ordonnance"] #print-section *,
-  body[data-print="ordonnance"] #print-section-examen * {
+  /* Imprimer uniquement l'ordonnance */
+  body[data-print="ordonnance"] #print-section,
+  body[data-print="ordonnance"] #print-section-examen,
+  body[data-print="ordonnance"] #print-section-bulletin {
+    display: none !important;
     visibility: hidden !important;
+  }
+  body[data-print="ordonnance"] #print-section-ordonnance {
+    display: flex !important;
+    visibility: visible !important;
+    width: 148mm !important;
+    max-width: 148mm !important;
+  }
+  body[data-print="ordonnance"] #print-section-ordonnance * {
+    visibility: visible !important;
   }
   /* Imprimer uniquement la demande d'examen */
   body[data-print="examen"] #print-section,
-  body[data-print="examen"] #print-section-ordonnance {
+  body[data-print="examen"] #print-section-ordonnance,
+  body[data-print="examen"] #print-section-bulletin {
+    display: none !important;
     visibility: hidden !important;
   }
-  body[data-print="examen"] #print-section *,
-  body[data-print="examen"] #print-section-ordonnance * {
+  body[data-print="examen"] #print-section-examen {
+    display: block !important;
+    visibility: visible !important;
+  }
+  body[data-print="examen"] #print-section-examen * {
+    visibility: visible !important;
+  }
+  /* Imprimer uniquement le bulletin d'analyses */
+  body[data-print="bulletin"] #print-section,
+  body[data-print="bulletin"] #print-section-ordonnance,
+  body[data-print="bulletin"] #print-section-examen {
+    display: none !important;
     visibility: hidden !important;
+  }
+  body[data-print="bulletin"] #print-section-bulletin {
+    display: block !important;
+    visibility: visible !important;
+  }
+  body[data-print="bulletin"] #print-section-bulletin * {
+    visibility: visible !important;
   }
   /* Ramener la section à l'écran (annule left: -9999) pour que l'impression ne soit pas blanche */
   .print-section,

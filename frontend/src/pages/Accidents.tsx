@@ -18,7 +18,6 @@ import {
   TextField,
   MenuItem,
   Grid,
-  IconButton,
   Chip,
   Alert,
   Snackbar,
@@ -1458,41 +1457,29 @@ export default function Accidents() {
             },
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <Box sx={{ flex: '0 0 80px', mr: 2, display: 'flex', alignItems: 'center' }}>
-              <img
-                src="/coly.png"
-                alt="Logo"
-                style={{ width: '80px', height: 'auto', maxWidth: '80px' }}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement
-                  target.style.display = 'none'
-                }}
-              />
-            </Box>
-            <Box
-              sx={{
-                flex: 1,
-                backgroundColor: '#0D47A1',
-                color: 'white',
-                padding: '10px 20px',
-                textAlign: 'center',
-                fontWeight: 'bold',
-                fontSize: '16px',
-                borderRadius: '50px',
-                minHeight: '50px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {(openViewDiseaseDialog && viewingDisease)
-                ? 'MALADIE PROFESSIONNELLE'
-                : viewingAccident
-                  ? 'ACCIDENT DU TRAVAIL / ATMP'
-                  : ''}
-            </Box>
-          </Box>
+          {/* EN-TÊTE style bulletin */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '10px' }}>
+            <tbody><tr>
+              <td style={{ width: '52px', textAlign: 'center', padding: '3px', verticalAlign: 'middle' }}>
+                <img src="/coly.png" alt="Logo" style={{ width: '50px', height: '50px', objectFit: 'contain', display: 'block', margin: 'auto' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              </td>
+              <td style={{ paddingLeft: '7px', verticalAlign: 'middle' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1F4788' }}>CABINET MÉDICAL LIONEL</div>
+                <div style={{ fontSize: '7px', color: '#333', lineHeight: 1.6 }}>Autorisation n° : 26JUIL2022*022346<br />RC : SN.THS.2024.A.266<br />NINEA : 010949412</div>
+              </td>
+              <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '3px', whiteSpace: 'nowrap', fontSize: '8.5px' }}>
+                <em>Le </em>{new Date().toLocaleDateString('fr-FR')}
+              </td>
+            </tr></tbody>
+          </table>
+          {/* TITRE */}
+          <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#1F4788', border: '2px solid #1F4788', background: '#E8F0F8', padding: '4px 0 5px', marginTop: '20px', marginBottom: '14px', letterSpacing: '0.5px' }}>
+            {(openViewDiseaseDialog && viewingDisease)
+              ? 'MALADIE PROFESSIONNELLE'
+              : viewingAccident
+                ? 'ACCIDENT DU TRAVAIL / ATMP'
+                : ''}
+          </div>
 
           {!(openViewDiseaseDialog && viewingDisease) && viewingAccident && (
             <Box sx={{ mt: 3 }}>

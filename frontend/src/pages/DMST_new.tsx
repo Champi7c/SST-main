@@ -34,6 +34,8 @@ import {
 import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon, WorkspacePremium as CertIcon } from '@mui/icons-material'
 import client, { getApiErrorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 
 interface DMST {
   id: number
@@ -446,8 +448,249 @@ export default function DMST() {
     }
   }
 
+  const handlePrintFiche = () => {
+    if (!dmst) return
+    const logoOrigin = window.location.origin
+    const o = (formData.observation_form_data || {}) as Record<string, unknown>
+    const val = (key: string) => String(o[key] || '')
+    const dateStr = formData.observation_date ? new Date(formData.observation_date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')
+    const visitType = [o.visit_type_embauche && 'Embauche', o.visit_type_periodique && 'Périodique', o.visit_type_reprise && 'Reprise'].filter(Boolean).join(', ') || '-'
+
+    const section = (title: string) => `<div class="section-title">${title}</div>`
+    const row = (label: string, value: string) => `<div class="row"><span class="label">${label}</span><span class="value">${value || '—'}</span></div>`
+
+    const html = `<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8"/>
+  <title>Fiche d'observation – ${dmst.agent_name}</title>
+  <style>
+    @page { size: A4; margin: 15mm 20mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #222; background: #fff; }
+    .header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .header img { width: 70px; height: auto; flex-shrink: 0; }
+    .header-title { flex: 1; background: #0D47A1; color: white; text-align: center; font-weight: bold; font-size: 14px; border-radius: 40px; padding: 10px 16px; }
+    .header-date { text-align: right; font-size: 10px; min-width: 130px; line-height: 1.6; }
+    .section-title { background: #0D47A1; color: white; font-weight: bold; font-size: 11px; padding: 4px 8px; margin: 10px 0 6px; border-radius: 2px; }
+    .row { display: flex; gap: 4px; margin-bottom: 3px; font-size: 10.5px; }
+    .label { font-weight: bold; white-space: nowrap; }
+    .value { color: #333; }
+    .row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; margin-bottom: 4px; }
+    .row-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px 12px; margin-bottom: 4px; }
+    .constantes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 6px; }
+    .const-item { border: 1px solid #ccc; border-radius: 3px; padding: 3px 5px; text-align: center; font-size: 10px; }
+    .const-label { font-weight: bold; color: #555; font-size: 9px; }
+    .const-val { font-size: 11px; }
+    .acuity-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 10px; }
+    .acuity-table th, .acuity-table td { border: 1px solid #ccc; padding: 3px 6px; text-align: center; }
+    .acuity-table th { background: #e8f0fe; font-weight: bold; }
+    .text-block { background: #f9f9f9; border-left: 3px solid #0D47A1; padding: 5px 8px; font-size: 10.5px; margin-bottom: 6px; white-space: pre-wrap; min-height: 24px; }
+    .conclusion { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+    .conclusion-item { border: 2px solid #0D47A1; border-radius: 20px; padding: 4px 14px; font-weight: bold; font-size: 11px; color: #0D47A1; }
+    .conclusion-item.active { background: #0D47A1; color: white; }
+    .signatures { display: flex; justify-content: space-between; margin-top: 20px; padding-top: 12px; border-top: 1px solid #ccc; }
+    .sig-box { width: 45%; text-align: center; font-size: 10px; }
+    .sig-line { border-top: 1px solid #333; margin-top: 40px; padding-top: 4px; }
+    hr { border: none; border-top: 1px solid #ddd; margin: 6px 0; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="${logoOrigin}/coly.png" alt="Logo" onerror="this.style.display='none'" />
+    <div class="header-title">FICHE D'OBSERVATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL</div>
+    <div class="header-date">
+      Fait à Dakar, le ${dateStr}<br/>
+      Type : ${visitType}<br/>
+      Médecin : ${formData.observer_name || '—'}
+    </div>
+  </div>
+
+  ${section('I. IDENTIFICATION DE L\'AGENT')}
+  <div class="row-grid">
+    ${row('Nom et prénoms :', dmst.agent_name)}
+    ${row('Matricule :', dmst.agent_matricule)}
+    ${row('Âge :', `${dmst.agent_age ?? '—'} ans`)}
+    ${row('Sexe :', o.sex_m ? 'M' : o.sex_f ? 'F' : '—')}
+    ${row('Téléphone :', val('telephone'))}
+    ${row('Direction :', formData.observation_direction || dmst.agent_direction || '—')}
+    ${row('Site :', formData.observation_site || dmst.agent_site_name || '—')}
+    ${row('Fonction / Poste :', formData.observation_function || dmst.agent_function || '—')}
+    ${row('Ancienneté au poste :', `${val('seniority_years')} ans`)}
+  </div>
+
+  ${section('II. ANTÉCÉDENTS ET TERRAINS PARTICULIERS')}
+  <div class="row-grid">
+    ${row('Antécédents médicaux :', formData.medical_antecedents || '—')}
+    ${row('Antécédents chirurgicaux :', formData.surgical_antecedents || '—')}
+  </div>
+  ${row('Habitudes de vie :', [formData.sport_activity && 'Activité sportive', formData.physical_activity && 'Activité physique', formData.tobacco && `Tabac (${val('tobacco_per_day')}/j)`, formData.alcohol_obs && 'Alcool', formData.coffee && 'Café', formData.tea && 'Thé', val('habits_other')].filter(Boolean).join(' — ') || 'Aucune')}
+  ${row('AT/MP (12 derniers mois) :', o.at_mp_no ? 'Non' : o.at_mp_yes ? `Oui → Nature : ${formData.at_mp_nature || ''}` : '—')}
+  ${row('Entreprises / Postes antérieurs :', formData.previous_companies || '—')}
+
+  ${section('III. EXPOSITIONS PROFESSIONNELLES')}
+  ${row('Risques physiques :', [o.exp_phys_bruit && 'Bruit (>85dB)', o.exp_phys_vibrations && 'Vibrations', o.exp_phys_chaleur_froid && 'Chaleur/Froid', o.exp_phys_rayonnements && 'Rayonnements', o.exp_phys_ecran && 'Écran >4h/j'].filter(Boolean).join(', ') || '-')}
+  ${row('Chimiques/biologiques :', [o.exp_chim_poussieres && 'Poussières', o.exp_chim_solvants && 'Solvants', o.exp_chim_cmr && 'CMR', o.exp_chim_biologiques && 'Agents biologiques', o.exp_chim_gaz && 'Gaz/Fumées'].filter(Boolean).join(', ') + (val('exp_chim_preciser') ? ' — ' + val('exp_chim_preciser') : '') || '-')}
+  ${row('Biomécaniques :', [o.exp_bio_port_charges && 'Port charges >15kg', o.exp_bio_gestes_repetitifs && 'Gestes répétitifs', o.exp_bio_postures && 'Postures contraignantes', o.exp_bio_station_debout && 'Station debout prolongée'].filter(Boolean).join(', ') || '-')}
+  ${row('Psychosociaux :', [o.exp_psy_stress && 'Stress', o.exp_psy_charge_mentale && 'Charge mentale', o.exp_psy_isole && 'Travail isolé', o.exp_psy_relations && 'Relations difficiles', o.exp_psy_harcelement && 'Harcèlement'].filter(Boolean).join(', ') || '-')}
+  ${row('Organisation du travail :', [o.exp_org_nuit && 'Travail de nuit', o.exp_org_poste && 'Travail posté (3×8)', o.exp_org_irreguliers && 'Horaires irréguliers', o.exp_org_astreintes && 'Astreintes'].filter(Boolean).join(', ') || '-')}
+  ${row('EPI :', [o.epi_gants && 'Gants', o.epi_masque && 'Masque', o.epi_lunettes && 'Lunettes', o.epi_casque && 'Casque', o.epi_auditif && 'Prot. auditives', o.epi_chaussures && 'Chaussures sécurité'].filter(Boolean).join(', ') || '-')}
+
+  ${section('IV. PLAINTES FONCTIONNELLES ACTUELLES')}
+  <div class="text-block">${o.plaintes_aucune ? 'Aucune plainte' : [o.plaintes_douleurs_ms && `Douleurs MS (${val('plaintes_douleurs_localisation')})`, o.plaintes_respiratoires && 'Troubles respiratoires', o.plaintes_cutanes && 'Troubles cutanés', o.plaintes_orl && 'ORL/Oculaires', o.plaintes_cephalees && 'Céphalées', o.plaintes_vertiges && 'Vertiges', o.plaintes_fatigue && 'Fatigue chronique', o.plaintes_stress && 'Stress/Anxiété/Sommeil', o.plaintes_digestifs && 'Troubles digestifs'].filter(Boolean).join(' ; ') || '-'}${val('plaintes_details') ? '\n' + val('plaintes_details') : ''}</div>
+
+  ${section('V. ÉTAT GÉNÉRAL ET CONSTANTES')}
+  <div class="constantes">
+    <div class="const-item"><div class="const-label">TA (mmHg)</div><div class="const-val">${formData.blood_pressure_systolic || '—'}/${formData.blood_pressure_diastolic || '—'}</div></div>
+    <div class="const-item"><div class="const-label">T° (°C)</div><div class="const-val">${formData.temperature || '—'}</div></div>
+    <div class="const-item"><div class="const-label">FC (/min)</div><div class="const-val">${formData.heart_rate || '—'}</div></div>
+    <div class="const-item"><div class="const-label">Poids (kg)</div><div class="const-val">${formData.weight || '—'}</div></div>
+    <div class="const-item"><div class="const-label">Taille (cm)</div><div class="const-val">${formData.height || '—'}</div></div>
+    <div class="const-item"><div class="const-label">IMC (kg/m²)</div><div class="const-val">${formData.bmi || '—'}</div></div>
+    <div class="const-item"><div class="const-label">Tour taille (cm)</div><div class="const-val">${val('tour_taille') || '—'}</div></div>
+    <div class="const-item"><div class="const-label">Pér. ombilical (cm)</div><div class="const-val">${val('perimetre_ombilical') || '—'}</div></div>
+    <div class="const-item"><div class="const-label">SpO₂ (%)</div><div class="const-val">${val('spo2') || '—'}</div></div>
+    <div class="const-item"><div class="const-label">Dextro jn (g/L)</div><div class="const-val">${formData.dextro_jn || '—'}</div></div>
+    <div class="const-item"><div class="const-label">Dextro pp (g/L)</div><div class="const-val">${formData.dextro_pp || '—'}</div></div>
+  </div>
+  <table class="acuity-table">
+    <thead><tr><th></th><th>Acuité OD</th><th>Acuité OG</th><th>Acuité binoculaire</th></tr></thead>
+    <tbody>
+      <tr><td>De loin</td><td>${val('av_od_loin') || '—'}/10</td><td>${val('av_og_loin') || '—'}/10</td><td>${val('av_bin_loin') || '—'}/10</td></tr>
+      <tr><td>De près</td><td>${val('av_od_pres') || '—'}/10</td><td>${val('av_og_pres') || '—'}/10</td><td>${val('av_bin_pres') || '—'}/10</td></tr>
+    </tbody>
+  </table>
+  ${row('Vision des couleurs :', o.vision_couleurs_normale ? 'Normale' : o.vision_couleurs_daltonisme ? `Daltonisme (${val('daltonisme_type')})` : '—')}
+  ${row('Lunettes / lentilles :', o.lunettes_oui ? `Oui — ${val('lunettes_correction')}` : o.lunettes_non ? 'Non' : '—')}
+
+  ${section('VI. EXAMEN CLINIQUE')}
+  ${row('État général :', [o.exam_etat_bon && 'Bon', o.exam_etat_moyen && 'Moyen', o.exam_etat_altere && 'Altéré'].filter(Boolean).join(', ') || '—')}
+  <div class="text-block">${formData.clinical_exam || '—'}</div>
+
+  ${section('VII. EXAMENS COMPLÉMENTAIRES')}
+  ${row('Examens :', [o.comp_audiometrie && 'Audiométrie', o.comp_spiro && 'Spirométrie/EFR', o.comp_ecg && 'ECG', o.comp_radio_thorax && 'Radio thorax', o.comp_acuite && 'Acuité visuelle', o.comp_vision_couleurs && 'Vision couleurs', o.comp_bilan_sang && 'Bilan biologique', o.comp_bilan_hepatique && 'Bilan hépatique', val('comp_autres')].filter(Boolean).join(' ; ') || '-')}
+  <div class="text-block">${val('comp_resultats') || '—'}</div>
+
+  ${section('VIII. CONCLUSION MÉDICALE — AVIS D\'APTITUDE')}
+  <div class="conclusion">
+    <div class="conclusion-item ${formData.medical_conclusion_apte ? 'active' : ''}">${formData.medical_conclusion_apte ? '☑' : '☐'} APTE</div>
+    <div class="conclusion-item ${formData.medical_conclusion_asr ? 'active' : ''}">${formData.medical_conclusion_asr ? '☑' : '☐'} ASR</div>
+    <div class="conclusion-item ${formData.medical_conclusion_aar ? 'active' : ''}">${formData.medical_conclusion_aar ? '☑' : '☐'} AAR</div>
+    <div class="conclusion-item ${formData.medical_conclusion_int ? 'active' : ''}">${formData.medical_conclusion_int ? '☑' : '☐'} INT${formData.medical_conclusion_int ? ` (durée : ${val('int_duree')})` : ''}</div>
+    <div class="conclusion-item ${formData.medical_conclusion_ind ? 'active' : ''}">${formData.medical_conclusion_ind ? '☑' : '☐'} IND</div>
+  </div>
+  ${val('conclusion_restrictions') ? row('Restrictions / Aménagements :', val('conclusion_restrictions')) : ''}
+  ${val('conclusion_recommendations') ? row('Recommandations :', val('conclusion_recommendations')) : ''}
+
+  ${section('IX. ÉDUCATION THÉRAPEUTIQUE ET SENSIBILISATION')}
+  ${row('Thèmes :', [formData.education_mhd && 'MHD', formData.education_mhv && 'MHV', formData.education_fdr_cvx && 'FDR-CVx', formData.education_ergo && 'Ergo', formData.education_spb_psy && 'SPB&Psy', formData.education_therapy && 'Thérapie', o.education_epi && 'Port EPI', o.education_tms && 'Prévention TMS', o.education_stress && 'Gestion stress', o.education_sommeil && 'Hygiène sommeil', formData.education_other].filter(Boolean).join(', ') || 'Aucun')}
+  ${row('Prochaine visite :', `${val('next_visit_date') ? new Date(val('next_visit_date')).toLocaleDateString('fr-FR') : '—'} — ${[o.next_visit_type_periodique && 'Périodique', o.next_visit_type_surveillance && 'Surveillance renforcée', o.next_visit_type_specialisee && 'Spécialisée'].filter(Boolean).join(', ') || '-'}`)}
+
+  <div class="signatures">
+    <div class="sig-box"><div class="sig-line">L'AGENT — Signature (pour information)</div></div>
+    <div class="sig-box">
+      <div>${formData.observer_name || ''}</div>
+      <div class="sig-line">LE MÉDECIN DU TRAVAIL — Signature et cachet</div>
+    </div>
+  </div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=900,height=1100')
+    if (win) { win.document.write(html); win.document.close() }
+  }
+
   const handlePrint = () => {
-    window.print()
+    if (tabValue === 1) {
+      handlePrintFiche()
+    } else {
+      window.print()
+    }
+  }
+
+  const exportSectionToPDF = async (sectionId: string, fileName: string) => {
+    const printSection = document.getElementById(sectionId)
+    if (!printSection) { showSnackbar(`Section d'impression introuvable`, 'error'); return }
+    const mmToPx = 3.779527559
+    const widthPx = 210 * mmToPx
+    const paddingPx = 20 * mmToPx
+    const orig = {
+      display: window.getComputedStyle(printSection).display,
+      position: window.getComputedStyle(printSection).position,
+      left: window.getComputedStyle(printSection).left,
+      top: window.getComputedStyle(printSection).top,
+      width: window.getComputedStyle(printSection).width,
+      zIndex: window.getComputedStyle(printSection).zIndex,
+    }
+    printSection.style.display = 'block'
+    printSection.style.position = 'fixed'
+    printSection.style.left = '0'
+    printSection.style.top = '0'
+    printSection.style.width = `${widthPx}px`
+    printSection.style.minWidth = `${widthPx}px`
+    printSection.style.maxWidth = `${widthPx}px`
+    printSection.style.padding = `${paddingPx}px`
+    printSection.style.margin = '0'
+    printSection.style.zIndex = '9999'
+    printSection.style.backgroundColor = '#ffffff'
+    printSection.style.boxSizing = 'border-box'
+    await new Promise((r) => setTimeout(r, 100))
+    const images = printSection.querySelectorAll('img')
+    if (images.length > 0) {
+      await Promise.all(Array.from(images).map((img: Element) => {
+        const i = img as HTMLImageElement
+        if (i.complete && i.naturalHeight !== 0) return Promise.resolve()
+        return new Promise((resolve) => { i.onload = () => resolve(null); i.onerror = () => resolve(null); setTimeout(() => resolve(null), 3000) })
+      }))
+    }
+    await new Promise((r) => setTimeout(r, 300))
+    const canvas = await html2canvas(printSection, {
+      scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff',
+      width: printSection.offsetWidth, height: printSection.scrollHeight, allowTaint: false,
+      onclone: (clonedDoc) => {
+        const cloned = clonedDoc.getElementById(sectionId)
+        if (cloned) { cloned.style.display = 'block'; cloned.style.visibility = 'visible'; cloned.style.width = `${widthPx}px`; cloned.style.padding = `${paddingPx}px`; cloned.style.backgroundColor = '#ffffff' }
+      },
+    })
+    printSection.style.display = orig.display
+    printSection.style.position = orig.position
+    printSection.style.left = orig.left
+    printSection.style.top = orig.top
+    printSection.style.width = orig.width
+    printSection.style.zIndex = orig.zIndex
+    const imgData = canvas.toDataURL('image/png', 1.0)
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = pdf.internal.pageSize.getHeight()
+    const pxToMm = pdfWidth / (widthPx * 2)
+    const imgHeightMm = canvas.height * pxToMm
+    if (imgHeightMm <= pdfHeight) {
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeightMm, undefined, 'FAST')
+    } else {
+      let remaining = imgHeightMm; let sourceY = 0
+      while (remaining > 0) {
+        const pageH = Math.min(pdfHeight, remaining)
+        const sourceH = (pageH / imgHeightMm) * canvas.height
+        const pageCanvas = document.createElement('canvas')
+        pageCanvas.width = canvas.width; pageCanvas.height = Math.ceil(sourceH)
+        const ctx = pageCanvas.getContext('2d')
+        if (ctx) { ctx.drawImage(canvas, 0, sourceY, canvas.width, sourceH, 0, 0, canvas.width, sourceH); pdf.addImage(pageCanvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, pdfWidth, pageH, undefined, 'FAST') }
+        sourceY += sourceH; remaining -= pageH
+        if (remaining > 0) pdf.addPage()
+      }
+    }
+    pdf.save(fileName)
+    showSnackbar('PDF exporté avec succès', 'success')
+  }
+
+  const handleExportPDF = async () => {
+    if (!dmst) return
+    try {
+      showSnackbar('Génération du PDF en cours...', 'success')
+      await exportSectionToPDF('print-section', `fiche_observation_${dmst.agent_matricule}_${new Date().toISOString().split('T')[0]}.pdf`)
+    } catch (e) {
+      showSnackbar(`Erreur PDF: ${e instanceof Error ? e.message : 'Erreur'}`, 'error')
+    }
   }
 
   const conclusionLabel = (c: string) => {
@@ -549,6 +792,186 @@ export default function DMST() {
 </body></html>`
 
     const win = window.open('', '_blank', 'width=820,height=950')
+    if (win) { win.document.write(html); win.document.close() }
+  }
+
+  const handlePrintBulletinAnalyses = () => {
+    if (!dmst) return
+    const logoOrigin = window.location.origin
+    const obsData = (formData.observation_form_data || {}) as Record<string, unknown>
+    const chk = (key: string) => obsData[key] ? '&#9745;' : '&#9744;'
+    const dateStr = (obsData['ba_date'] || formData.observation_date)
+      ? new Date(String(obsData['ba_date'] || formData.observation_date)).toLocaleDateString('fr-FR')
+      : '...........................'
+    const sexe = obsData['sex_m'] ? 'M' : obsData['sex_f'] ? 'F' : '............'
+    const tel = (obsData['telephone'] as string) || '..............................'
+    const nameParts = dmst.agent_name ? dmst.agent_name.split(' ') : []
+    const nom = nameParts[0] || '.....................................'
+    const prenom = nameParts.slice(1).join(' ') || '...............................'
+
+    const secHdr = (titre: string, bg: string) =>
+      `<div style="background:${bg};color:white;text-align:center;font-weight:bold;font-size:10px;padding:3px 6px;border:2px solid ${bg};margin-bottom:4px">${titre}</div>`
+
+    const items = (pairs: [string,string][]) =>
+      pairs.map(([k,l]) => `<div style="font-size:10px;line-height:1.65">${chk(k)} ${l}</div>`).join('')
+
+    const buildPage = () => `
+      <div style="border:1px solid #ccc;padding:8px">
+        <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #2E75B6;margin-bottom:6px">
+          <tr>
+            <td style="width:90px;padding:4px"><img src="${logoOrigin}/coly.png" height="70" onerror="this.style.display='none'"/></td>
+            <td style="padding:4px 10px">
+              <div style="font-weight:bold;color:#1F4788;font-size:13px">CABINET MÉDICAL LIONEL</div>
+              <div style="font-size:10px;color:#333">Autorisation n° : 26JUIL2022*022346</div>
+              <div style="font-size:10px;color:#333">RC : SN.THS.2024.A.266 &nbsp;|&nbsp; NINEA : 010949412</div>
+              <div style="font-size:11px;margin-top:4px"><strong>Date :</strong> ${dateStr}</div>
+            </td>
+          </tr>
+        </table>
+        <div style="text-align:center;font-weight:bold;color:#1F4788;font-size:16px;margin:6px 0">BULLETIN D'ANALYSES</div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:6px">
+          <tr>
+            <td style="background:#E8F0F8;border:1px solid #ccc;padding:4px 6px;font-size:10px"><strong>Nom :</strong> ${nom}</td>
+            <td style="background:#E8F0F8;border:1px solid #ccc;padding:4px 6px;font-size:10px"><strong>Prénom :</strong> ${prenom}</td>
+          </tr>
+          <tr>
+            <td style="background:#E8F0F8;border:1px solid #ccc;padding:4px 6px;font-size:10px"><strong>Âge :</strong> ${dmst.agent_age ?? '............'} &nbsp;&nbsp; <strong>Sexe :</strong> ${sexe}</td>
+            <td style="background:#E8F0F8;border:1px solid #ccc;padding:4px 6px;font-size:10px"><strong>Téléphone :</strong> ${tel}</td>
+          </tr>
+        </table>
+        <table style="width:100%;border-collapse:collapse">
+          <tr>
+            <td style="width:33%;vertical-align:top;padding-right:4px">
+              ${secHdr('HÉMATOLOGIE','#1F4788')}
+              ${items([['ba_nfs','NFS'],['ba_taux_ret','Taux Rét.'],['ba_te','T E'],['ba_vs','V S'],['ba_gs','G S'],['ba_rhesus','Rhesus'],['ba_abo','ABO'],['ba_rai','RAI']])}
+              <div style="margin-top:6px"></div>
+              ${secHdr('BIOCHIMIE','#1F4788')}
+              ${items([['ba_gaj','G A J'],['ba_gpp','G P P'],['ba_hba1c','HbA1c'],['ba_uree','Urée'],['ba_creat','Créat'],['ba_acide_urique','Acide urique'],['ba_psa','PSA'],['ba_afp','AFP'],['ba_lipasemie','Lipasémie'],['ba_electroph_pr','Electroph. Pr'],['ba_electroph_hb','Electroph. Hb']])}
+              <div style="display:flex;font-size:10px;line-height:1.65">${chk('ba_tsh')} TSH &nbsp;&nbsp; ${chk('ba_t4')} T4</div>
+              ${items([['ba_pu24','PU 24'],['ba_micro_albumin','Micro-albuminurie']])}
+            </td>
+            <td style="width:33%;vertical-align:top;padding:0 4px">
+              ${secHdr('B. LIPIDIQUE','#1F4788')}
+              ${items([['ba_ch_total','Ch. total'],['ba_ch_hdl','Ch. HDL'],['ba_ch_ldl','Ch. LDL'],['ba_tgl','TGL']])}
+              <div style="margin-top:6px"></div>
+              ${secHdr('IONOGRAMME SANGUIN','#2E75B6')}
+              <div style="display:flex;font-size:10px;line-height:1.65">${chk('ba_na')} Na+ &nbsp; ${chk('ba_k')} K+ &nbsp; ${chk('ba_cl')} Cl-</div>
+              ${items([['ba_calcemie','Calcémie'],['ba_phosphore','Phosphore'],['ba_magnesemie','Magnésémie'],['ba_bicarbonates','Bicarbonates']])}
+              <div style="margin-top:6px"></div>
+              ${secHdr('F. HÉPATIQUE HÉMOSTASE','#C41E3A')}
+              ${items([['ba_bilirubine','Bilirubine libre et conjuguée'],['ba_asat_alat','ASAT ALAT'],['ba_pal','PAL'],['ba_ggt','GGT'],['ba_tp','TP'],['ba_tck','TCK'],['ba_inr','INR'],['ba_fibrinogene','Fibrinogène']])}
+              <div style="text-align:right;font-size:9px;margin-top:8px;text-decoration:underline">Le Prescripteur</div>
+            </td>
+            <td style="width:33%;vertical-align:top;padding-left:4px">
+              ${secHdr('SÉROLOGIE IMMUNOLOGIE','#8B4513')}
+              ${items([['ba_aghbs','AgHbs'],['ba_bhcg','B-HCG Plasm.'],['ba_aslo','ASLO'],['ba_f_rhumatoide','F. Rhumatoïde'],['ba_widal','Widal et Félix'],['ba_bw','BW (TPHA-RPR)'],['ba_crp','CRP'],['ba_waler_rose','Waler Rose'],['ba_anti_ccp','Ac Anti CCP'],['ba_anti_dna','Ac Anti DNA natif']])}
+              <div style="margin-top:6px"></div>
+              ${secHdr('BACTÉRIOLOGIE PARASITOLOGIE','#2E8B57')}
+              ${items([['ba_hemoculture','Hémoculture'],['ba_goutte_epaisse','Goutte épaisse'],['ba_frottis','Frottis sanguin'],['ba_ecbu','ECBU'],['ba_addis',"Compte d'Addis"],['ba_coproculture','Coproculture'],['ba_selles_kaop','Selles KAOP'],['ba_crachats_baar','Crachats BAAR']])}
+            </td>
+          </tr>
+        </table>
+      </div>`
+
+    const html = `<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8"/>
+  <title>Bulletin d'analyses – ${dmst.agent_name}</title>
+  <style>
+    @page { size: A3 landscape; margin: 10mm; }
+    body { font-family: Arial, sans-serif; margin: 0; }
+    .outer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media print { body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <div class="outer">
+    <div>${buildPage()}</div>
+    <div>${buildPage()}</div>
+  </div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=1200,height=900')
+    if (win) { win.document.write(html); win.document.close() }
+  }
+
+  const handlePrintCertificat = () => {
+    if (!dmst) return
+    const logoUrl = window.location.origin + '/coly.png'
+    const obsData = (formData.observation_form_data || {}) as Record<string, unknown>
+    const dateStr = (obsData['cert_date'] || formData.observation_date)
+      ? new Date(String(obsData['cert_date'] || formData.observation_date)).toLocaleDateString('fr-FR')
+      : new Date().toLocaleDateString('fr-FR')
+    const nom = dmst.agent_name?.split(' ').slice(-1)[0] || ''
+    const prenom = dmst.agent_name?.split(' ').slice(0, -1).join(' ') || ''
+
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Certificat Médical</title>
+<style>
+  @page { size: 148mm 210mm; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #fff; width: 148mm; min-height: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .bulletin { width: 148mm; min-height: 210mm; background: white; padding: 8px; display: flex; flex-direction: column; font-size: 10px; }
+  .header-table { width: 100%; border-collapse: collapse; border-bottom: 2.5px solid #2E75B6; margin-bottom: 10px; }
+  .header-table td { vertical-align: middle; padding: 3px; }
+  .td-logo { width: 52px; text-align: center; }
+  .td-logo img { width: 50px; height: 50px; object-fit: contain; display: block; margin: auto; }
+  .td-info { padding-left: 7px; }
+  .cabinet-name { font-weight: bold; font-size: 11px; color: #1F4788; }
+  .cabinet-sub { font-size: 7px; color: #333; line-height: 1.6; }
+  .td-date { text-align: right; vertical-align: middle; padding-right: 3px; white-space: nowrap; font-size: 8.5px; }
+  .title-bulletin { text-align: center; font-weight: bold; font-size: 13px; color: #1F4788; border: 2px solid #1F4788; background: #E8F0F8; padding: 4px 0 5px 0; margin-top: 20px; margin-bottom: 12px; letter-spacing: 0.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .patient-section { border: 1px solid #CCCCCC; padding: 7px 9px; margin-bottom: 12px; font-size: 9px; }
+  .field-row { display: flex; align-items: baseline; margin-bottom: 7px; gap: 4px; }
+  .field-row:last-child { margin-bottom: 0; }
+  .field-label { font-weight: bold; white-space: nowrap; color: #222; }
+  .field-value { flex: 1; border-bottom: 1px dotted #CCCCCC; font-size: 9px; padding: 1px 2px; }
+  .content-section { margin-bottom: 12px; }
+  .section-title { font-weight: bold; font-size: 9.5px; color: #1F4788; border-bottom: 1.5px solid #1F4788; padding-bottom: 3px; margin-bottom: 6px; }
+  .content-text { font-size: 9px; line-height: 1.7; white-space: pre-wrap; padding: 4px 2px; border-bottom: 1px dotted #ccc; min-height: 40px; }
+  .footer-section { border-top: 1px solid #CCCCCC; padding-top: 6px; margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; font-size: 9px; }
+  .footer-prescripteur { text-align: center; font-weight: bold; color: #1F4788; text-decoration: underline; font-size: 9px; padding-top: 35px; }
+</style></head>
+<body><div class="bulletin">
+  <table class="header-table"><tbody><tr>
+    <td class="td-logo"><img src="${logoUrl}" alt="Logo" onerror="this.style.display='none'"></td>
+    <td class="td-info">
+      <div class="cabinet-name">CABINET MÉDICAL LIONEL</div>
+      <div class="cabinet-sub">Autorisation n° : 26JUIL2022*022346<br>RC : SN.THS.2024.A.266<br>NINEA : 010949412</div>
+    </td>
+    <td class="td-date"><em>Le </em>${dateStr}</td>
+  </tr></tbody></table>
+  <div class="title-bulletin">CERTIFICAT MÉDICAL</div>
+  <div class="patient-section">
+    <div class="field-row"><span class="field-label">Nom :</span><span class="field-value">${nom}</span>&nbsp;&nbsp;<span class="field-label">Prénom :</span><span class="field-value">${prenom}</span></div>
+    <div class="field-row">
+      <span class="field-label">Age :</span><span class="field-value" style="max-width:55px">${dmst.agent_age ? dmst.agent_age + ' ans' : ''}</span>
+      &nbsp;&nbsp;<span class="field-label">Sexe :</span><span class="field-value" style="max-width:40px">${obsData['sex_m'] ? 'M' : obsData['sex_f'] ? 'F' : ''}</span>
+      &nbsp;&nbsp;<span class="field-label">Tél :</span><span class="field-value">${obsData['telephone'] as string || ''}</span>
+    </div>
+  </div>
+  <div class="content-section">
+    <div class="section-title">Je soussigné(e), Médecin, certifie avoir examiné :</div>
+    <div class="content-text">${((obsData['cert_observations'] as string) || '').replace(/\n/g, '<br>')}</div>
+  </div>
+  <div class="content-section">
+    <div class="section-title">Conclusion :</div>
+    <div class="content-text">${((obsData['cert_conclusion'] as string) || '').replace(/\n/g, '<br>')}</div>
+  </div>
+  <div class="content-section">
+    <div class="section-title">Ce certificat est délivré pour :</div>
+    <div class="content-text">${((obsData['cert_usage'] as string) || 'servir et valoir ce que de droit').replace(/\n/g, '<br>')}</div>
+  </div>
+  <div class="footer-section">
+    <div><span class="field-label">Fait à Dakar, le </span>${dateStr}</div>
+    <div class="footer-prescripteur">Le Médecin</div>
+  </div>
+</div>
+<script>window.onload=function(){ window.print(); window.onafterprint=function(){ window.close(); }; }</script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=700,height=900')
     if (win) { win.document.write(html); win.document.close() }
   }
 
@@ -666,12 +1089,22 @@ export default function DMST() {
             ) : (
               <>
                 <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ mr: 1 }}>
-                  {tabValue === 0 ? 'Remplir la fiche' : 'Modifier'}
+                  {tabValue === 1 ? 'Remplir la fiche' : 'Modifier'}
                 </Button>
-                <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ mr: 1 }}>
-                  Imprimer
-                </Button>
-                <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => showSnackbar('Fonctionnalité en cours de développement', 'success')} color="error">
+                {tabValue === 4 ? (
+                  <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintBulletinAnalyses} sx={{ mr: 1 }}>
+                    Imprimer le bulletin
+                  </Button>
+                ) : tabValue === 6 ? (
+                  <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintCertificat} sx={{ mr: 1 }}>
+                    Imprimer le certificat
+                  </Button>
+                ) : (
+                  <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ mr: 1 }}>
+                    Imprimer
+                  </Button>
+                )}
+                <Button variant="outlined" startIcon={<PdfIcon />} onClick={handleExportPDF} color="error">
                   Exporter PDF
                 </Button>
               </>
@@ -682,14 +1115,16 @@ export default function DMST() {
 
       <Paper>
         <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
+          <Tab label={`Visites (${dmst.visits_count})`} icon={<MedicalServicesIcon />} iconPosition="start" />
           <Tab label="Fiche d'observation" icon={<MedicalServicesIcon />} iconPosition="start" />
           <Tab label="Ordonnance" icon={<DescriptionIcon />} iconPosition="start" />
           <Tab label="Demande d'examen" icon={<ScienceIcon />} iconPosition="start" />
-          <Tab label={`Visites (${dmst.visits_count})`} icon={<MedicalServicesIcon />} iconPosition="start" />
+          <Tab label="Bulletin d'analyses" icon={<ScienceIcon />} iconPosition="start" />
           <Tab label="Attestations" icon={<CertIcon />} iconPosition="start" />
+          <Tab label="Certificat médical" icon={<DescriptionIcon />} iconPosition="start" />
         </Tabs>
 
-        <TabPanel value={tabValue} index={0}>
+        <TabPanel value={tabValue} index={1}>
           {/* Fiche d'observation - contenu existant */}
           <Grid container spacing={3}>
             <Grid item xs={12}>
@@ -700,7 +1135,7 @@ export default function DMST() {
           </Grid>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={1}>
+        <TabPanel value={tabValue} index={2}>
           {/* Onglet Ordonnance */}
           <Grid container spacing={3}>
             <Grid item xs={12}>
@@ -766,7 +1201,7 @@ export default function DMST() {
           </Grid>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={2}>
+        <TabPanel value={tabValue} index={3}>
           {/* Onglet Demande d'examen */}
           <Grid container spacing={3}>
             <Grid item xs={12}>
@@ -843,7 +1278,7 @@ export default function DMST() {
           </Grid>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={3}>
+        <TabPanel value={tabValue} index={0}>
           <Box display="flex" justifyContent="flex-end" mb={2}>
             <Button
               variant="contained"
@@ -900,7 +1335,87 @@ export default function DMST() {
           </TableContainer>
         </TabPanel>
 
+        {/* Onglet Bulletin d'analyses */}
         <TabPanel value={tabValue} index={4}>
+          {/* En-tête patient */}
+          <Box sx={{ mb: 2, p: 1.5, border: '1px solid #ccc', borderRadius: 1, backgroundColor: '#E8F0F8' }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={2}>
+                <TextField fullWidth size="small" label="Date" type="date" value={getObs('ba_date') || formData.observation_date || ''} onChange={(e) => setObs('ba_date', e.target.value)} disabled={!editMode} InputLabelProps={{ shrink: true }} />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField fullWidth size="small" label="Nom et prénoms" value={dmst.agent_name} disabled InputProps={{ readOnly: true }} />
+              </Grid>
+              <Grid item xs={12} sm={1}>
+                <TextField fullWidth size="small" label="Âge" value={dmst.agent_age ?? ''} disabled InputProps={{ readOnly: true }} />
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <Box display="flex" alignItems="center">
+                  <Typography variant="body2" sx={{ mr: 0.5 }}>Sexe :</Typography>
+                  <FormControlLabel control={<Checkbox size="small" checked={getObsBool('sex_m')} disabled />} label="M" />
+                  <FormControlLabel control={<Checkbox size="small" checked={getObsBool('sex_f')} disabled />} label="F" />
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <TextField fullWidth size="small" label="Téléphone" value={getObs('telephone')} disabled InputProps={{ readOnly: true }} />
+              </Grid>
+            </Grid>
+          </Box>
+          {/* 3 colonnes d'analyses */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1.5 }}>
+            {/* Colonne 1 : HÉMATOLOGIE + BIOCHIMIE */}
+            <Box>
+              <Box sx={{ backgroundColor: '#1F4788', color: 'white', py: 0.5, px: 1, mb: 0.5, textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>HÉMATOLOGIE</Box>
+              {[['ba_nfs','NFS'],['ba_taux_ret','Taux Rét.'],['ba_te','T E'],['ba_vs','V S'],['ba_gs','G S'],['ba_rhesus','Rhesus'],['ba_abo','ABO'],['ba_rai','RAI']].map(([k,l]) => (
+                <FormControlLabel key={k} sx={{ display: 'block', ml: 0, my: 0.25 }} control={<Checkbox size="small" checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">{l}</Typography>} />
+              ))}
+              <Box sx={{ backgroundColor: '#1F4788', color: 'white', py: 0.5, px: 1, mt: 1, mb: 0.5, textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>BIOCHIMIE</Box>
+              {[['ba_gaj','G A J'],['ba_gpp','G P P'],['ba_hba1c','HbA1c'],['ba_uree','Urée'],['ba_creat','Créat'],['ba_acide_urique','Acide urique'],['ba_psa','PSA'],['ba_afp','AFP'],['ba_lipasemie','Lipasémie'],['ba_electroph_pr','Electroph. Pr'],['ba_electroph_hb','Electroph. Hb']].map(([k,l]) => (
+                <FormControlLabel key={k} sx={{ display: 'block', ml: 0, my: 0.25 }} control={<Checkbox size="small" checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">{l}</Typography>} />
+              ))}
+              <Box display="flex">
+                <FormControlLabel sx={{ my: 0.25 }} control={<Checkbox size="small" checked={getObsBool('ba_tsh')} onChange={(e) => setObs('ba_tsh', e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">TSH</Typography>} />
+                <FormControlLabel sx={{ my: 0.25 }} control={<Checkbox size="small" checked={getObsBool('ba_t4')} onChange={(e) => setObs('ba_t4', e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">T4</Typography>} />
+              </Box>
+              {[['ba_pu24','PU 24'],['ba_micro_albumin','Micro-albuminurie']].map(([k,l]) => (
+                <FormControlLabel key={k} sx={{ display: 'block', ml: 0, my: 0.25 }} control={<Checkbox size="small" checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">{l}</Typography>} />
+              ))}
+            </Box>
+            {/* Colonne 2 : B. LIPIDIQUE + IONOGRAMME + F. HÉPATIQUE HÉMOSTASE */}
+            <Box>
+              <Box sx={{ backgroundColor: '#1F4788', color: 'white', py: 0.5, px: 1, mb: 0.5, textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>B. LIPIDIQUE</Box>
+              {[['ba_ch_total','Ch. total'],['ba_ch_hdl','Ch. HDL'],['ba_ch_ldl','Ch. LDL'],['ba_tgl','TGL']].map(([k,l]) => (
+                <FormControlLabel key={k} sx={{ display: 'block', ml: 0, my: 0.25 }} control={<Checkbox size="small" checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">{l}</Typography>} />
+              ))}
+              <Box sx={{ backgroundColor: '#2E75B6', color: 'white', py: 0.5, px: 1, mt: 1, mb: 0.5, textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>IONOGRAMME SANGUIN</Box>
+              <Box display="flex">
+                <FormControlLabel sx={{ my: 0.25 }} control={<Checkbox size="small" checked={getObsBool('ba_na')} onChange={(e) => setObs('ba_na', e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">Na+</Typography>} />
+                <FormControlLabel sx={{ my: 0.25 }} control={<Checkbox size="small" checked={getObsBool('ba_k')} onChange={(e) => setObs('ba_k', e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">K+</Typography>} />
+                <FormControlLabel sx={{ my: 0.25 }} control={<Checkbox size="small" checked={getObsBool('ba_cl')} onChange={(e) => setObs('ba_cl', e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">Cl-</Typography>} />
+              </Box>
+              {[['ba_calcemie','Calcémie'],['ba_phosphore','Phosphore'],['ba_magnesemie','Magnésémie'],['ba_bicarbonates','Bicarbonates']].map(([k,l]) => (
+                <FormControlLabel key={k} sx={{ display: 'block', ml: 0, my: 0.25 }} control={<Checkbox size="small" checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">{l}</Typography>} />
+              ))}
+              <Box sx={{ backgroundColor: '#C41E3A', color: 'white', py: 0.5, px: 1, mt: 1, mb: 0.5, textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>F. HÉPATIQUE HÉMOSTASE</Box>
+              {[['ba_bilirubine','Bilirubine libre et conjuguée'],['ba_asat_alat','ASAT ALAT'],['ba_pal','PAL'],['ba_ggt','GGT'],['ba_tp','TP'],['ba_tck','TCK'],['ba_inr','INR'],['ba_fibrinogene','Fibrinogène']].map(([k,l]) => (
+                <FormControlLabel key={k} sx={{ display: 'block', ml: 0, my: 0.25 }} control={<Checkbox size="small" checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">{l}</Typography>} />
+              ))}
+            </Box>
+            {/* Colonne 3 : SÉROLOGIE IMMUNOLOGIE + BACTÉRIOLOGIE PARASITOLOGIE */}
+            <Box>
+              <Box sx={{ backgroundColor: '#8B4513', color: 'white', py: 0.5, px: 1, mb: 0.5, textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>SÉROLOGIE IMMUNOLOGIE</Box>
+              {[['ba_aghbs','AgHbs'],['ba_bhcg','B-HCG Plasm.'],['ba_aslo','ASLO'],['ba_f_rhumatoide','F. Rhumatoïde'],['ba_widal','Widal et Félix'],['ba_bw','BW (TPHA-RPR)'],['ba_crp','CRP'],['ba_waler_rose','Waler Rose'],['ba_anti_ccp','Ac Anti CCP'],['ba_anti_dna','Ac Anti DNA natif']].map(([k,l]) => (
+                <FormControlLabel key={k} sx={{ display: 'block', ml: 0, my: 0.25 }} control={<Checkbox size="small" checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">{l}</Typography>} />
+              ))}
+              <Box sx={{ backgroundColor: '#2E8B57', color: 'white', py: 0.5, px: 1, mt: 1, mb: 0.5, textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>BACTÉRIOLOGIE PARASITOLOGIE</Box>
+              {[['ba_hemoculture','Hémoculture'],['ba_goutte_epaisse','Goutte épaisse'],['ba_frottis','Frottis sanguin'],['ba_ecbu','ECBU'],['ba_addis',"Compte d'Addis"],['ba_coproculture','Coproculture'],['ba_selles_kaop','Selles KAOP'],['ba_crachats_baar','Crachats BAAR']].map(([k,l]) => (
+                <FormControlLabel key={k} sx={{ display: 'block', ml: 0, my: 0.25 }} control={<Checkbox size="small" checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography variant="body2">{l}</Typography>} />
+              ))}
+            </Box>
+          </Box>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={5}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
             <Typography variant="h6">Attestations d'aptitude médicale au travail</Typography>
             <Button
@@ -945,6 +1460,64 @@ export default function DMST() {
               </Typography>
             </Grid>
           </Grid>
+        </TabPanel>
+
+        {/* Onglet Certificat médical */}
+        <TabPanel value={tabValue} index={6}>
+          <Box sx={{ maxWidth: '148mm', mx: 'auto', fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '10px' }}>
+              <tbody><tr>
+                <td style={{ width: '52px', textAlign: 'center', padding: '3px', verticalAlign: 'middle' }}>
+                  <img src="/coly.png" alt="Logo" style={{ width: '50px', height: '50px', objectFit: 'contain', display: 'block', margin: 'auto' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                </td>
+                <td style={{ paddingLeft: '7px', verticalAlign: 'middle' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1F4788' }}>CABINET MÉDICAL LIONEL</div>
+                  <div style={{ fontSize: '7px', color: '#333', lineHeight: 1.6 }}>Autorisation n° : 26JUIL2022*022346<br />RC : SN.THS.2024.A.266<br />NINEA : 010949412</div>
+                </td>
+                <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '3px' }}>
+                  <TextField size="small" label="Date" type="date" value={(formData.observation_form_data as Record<string,unknown>)?.['cert_date'] as string || formData.observation_date || ''} onChange={(e) => setObs('cert_date', e.target.value)} disabled={!editMode} InputLabelProps={{ shrink: true }} sx={{ width: '140px' }} />
+                </td>
+              </tr></tbody>
+            </table>
+            <Box sx={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#1F4788', border: '2px solid #1F4788', background: '#E8F0F8', py: '4px', mt: '20px', mb: '12px', letterSpacing: '0.5px' }}>
+              CERTIFICAT MÉDICAL
+            </Box>
+            <Box sx={{ border: '1px solid #ccc', p: '7px 9px', mb: '12px', fontSize: '9px' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: '7px', gap: '4px' }}>
+                <Typography sx={{ fontWeight: 'bold', fontSize: '9px', whiteSpace: 'nowrap' }}>Nom :</Typography>
+                <Typography sx={{ fontSize: '9px', borderBottom: '1px dotted #ccc', flex: 1 }}>{dmst.agent_name?.split(' ').slice(-1)[0] || ''}</Typography>
+                <Typography sx={{ fontWeight: 'bold', fontSize: '9px', whiteSpace: 'nowrap', ml: 2 }}>Prénom :</Typography>
+                <Typography sx={{ fontSize: '9px', borderBottom: '1px dotted #ccc', flex: 1 }}>{dmst.agent_name?.split(' ').slice(0, -1).join(' ') || ''}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Typography sx={{ fontWeight: 'bold', fontSize: '9px' }}>Age :</Typography>
+                <Typography sx={{ fontSize: '9px', borderBottom: '1px dotted #ccc', width: '55px' }}>{dmst.agent_age ? `${dmst.agent_age} ans` : ''}</Typography>
+                <Typography sx={{ fontWeight: 'bold', fontSize: '9px', ml: 1 }}>Sexe :</Typography>
+                <FormControlLabel sx={{ mx: 0 }} control={<Checkbox size="small" checked={!!((formData.observation_form_data as Record<string,unknown>)?.['sex_m'])} onChange={(e) => setObs('sex_m', e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '9px' }}>M</Typography>} />
+                <FormControlLabel sx={{ mx: 0 }} control={<Checkbox size="small" checked={!!((formData.observation_form_data as Record<string,unknown>)?.['sex_f'])} onChange={(e) => setObs('sex_f', e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '9px' }}>F</Typography>} />
+                <Typography sx={{ fontWeight: 'bold', fontSize: '9px', ml: 1 }}>Tél :</Typography>
+                <TextField size="small" value={(formData.observation_form_data as Record<string,unknown>)?.['telephone'] as string || ''} onChange={(e) => setObs('telephone', e.target.value)} disabled={!editMode} sx={{ flex: 1 }} inputProps={{ style: { fontSize: '9px', padding: '2px 4px' } }} variant="standard" />
+              </Box>
+            </Box>
+            <Box sx={{ mb: '12px' }}>
+              <Typography sx={{ fontWeight: 'bold', fontSize: '9.5px', color: '#1F4788', borderBottom: '1.5px solid #1F4788', pb: '3px', mb: '6px' }}>Je soussigné(e), Médecin, certifie avoir examiné :</Typography>
+              <TextField fullWidth multiline rows={3} placeholder="Observations cliniques..." value={(formData.observation_form_data as Record<string,unknown>)?.['cert_observations'] as string || ''} onChange={(e) => setObs('cert_observations', e.target.value)} disabled={!editMode} size="small" inputProps={{ style: { fontSize: '9px' } }} />
+            </Box>
+            <Box sx={{ mb: '12px' }}>
+              <Typography sx={{ fontWeight: 'bold', fontSize: '9.5px', color: '#1F4788', borderBottom: '1.5px solid #1F4788', pb: '3px', mb: '6px' }}>Conclusion :</Typography>
+              <TextField fullWidth multiline rows={4} placeholder="Conclusion médicale..." value={(formData.observation_form_data as Record<string,unknown>)?.['cert_conclusion'] as string || ''} onChange={(e) => setObs('cert_conclusion', e.target.value)} disabled={!editMode} size="small" inputProps={{ style: { fontSize: '9px' } }} />
+            </Box>
+            <Box sx={{ mb: '12px' }}>
+              <Typography sx={{ fontWeight: 'bold', fontSize: '9.5px', color: '#1F4788', borderBottom: '1.5px solid #1F4788', pb: '3px', mb: '6px' }}>Ce certificat est délivré pour :</Typography>
+              <TextField fullWidth multiline rows={2} placeholder="servir et valoir ce que de droit..." value={(formData.observation_form_data as Record<string,unknown>)?.['cert_usage'] as string || ''} onChange={(e) => setObs('cert_usage', e.target.value)} disabled={!editMode} size="small" inputProps={{ style: { fontSize: '9px' } }} />
+            </Box>
+            <Box sx={{ borderTop: '1px solid #ccc', pt: '6px', mt: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <Typography sx={{ fontSize: '9px', fontWeight: 'bold' }}>
+                Fait à Dakar, le {((formData.observation_form_data as Record<string,unknown>)?.['cert_date'] || formData.observation_date) ? new Date(String((formData.observation_form_data as Record<string,unknown>)?.['cert_date'] || formData.observation_date)).toLocaleDateString('fr-FR') : ''}
+              </Typography>
+              <Typography sx={{ fontSize: '9px', fontWeight: 'bold', color: '#1F4788', textDecoration: 'underline', pt: '35px' }}>Le Médecin</Typography>
+            </Box>
+          </Box>
         </TabPanel>
 
       </Paper>
@@ -1144,6 +1717,135 @@ export default function DMST() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Section d'impression cachée — Fiche d'observation A4 */}
+      {dmst && (
+        <Box
+          id="print-section"
+          className="print-section"
+          sx={{
+            display: 'none',
+            width: '210mm',
+            padding: '20mm',
+            backgroundColor: '#ffffff',
+            '@media print': {
+              display: 'block !important',
+              padding: '20mm',
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: '100%',
+              zIndex: 9999,
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ flex: '0 0 80px', mr: 2, display: 'flex', alignItems: 'center' }}>
+              <img
+                src="/coly.png"
+                alt="Logo"
+                style={{ width: '80px', height: 'auto', maxWidth: '80px' }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
+            </Box>
+            <Box sx={{ flex: 1, backgroundColor: '#0D47A1', color: 'white', padding: '10px 20px', textAlign: 'center', fontWeight: 'bold', fontSize: '16px', borderRadius: '50px', minHeight: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              FICHE D'OBSERVATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL
+            </Box>
+            <Box sx={{ flex: '0 0 140px', textAlign: 'right', ml: 2 }}>
+              <Typography variant="body2">Fait à Dakar, le {formData.observation_date ? new Date(formData.observation_date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}</Typography>
+              <Typography variant="body2">Type : {[obs.visit_type_embauche && 'Embauche', obs.visit_type_periodique && 'Périodique', obs.visit_type_reprise && 'Reprise'].filter(Boolean).join(', ') || '-'}</Typography>
+              <Typography variant="body2">Médecin : {formData.observer_name || ''}</Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="h6" fontWeight="bold" gutterBottom>I. IDENTIFICATION DE L'AGENT</Typography>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={6}><Typography><strong>Nom et prénoms :</strong> {dmst.agent_name}</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>Âge :</strong> {dmst.agent_age ?? ''} ans</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>Sexe :</strong> {obs.sex_m ? 'M' : obs.sex_f ? 'F' : ''}</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>Matricule :</strong> {dmst.agent_matricule}</Typography></Grid>
+              <Grid item xs={6}><Typography><strong>Téléphone :</strong> {String(obs.telephone || '')}</Typography></Grid>
+              <Grid item xs={6}><Typography><strong>Direction :</strong> {formData.observation_direction || dmst.agent_direction || ''}</Typography></Grid>
+              <Grid item xs={6}><Typography><strong>Site :</strong> {formData.observation_site || dmst.agent_site_name || ''}</Typography></Grid>
+              <Grid item xs={6}><Typography><strong>Fonction / Poste :</strong> {formData.observation_function || dmst.agent_function || ''}</Typography></Grid>
+              <Grid item xs={6}><Typography><strong>Ancienneté au poste :</strong> {String(obs.seniority_years || '')} ans</Typography></Grid>
+            </Grid>
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" fontWeight="bold" gutterBottom>II. ANTÉCÉDENTS ET TERRAINS PARTICULIERS</Typography>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={6}><Typography><strong>Antécédents médicaux :</strong> {formData.medical_antecedents || ''}</Typography></Grid>
+              <Grid item xs={6}><Typography><strong>Antécédents chirurgicaux :</strong> {formData.surgical_antecedents || ''}</Typography></Grid>
+              <Grid item xs={12}>
+                <Typography><strong>Habitudes de vie :</strong> {[formData.sport_activity && 'Activité sportive', formData.physical_activity && 'Activité physique régulière', formData.tobacco && `Tabac (${obs.tobacco_per_day || ''}/j)`, formData.alcohol_obs && 'Alcool', formData.coffee && 'Café', formData.tea && 'Thé', obs.habits_other].filter(Boolean).join(' — ') || 'Aucune'}</Typography>
+              </Grid>
+              <Grid item xs={12}><Typography><strong>AT/MP (12 derniers mois) :</strong> {obs.at_mp_no ? 'Non' : obs.at_mp_yes ? `Oui → Nature : ${formData.at_mp_nature || ''}` : ''}</Typography></Grid>
+              <Grid item xs={12}><Typography><strong>Entreprises / Postes antérieurs :</strong> {formData.previous_companies || ''}</Typography></Grid>
+            </Grid>
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" fontWeight="bold" gutterBottom>III. EXPOSITIONS PROFESSIONNELLES</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}><strong>Risques physiques :</strong> {[obs.exp_phys_bruit && 'Bruit', obs.exp_phys_vibrations && 'Vibrations', obs.exp_phys_chaleur_froid && 'Chaleur/Froid', obs.exp_phys_rayonnements && 'Rayonnements', obs.exp_phys_ecran && 'Écran >4h/j'].filter(Boolean).join(', ') || '-'}</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}><strong>Chimiques/biologiques :</strong> {[obs.exp_chim_poussieres && 'Poussières', obs.exp_chim_solvants && 'Solvants', obs.exp_chim_cmr && 'CMR', obs.exp_chim_biologiques && 'Agents biologiques', obs.exp_chim_gaz && 'Gaz/Fumées'].filter(Boolean).join(', ') || '-'} {obs.exp_chim_preciser ? ` — ${obs.exp_chim_preciser}` : ''}</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}><strong>Biomécaniques :</strong> {[obs.exp_bio_port_charges && 'Port charges', obs.exp_bio_gestes_repetitifs && 'Gestes répétitifs', obs.exp_bio_postures && 'Postures', obs.exp_bio_station_debout && 'Station debout'].filter(Boolean).join(', ') || '-'}</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}><strong>Psychosociaux :</strong> {[obs.exp_psy_stress && 'Stress', obs.exp_psy_charge_mentale && 'Charge mentale', obs.exp_psy_isole && 'Travail isolé', obs.exp_psy_relations && 'Relations difficiles', obs.exp_psy_harcelement && 'Harcèlement'].filter(Boolean).join(', ') || '-'}</Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}><strong>EPI :</strong> {[obs.epi_gants && 'Gants', obs.epi_masque && 'Masque', obs.epi_lunettes && 'Lunettes', obs.epi_casque && 'Casque', obs.epi_auditif && 'Protections auditives', obs.epi_chaussures && 'Chaussures sécurité'].filter(Boolean).join(', ') || '-'}</Typography>
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" fontWeight="bold" gutterBottom>IV. PLAINTES FONCTIONNELLES ACTUELLES</Typography>
+            <Typography sx={{ mb: 2 }}>{obs.plaintes_aucune ? 'Aucune plainte' : [obs.plaintes_douleurs_ms && `Douleurs MS (${obs.plaintes_douleurs_localisation || ''})`, obs.plaintes_respiratoires && 'Troubles respiratoires', obs.plaintes_cutanes && 'Troubles cutanés', obs.plaintes_orl && 'ORL/Oculaires', obs.plaintes_cephalees && 'Céphalées', obs.plaintes_vertiges && 'Vertiges', obs.plaintes_fatigue && 'Fatigue chronique', obs.plaintes_stress && 'Stress/Anxiété/Sommeil', obs.plaintes_digestifs && 'Troubles digestifs'].filter(Boolean).join(' ; ') || '-'} {obs.plaintes_details ? ` — ${obs.plaintes_details}` : ''}</Typography>
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" fontWeight="bold" gutterBottom>V. ÉTAT GÉNÉRAL ET CONSTANTES</Typography>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={3}><Typography><strong>TA :</strong> {formData.blood_pressure_systolic || ''}/{formData.blood_pressure_diastolic || ''} mmHg</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>T° :</strong> {formData.temperature || ''} °C</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>FC :</strong> {formData.heart_rate || ''} /min</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>Poids :</strong> {formData.weight || ''} kg</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>Taille :</strong> {formData.height || ''} cm</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>IMC :</strong> {formData.bmi || ''} kg/m²</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>Tour de taille :</strong> {String(obs.tour_taille || '')} cm</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>Périmètre ombilical :</strong> {String(obs.perimetre_ombilical || '')} cm</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>SpO₂ :</strong> {String(obs.spo2 || '')} %</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>Dextro (jn) :</strong> {formData.dextro_jn || ''} g/L</Typography></Grid>
+              <Grid item xs={2}><Typography><strong>Dextro (pp) :</strong> {formData.dextro_pp || ''} g/L</Typography></Grid>
+            </Grid>
+            <Typography variant="body2" gutterBottom><strong>Acuité visuelle :</strong> OD loin {String(obs.av_od_loin || '')}/10, près {String(obs.av_od_pres || '')}/10 — OG loin {String(obs.av_og_loin || '')}/10, près {String(obs.av_og_pres || '')}/10 — Binoculaire loin {String(obs.av_bin_loin || '')}/10, près {String(obs.av_bin_pres || '')}/10. Vision des couleurs : {obs.vision_couleurs_normale ? 'Normale' : obs.vision_couleurs_daltonisme ? `Daltonisme (${obs.daltonisme_type || ''})` : '-'}. Lunettes/lentilles : {obs.lunettes_oui ? `Oui — ${obs.lunettes_correction || ''}` : obs.lunettes_non ? 'Non' : '-'}</Typography>
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" fontWeight="bold" gutterBottom>VI. EXAMEN CLINIQUE</Typography>
+            <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{formData.clinical_exam || ''}</Typography>
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" fontWeight="bold" gutterBottom>VII. EXAMENS COMPLÉMENTAIRES</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>{[obs.comp_audiometrie && 'Audiométrie tonale', obs.comp_spiro && 'Spirométrie/EFR', obs.comp_ecg && 'ECG', obs.comp_radio_thorax && 'Radiographie thoracique', obs.comp_acuite && 'Acuité visuelle', obs.comp_vision_couleurs && 'Vision des couleurs', obs.comp_bilan_sang && 'Bilan biologique', obs.comp_bilan_hepatique && 'Bilan hépatique', obs.comp_autres].filter(Boolean).join(' ; ') || '-'}</Typography>
+            <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{String(obs.comp_resultats || '')}</Typography>
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" fontWeight="bold" gutterBottom>VIII. CONCLUSION MÉDICALE — AVIS D'APTITUDE</Typography>
+            <Typography sx={{ mb: 1 }}>{[formData.medical_conclusion_apte && 'APTE', formData.medical_conclusion_asr && 'ASR', formData.medical_conclusion_aar && 'AAR', formData.medical_conclusion_int && `INT (durée : ${obs.int_duree || ''})`, formData.medical_conclusion_ind && 'IND'].filter(Boolean).join('  ') || 'Aucun'}</Typography>
+            {!!obs.conclusion_restrictions && <Typography sx={{ mb: 1 }}><strong>Restrictions / Aménagements :</strong> {String(obs.conclusion_restrictions)}</Typography>}
+            {!!obs.conclusion_recommendations && <Typography sx={{ mb: 2 }}><strong>Recommandations :</strong> {String(obs.conclusion_recommendations)}</Typography>}
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="h6" fontWeight="bold" gutterBottom>IX. ÉDUCATION THÉRAPEUTIQUE ET SENSIBILISATION</Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}><strong>Thèmes :</strong> {[formData.education_mhd && 'MHD', formData.education_mhv && 'MHV', formData.education_fdr_cvx && 'FDR-CVx', formData.education_ergo && 'Ergo', formData.education_spb_psy && 'SPB&Psy', formData.education_therapy && 'Thérapie', obs.education_epi && 'Port EPI', obs.education_tms && 'Prévention TMS', obs.education_stress && 'Gestion stress', obs.education_sommeil && 'Hygiène sommeil', formData.education_other].filter(Boolean).join(', ') || 'Aucun'}</Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}><strong>Date prochaine visite :</strong> {obs.next_visit_date ? new Date(String(obs.next_visit_date)).toLocaleDateString('fr-FR') : ''} — Type : {[obs.next_visit_type_periodique && 'Périodique', obs.next_visit_type_surveillance && 'Surveillance renforcée', obs.next_visit_type_specialisee && 'Spécialisée'].filter(Boolean).join(', ') || '-'}</Typography>
+
+            <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #ccc' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mt: 2 }}>
+                <Box><Typography variant="body2"><strong>L'AGENT — Signature (pour information)</strong></Typography></Box>
+                <Box sx={{ textAlign: 'right', minWidth: '250px' }}>
+                  <Typography variant="body2" sx={{ mb: 1 }}><strong>LE MÉDECIN DU TRAVAIL — Signature et cachet</strong></Typography>
+                  <Typography variant="body2">{formData.observer_name || ''}</Typography>
+                  <Box sx={{ mt: 2, height: '40px', borderBottom: '1px solid #000', width: '200px', mx: 'auto' }} />
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      )}
     </Box>
   )
 }

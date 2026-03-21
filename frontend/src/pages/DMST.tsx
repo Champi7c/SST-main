@@ -5,6 +5,7 @@ import {
   Typography,
   Paper,
   Grid,
+  Autocomplete,
   TextField,
   FormControlLabel,
   Checkbox,
@@ -134,16 +135,6 @@ interface VisitType {
   description?: string
 }
 
-interface HistoryEntry {
-  id: number
-  modification_date: string
-  modification_type: string
-  field_name?: string
-  old_value?: string
-  new_value?: string
-  modified_by_name?: string
-  reason?: string
-}
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -158,6 +149,31 @@ function TabPanel(props: TabPanelProps) {
       {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   )
+}
+
+// ─── Génération des options pour les constantes vitales ───────────────────────
+function vitalOptions(min: number, max: number, step: number, normalMin: number, normalMax: number, critMin: number, critMax: number) {
+  const opts: { label: string; color: string }[] = []
+  for (let v = min; v <= max + step / 2; v = Math.round((v + step) * 1000) / 1000) {
+    const val = Math.round(v * 1000) / 1000
+    let color = '#d32f2f' // rouge = hors limites critiques
+    if (val >= critMin && val <= critMax) color = '#ed6c02' // orange = critique mais humain
+    if (val >= normalMin && val <= normalMax) color = '#2e7d32' // vert = normal
+    opts.push({ label: String(val), color })
+  }
+  return opts
+}
+
+const VITALS = {
+  temperature:  vitalOptions(25,  45,  0.1, 35.5, 37.5, 32,  40),
+  heart_rate:   vitalOptions(20,  220, 1,   60,   100,  40,  150),
+  sys:          vitalOptions(50,  250, 1,   90,   140,  70,  180),
+  dia:          vitalOptions(30,  150, 1,   60,   90,   40,  110),
+  spo2:         vitalOptions(50,  100, 1,   95,   100,  85,  100),
+  glycemie:     vitalOptions(0.2, 6,   0.1, 0.7,  1.4,  0.5, 3),
+  poids:        vitalOptions(1,   300, 1,   30,   200,  30,  200),
+  taille:       vitalOptions(30,  300, 1,   100,  250,  100, 250),
+  imc:          vitalOptions(8,   70,  0.1, 18.5, 25,   13,  50),
 }
 
 export default function DMST() {
@@ -464,15 +480,469 @@ export default function DMST() {
   }
 
   const handlePrintOrdonnance = () => {
-    document.body.setAttribute('data-print', 'ordonnance')
-    window.print()
-    setTimeout(() => document.body.removeAttribute('data-print'), 500)
+    const dateStr = (getObs('ordonnance_date') || formData.observation_date)
+      ? new Date(String(getObs('ordonnance_date') || formData.observation_date)).toLocaleDateString('fr-FR')
+      : new Date().toLocaleDateString('fr-FR')
+    const logoUrl = window.location.origin + '/coly.png'
+    const medicaments = (getObs('ordonnance_medicaments') as string || '').replace(/\n/g, '<br/>')
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Ordonnance</title>
+  <style>
+    @page { size: 148mm 210mm; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #fff; width: 148mm; min-height: 210mm; }
+    .ordonnance { width: 148mm; min-height: 210mm; background: white; padding: 8px; display: flex; flex-direction: column; font-size: 11px; }
+    .header-table { width: 100%; border-collapse: collapse; border-bottom: 2.5px solid #2E75B6; margin-bottom: 6px; }
+    .header-table td { vertical-align: middle; padding: 4px; }
+    .td-logo { width: 55px; text-align: center; }
+    .td-logo img { width: 52px; height: 52px; object-fit: contain; display: block; margin: auto; }
+    .td-info { padding-left: 8px; }
+    .cabinet-name { font-weight: bold; font-size: 11px; color: #1F4788; }
+    .cabinet-sub { font-size: 7.5px; color: #333333; line-height: 1.6; }
+    .td-date { text-align: right; vertical-align: middle; padding-right: 4px; white-space: nowrap; font-size: 9px; }
+    .patient-fields { font-size: 9.5px; line-height: 1.9; padding: 0 2px; }
+    .field-label { font-weight: bold; }
+    .title-ordonnance { text-align: center; font-weight: bold; font-size: 16px; color: #1F4788; border: 2px solid #1F4788; background: #E8F0F8; padding: 4px 0 5px 0; margin: 8px 0 0 0; letter-spacing: 1px; }
+    .prescription-area { flex: 1; min-height: 95mm; padding: 8px 4px; font-size: 10px; line-height: 1.7; white-space: pre-wrap; }
+    .footer-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    .footer-table td { vertical-align: bottom; padding: 2px; }
+    .footer-note { font-size: 8.5px; font-style: italic; color: #666666; width: 60%; }
+    .footer-sig { text-align: center; font-size: 9px; }
+    .sig-box { border: 1px solid #aaa; height: 45px; width: 90%; margin: 0 auto 4px auto; }
+    .sig-label { font-weight: bold; color: #1F4788; text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="ordonnance">
+  <table class="header-table">
+    <tbody><tr>
+      <td class="td-logo"><img src="${logoUrl}" alt="Logo" onerror="this.style.display='none'"></td>
+      <td class="td-info">
+        <div class="cabinet-name">CABINET MÉDICAL LIONEL</div>
+        <div class="cabinet-sub">Autorisation n° : 26JUIL2022*022346<br>RC : SN.THS.2024.A.266<br>NINEA : 010949412</div>
+      </td>
+      <td class="td-date"><em>Le </em>${dateStr}</td>
+    </tr></tbody>
+  </table>
+  <div class="patient-fields">
+    <div><span class="field-label">Prénoms et Nom : </span>${dmst?.agent_name || ''}</div>
+    <div>
+      <span class="field-label">Matricule : </span>${dmst?.agent_matricule || ''}
+      &nbsp;&nbsp;&nbsp;<span class="field-label">Age : </span>${dmst?.agent_age ? dmst.agent_age + ' ans' : ''}
+      &nbsp;&nbsp;&nbsp;<span class="field-label">Poids : </span>${formData.weight ? formData.weight + ' kg' : ''}
+    </div>
+  </div>
+  <div class="title-ordonnance">ORDONNANCE</div>
+  <div class="prescription-area">
+    ${medicaments}
+  </div>
+  <table class="footer-table">
+    <tbody><tr>
+      <td class="footer-note"><em>Veuillez ramener l'ordonnance à la prochaine visite</em></td>
+      <td class="footer-sig">
+        <div class="sig-box"></div>
+        <span class="sig-label">Signature et cachet</span>
+      </td>
+    </tr></tbody>
+  </table>
+</div>
+<script>window.onload = function(){ window.print(); window.onafterprint = function(){ window.close(); }; }</script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=600,height=800')
+    if (win) {
+      win.document.write(html)
+      win.document.close()
+    }
   }
 
   const handlePrintExamen = () => {
-    document.body.setAttribute('data-print', 'examen')
-    window.print()
-    setTimeout(() => document.body.removeAttribute('data-print'), 500)
+    const logoUrl = window.location.origin + '/coly.png'
+    const dateStr = (getObs('examen_date') || formData.observation_date)
+      ? new Date(String(getObs('examen_date') || formData.observation_date)).toLocaleDateString('fr-FR')
+      : new Date().toLocaleDateString('fr-FR')
+    const nom = dmst?.agent_name?.split(' ').slice(-1)[0] || ''
+    const prenom = dmst?.agent_name?.split(' ').slice(0, -1).join(' ') || ''
+    const makeLines = (text: string, count: number) => {
+      const lines = (text || '').split('\n').filter((l: string) => l.trim())
+      while (lines.length < count) lines.push('')
+      return lines.slice(0, count).map((l: string) => `<input class="content-line" type="text" value="${l.replace(/"/g, '&quot;')}" readonly>`).join('\n      ')
+    }
+    const examTypes = [
+      obs.examen_biologie && 'Biologie / Analyses de sang',
+      obs.examen_radiologie && 'Radiologie',
+      obs.examen_ecg && 'ECG',
+      obs.examen_spiro && 'Spirométrie',
+      obs.examen_audiometrie && 'Audiométrie',
+      obs.examen_acuite && 'Acuité visuelle',
+    ].filter(Boolean).join(', ')
+    const examText = [examTypes, getObs('examen_specifique') as string || ''].filter(Boolean).join('\n')
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Bulletin d'Examen - Cabinet Médical Lionel</title>
+  <style>
+    @page { size: 148mm 210mm; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #fff; width: 148mm; min-height: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .bulletin { width: 148mm; min-height: 210mm; background: white; padding: 8px; display: flex; flex-direction: column; font-size: 10px; }
+    .header-table { width: 100%; border-collapse: collapse; border-bottom: 2.5px solid #2E75B6; margin-bottom: 10px; }
+    .header-table td { vertical-align: middle; padding: 3px; }
+    .td-logo { width: 52px; text-align: center; }
+    .td-logo img { width: 50px; height: 50px; object-fit: contain; display: block; margin: auto; }
+    .td-info { padding-left: 7px; }
+    .cabinet-name { font-weight: bold; font-size: 11px; color: #1F4788; }
+    .cabinet-sub { font-size: 7px; color: #333; line-height: 1.6; }
+    .td-date { text-align: right; vertical-align: middle; padding-right: 3px; white-space: nowrap; font-size: 8.5px; }
+    .title-bulletin { text-align: center; font-weight: bold; font-size: 13px; color: #1F4788; border: 2px solid #1F4788; background: #E8F0F8; padding: 4px 0 5px 0; margin-top: 20px; margin-bottom: 12px; letter-spacing: 0.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .patient-section { border: 1px solid #CCCCCC; padding: 7px 9px; margin-bottom: 12px; font-size: 9px; }
+    .field-row { display: flex; align-items: baseline; margin-bottom: 7px; gap: 4px; }
+    .field-row:last-child { margin-bottom: 0; }
+    .field-label { font-weight: bold; white-space: nowrap; color: #222; }
+    .field-value { flex: 1; border-bottom: 1px dotted #CCCCCC; font-size: 9px; padding: 1px 2px; min-width: 0; }
+    .content-section { margin-bottom: 12px; flex: 1; }
+    .section-title { font-weight: bold; font-size: 9.5px; color: #1F4788; border-bottom: 1.5px solid #1F4788; padding-bottom: 3px; margin-bottom: 6px; }
+    .content-lines { display: flex; flex-direction: column; gap: 6px; }
+    .content-line { width: 100%; border: none; border-bottom: 1px dotted #CCCCCC; font-size: 9px; font-family: Arial, sans-serif; color: #222; background: transparent; padding: 3px 2px; min-height: 18px; outline: none; }
+    .footer-section { border-top: 1px solid #CCCCCC; padding-top: 6px; margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; font-size: 9px; }
+    .footer-prescripteur { text-align: center; font-weight: bold; color: #1F4788; text-decoration: underline; font-size: 9px; padding-top: 35px; }
+  </style>
+</head>
+<body>
+<div class="bulletin">
+  <table class="header-table">
+    <tbody><tr>
+      <td class="td-logo"><img src="${logoUrl}" alt="Logo" onerror="this.style.display='none'"></td>
+      <td class="td-info">
+        <div class="cabinet-name">CABINET MÉDICAL LIONEL</div>
+        <div class="cabinet-sub">Autorisation n° : 26JUIL2022*022346<br>RC : SN.THS.2024.A.266<br>NINEA : 010949412</div>
+      </td>
+      <td class="td-date"><em>Le </em>${dateStr}</td>
+    </tr></tbody>
+  </table>
+  <div class="title-bulletin">BULLETIN D'EXAMEN</div>
+  <div class="patient-section">
+    <div class="field-row"><span class="field-label">Nom :</span><span class="field-value">${nom}</span></div>
+    <div class="field-row"><span class="field-label">Prénom :</span><span class="field-value">${prenom}</span></div>
+    <div class="field-row">
+      <span class="field-label">Age :</span><span class="field-value" style="max-width:55px">${dmst?.agent_age ? dmst.agent_age + ' ans' : ''}</span>
+      &nbsp;&nbsp;<span class="field-label">Sexe :</span><span class="field-value" style="max-width:55px">${obs.sex_m ? 'M' : obs.sex_f ? 'F' : ''}</span>
+      &nbsp;&nbsp;<span class="field-label">Tél :</span><span class="field-value">${getObs('telephone') as string || ''}</span>
+    </div>
+  </div>
+  <div class="content-section">
+    <div class="section-title">1. Examen(s) demandé(s) :</div>
+    <div class="content-lines">
+      ${makeLines(examText, 5)}
+    </div>
+  </div>
+  <div class="content-section">
+    <div class="section-title">2. Renseignements cliniques :</div>
+    <div class="content-lines">
+      ${makeLines((getObs('examen_motif') as string || '') + (getObs('examen_observations') as string ? '\n' + getObs('examen_observations') : ''), 5)}
+    </div>
+  </div>
+  <div class="footer-section">
+    <div class="footer-date"><span class="field-label">Date : </span><span class="field-value" style="width:90px">${dateStr}</span></div>
+    <div class="footer-prescripteur">Le Prescripteur</div>
+  </div>
+</div>
+<script>window.onload=function(){ window.print(); window.onafterprint=function(){ window.close(); }; }</script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=700,height=900')
+    if (win) { win.document.write(html); win.document.close() }
+  }
+
+  const handlePrintBulletinAnalyses = () => {
+    const chk = (key: string) => `<input type="checkbox" ${obs[key] ? 'checked' : ''} disabled>`
+    const logoUrl = window.location.origin + '/coly.png'
+    const dateStr = formData.observation_date
+      ? new Date(String(formData.observation_date)).toLocaleDateString('fr-FR')
+      : new Date().toLocaleDateString('fr-FR')
+    const nom = dmst?.agent_name?.split(' ').slice(-1)[0] || ''
+    const prenom = dmst?.agent_name?.split(' ').slice(0, -1).join(' ') || ''
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Bulletin d'Analyses - Cabinet Médical Lionel</title>
+  <style>
+    @page { size: 148mm 210mm; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #fff; width: 148mm; min-height: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .bulletin { width: 148mm; min-height: 210mm; background: white; padding: 8px; display: flex; flex-direction: column; font-size: 10px; }
+    .header-table { width: 100%; border-collapse: collapse; border-bottom: 2.5px solid #2E75B6; margin-bottom: 5px; }
+    .header-table td { vertical-align: middle; padding: 3px; }
+    .td-logo { width: 52px; text-align: center; }
+    .td-logo img { width: 50px; height: 50px; object-fit: contain; display: block; margin: auto; }
+    .td-info { padding-left: 7px; }
+    .cabinet-name { font-weight: bold; font-size: 11px; color: #1F4788; }
+    .cabinet-sub { font-size: 7px; color: #333; line-height: 1.6; }
+    .td-date { text-align: right; vertical-align: middle; padding-right: 3px; white-space: nowrap; font-size: 8.5px; }
+    .td-date em { font-style: italic; }
+    .title-bulletin { text-align: center; font-weight: bold; font-size: 13px; color: #1F4788; border: 2px solid #1F4788; background: #E8F0F8; padding: 3px 0 4px 0; margin-bottom: 5px; letter-spacing: 0.5px; }
+    .patient-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 9px; border: 1px solid #ccc; }
+    .patient-table td { padding: 3px 5px; border: 1px solid #ddd; }
+    .patient-table .field-label { font-weight: bold; }
+    .analyses-table { width: 100%; border-collapse: collapse; flex: 1; font-size: 8.5px; }
+    .analyses-table td { border: 1px solid #ccc; padding: 3px 5px; vertical-align: top; }
+    .section-header { font-weight: bold; font-size: 8px; color: white; padding: 2px 5px; margin-bottom: 2px; margin-top: 4px; display: block; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .section-header:first-child { margin-top: 0; }
+    .bg-blue-dark { background-color: #1F4788; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .bg-blue-mid  { background-color: #2E75B6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .bg-red       { background-color: #C41E3A; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .bg-green     { background-color: #2E8B57; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .item { display: flex; align-items: center; padding: 1.5px 0; font-size: 8px; color: #222; gap: 4px; }
+    .item input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 10px; height: 10px; border: 1.5px solid #555; border-radius: 1px; flex-shrink: 0; cursor: default; position: relative; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .item input[type="checkbox"]:checked { background: #1F4788; border-color: #1F4788; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .item input[type="checkbox"]:checked::after { content: ''; position: absolute; left: 1.5px; top: -1px; width: 4px; height: 7px; border: 2px solid white; border-top: none; border-left: none; transform: rotate(45deg); }
+    .footer-prescripteur { text-align: right; font-size: 8px; color: #333; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 5px; }
+    .footer-prescripteur span { font-weight: bold; color: #1F4788; text-decoration: underline; }
+    .prescripteur-box { height: 35px; }
+  </style>
+</head>
+<body>
+<div class="bulletin">
+  <table class="header-table">
+    <tbody><tr>
+      <td class="td-logo"><img src="${logoUrl}" alt="Logo" onerror="this.style.display='none'"></td>
+      <td class="td-info">
+        <div class="cabinet-name">CABINET MÉDICAL LIONEL</div>
+        <div class="cabinet-sub">Autorisation n° : 26JUIL2022*022346<br>RC : SN.THS.2024.A.266<br>NINEA : 010949412</div>
+      </td>
+      <td class="td-date"><em>Date : </em>${dateStr}</td>
+    </tr></tbody>
+  </table>
+
+  <div class="title-bulletin">BULLETIN D'ANALYSES</div>
+
+  <table class="patient-table">
+    <tbody>
+      <tr>
+        <td colspan="2"><span class="field-label">Nom : </span>${nom}</td>
+        <td colspan="2"><span class="field-label">Prénom : </span>${prenom}</td>
+      </tr>
+      <tr>
+        <td colspan="2"><span class="field-label">Age : </span>${dmst?.agent_age ? dmst.agent_age + ' ans' : ''}&nbsp;&nbsp;<span class="field-label">Sexe : </span>${getObs('sexe') || ''}</td>
+        <td colspan="2"><span class="field-label">Téléphone : </span>${getObs('telephone') || ''}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table class="analyses-table">
+    <tbody>
+    <tr>
+      <td style="width:33%">
+        <span class="section-header bg-blue-dark">HÉMATOLOGIE</span>
+        <div class="item">${chk('ba_nfs')} NFS</div>
+        <div class="item">${chk('ba_taux_ret')} Taux Rét.</div>
+        <div class="item">${chk('ba_te')} T E</div>
+        <div class="item">${chk('ba_vs')} V S</div>
+        <div class="item">${chk('ba_gs')} G S</div>
+        <div class="item">${chk('ba_rhesus')} Rhesus</div>
+        <div class="item">${chk('ba_abo')} ABO</div>
+        <div class="item">${chk('ba_rai')} RAI</div>
+        <span class="section-header bg-blue-dark">BIOCHIMIE</span>
+        <div class="item">${chk('ba_gaj')} G A J</div>
+        <div class="item">${chk('ba_gpp')} G P P</div>
+        <div class="item">${chk('ba_hba1c')} HbA1c</div>
+        <div class="item">${chk('ba_uree')} Urée</div>
+        <div class="item">${chk('ba_creat')} Créat</div>
+        <div class="item">${chk('ba_acide_urique')} Acide urique</div>
+        <div class="item">${chk('ba_psa')} PSA</div>
+        <div class="item">${chk('ba_afp')} AFP</div>
+        <div class="item">${chk('ba_lipasemie')} Lipasémie</div>
+        <div class="item">${chk('ba_electroph_pr')} Electroph. Pr</div>
+        <div class="item">${chk('ba_electroph_hb')} Electroph. Hb</div>
+        <div class="item">${chk('ba_tsh')} TSH &nbsp; ${chk('ba_t4')} T4</div>
+        <div class="item">${chk('ba_pu24')} PU 24</div>
+        <div class="item">${chk('ba_micro_albumin')} Micro-albuminurie</div>
+      </td>
+      <td style="width:34%">
+        <span class="section-header bg-blue-dark">B. LIPIDIQUE</span>
+        <div class="item">${chk('ba_ch_total')} Ch. total</div>
+        <div class="item">${chk('ba_ch_hdl')} Ch. HDL</div>
+        <div class="item">${chk('ba_ch_ldl')} Ch. LDL</div>
+        <div class="item">${chk('ba_tgl')} TGL</div>
+        <span class="section-header bg-blue-mid">IONOGRAMME SANGUIN</span>
+        <div class="item">${chk('ba_na')} Na+</div>
+        <div class="item">${chk('ba_k')} K+</div>
+        <div class="item">${chk('ba_cl')} Cl-</div>
+        <div class="item">${chk('ba_calcemie')} Calcémie</div>
+        <div class="item">${chk('ba_phosphore')} Phosphore</div>
+        <div class="item">${chk('ba_magnesemie')} Magnésémie</div>
+        <div class="item">${chk('ba_bicarbonates')} Bicarbonates</div>
+        <span class="section-header bg-blue-mid">F. HÉPATIQUE HÉMOSTASE</span>
+        <div class="item">${chk('ba_bilirubine')} Bilirubine libre et conjuguée</div>
+        <div class="item">${chk('ba_asat_alat')} ASAT ALAT</div>
+        <div class="item">${chk('ba_pal')} PAL</div>
+        <div class="item">${chk('ba_ggt')} GGT</div>
+        <div class="item">${chk('ba_tp')} TP</div>
+        <div class="item">${chk('ba_tck')} TCK</div>
+        <div class="item">${chk('ba_inr')} INR</div>
+        <div class="item">${chk('ba_fibrinogene')} Fibrinogène</div>
+      </td>
+      <td style="width:33%">
+        <span class="section-header bg-red">SÉROLOGIE IMMUNOLOGIE</span>
+        <div class="item">${chk('ba_aghbs')} AgHbs</div>
+        <div class="item">${chk('ba_bhcg')} B-HCG Plasm.</div>
+        <div class="item">${chk('ba_aslo')} ASLO</div>
+        <div class="item">${chk('ba_fr')} F. Rhumatoïde</div>
+        <div class="item">${chk('ba_widal')} Widal et Félix</div>
+        <div class="item">${chk('ba_bw')} BW (TPHA-RPR)</div>
+        <div class="item">${chk('ba_crp')} CRP</div>
+        <div class="item">${chk('ba_waler_rose')} Waler Rose</div>
+        <div class="item">${chk('ba_ac_anti_ccp')} Ac Anti CCP</div>
+        <div class="item">${chk('ba_ac_anti_dna')} Ac Anti DNA natif</div>
+        <span class="section-header bg-green">BACTÉRIOLOGIE PARASITOLOGIE</span>
+        <div class="item">${chk('ba_hemoculture')} Hémoculture</div>
+        <div class="item">${chk('ba_goutte_epaisse')} Goutte épaisse</div>
+        <div class="item">${chk('ba_frottis')} Frottis sanguin</div>
+        <div class="item">${chk('ba_ecbu')} ECBU</div>
+        <div class="item">${chk('ba_addis')} Compte d'Addis</div>
+        <div class="item">${chk('ba_coproculture')} Coproculture</div>
+        <div class="item">${chk('ba_selles_kaop')} Selles KAOP</div>
+        <div class="item">${chk('ba_crachats_baar')} Crachats BAAR</div>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="3" style="border-top: 1px solid #ccc; padding-top: 4px;">
+        <div class="prescripteur-box"></div>
+        <div class="footer-prescripteur"><span>Le Prescripteur</span></div>
+      </td>
+    </tr>
+    </tbody>
+  </table>
+</div>
+<script>window.onload=function(){ window.print(); window.onafterprint=function(){ window.close(); }; }</script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=700,height=900')
+    if (win) {
+      win.document.write(html)
+      win.document.close()
+    }
+  }
+
+  const handlePrintCertificat = () => {
+    const logoUrl = window.location.origin + '/coly.png'
+    const dateStr = (getObs('cert_date') || formData.observation_date)
+      ? new Date(String(getObs('cert_date') || formData.observation_date)).toLocaleDateString('fr-FR')
+      : new Date().toLocaleDateString('fr-FR')
+    const ville = getObs('cert_ville') as string || 'Dakar'
+    const patientFullName = (getObs('cert_patient') as string || dmst?.agent_name || '').trim()
+    const medecinName = getObs('cert_medecin') as string || formData.observer_name || ''
+    const service = getObs('cert_service') as string || dmst?.agent_direction || ''
+    const debut = getObs('cert_debut') as string || ''
+    const arretChecked = getObsBool('cert_arret') ? 'checked' : ''
+    const arretJours = getObs('cert_arret_jours') as string || ''
+    const prolongChecked = getObsBool('cert_prolongation') ? 'checked' : ''
+    const prolongJours = getObs('cert_prolongation_jours') as string || ''
+    const repriseChecked = getObsBool('cert_reprise') ? 'checked' : ''
+    const repriseDate = getObs('cert_reprise_date') as string || ''
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Certificat Médical - Cabinet Médical Lionel</title>
+  <style>
+    @page { size: 148mm 210mm; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #fff; width: 148mm; min-height: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .certificat { width: 148mm; min-height: 210mm; background: white; padding: 8px; display: flex; flex-direction: column; font-size: 10px; }
+    .header-table { width: 100%; border-collapse: collapse; border-bottom: 2.5px solid #2E75B6; margin-bottom: 6px; }
+    .header-table td { vertical-align: middle; padding: 3px; }
+    .td-logo { width: 52px; text-align: center; }
+    .td-logo img { width: 50px; height: 50px; object-fit: contain; display: block; margin: auto; }
+    .td-info { padding-left: 7px; }
+    .cabinet-name { font-weight: bold; font-size: 11px; color: #1F4788; }
+    .cabinet-sub { font-size: 7px; color: #333; line-height: 1.6; }
+    .td-date { text-align: right; vertical-align: middle; padding-right: 3px; white-space: nowrap; font-size: 8.5px; }
+    .td-date em { font-style: italic; }
+    .field-inline { border: none; border-bottom: 1px dotted #CCCCCC; outline: none; font-size: 8.5px; font-family: Arial, sans-serif; background: transparent; width: 80px; padding: 0 2px; }
+    .title-certificat { text-align: center; font-weight: bold; font-size: 13px; color: #1F4788; border: 2px solid #1F4788; background: #E8F0F8; padding: 4px 0 5px 0; margin-top: 20px; margin-bottom: 14px; letter-spacing: 0.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .body-section { flex: 1; display: flex; flex-direction: column; gap: 10px; font-size: 9.5px; color: #222; padding: 0 2px; }
+    .text-block { line-height: 1.8; }
+    .field-label { font-weight: bold; }
+    .field-input { border: none; border-bottom: 1px dotted #CCCCCC; outline: none; font-size: 9.5px; font-family: Arial, sans-serif; color: #222; background: transparent; padding: 1px 2px; }
+    .field-input.wide { width: 100%; display: block; margin-top: 2px; }
+    .field-input.medium { width: 140px; }
+    .field-input.short { width: 70px; }
+    .checkbox-section { background: #F5F5F5; border: 1px solid #ddd; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; font-size: 9.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .check-item { display: flex; align-items: baseline; gap: 6px; cursor: pointer; user-select: none; }
+    .check-item input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 11px; height: 11px; border: 1.5px solid #555; border-radius: 1px; flex-shrink: 0; cursor: pointer; position: relative; background: white; margin-top: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .check-item input[type="checkbox"]:checked { background: #1F4788; border-color: #1F4788; }
+    .check-item input[type="checkbox"]:checked::after { content: ''; position: absolute; left: 1.5px; top: -1px; width: 4px; height: 7px; border: 2px solid white; border-top: none; border-left: none; transform: rotate(45deg); }
+    .check-label { font-weight: bold; }
+    .footer-section { border-top: 1px solid #CCCCCC; padding-top: 6px; margin-top: 10px; display: flex; justify-content: flex-end; }
+    .footer-medecin { font-weight: bold; color: #1F4788; text-decoration: underline; font-size: 9px; padding-top: 35px; text-align: center; }
+  </style>
+</head>
+<body>
+<div class="certificat">
+  <table class="header-table">
+    <tbody><tr>
+      <td class="td-logo"><img src="${logoUrl}" alt="Logo" onerror="this.style.display='none'"></td>
+      <td class="td-info">
+        <div class="cabinet-name">CABINET MÉDICAL LIONEL</div>
+        <div class="cabinet-sub">Autorisation n° : 26JUIL2022*022346<br>RC : SN.THS.2024.A.266<br>NINEA : 010949412</div>
+      </td>
+      <td class="td-date">
+        <em>Fait à </em><input class="field-inline" type="text" value="${ville}"><em>, le </em><input class="field-inline" type="text" value="${dateStr}">
+      </td>
+    </tr></tbody>
+  </table>
+  <div class="title-certificat">CERTIFICAT MÉDICAL</div>
+  <div class="body-section">
+    <div class="text-block">
+      <span>Je soussigné, </span>
+      <input class="field-input wide" type="text" value="${medecinName.replace(/"/g, '&quot;')}">
+    </div>
+    <div class="text-block">
+      <span>certifie que la santé de <span class="field-label">M. / Mme / Mle</span> </span>
+      <input class="field-input wide" type="text" value="${patientFullName.replace(/"/g, '&quot;')}">
+    </div>
+    <div class="text-block">
+      <span class="field-label">Service : </span>
+      <input class="field-input wide" type="text" value="${service.replace(/"/g, '&quot;')}">
+    </div>
+    <div class="text-block">
+      <span>nécessite à compter du </span>
+      <input class="field-input medium" type="text" value="${debut.replace(/"/g, '&quot;')}">
+    </div>
+    <div class="checkbox-section">
+      <label class="check-item">
+        <input type="checkbox" ${arretChecked}>
+        <span><span class="check-label">Un arrêt de travail de </span><input class="field-input short" type="text" value="${arretJours.replace(/"/g, '&quot;')}"> <span class="check-label">jours.</span></span>
+      </label>
+      <label class="check-item">
+        <input type="checkbox" ${prolongChecked}>
+        <span><span class="check-label">Une prolongation d'arrêt de travail de </span><input class="field-input short" type="text" value="${prolongJours.replace(/"/g, '&quot;')}"> <span class="check-label">jours.</span></span>
+      </label>
+      <label class="check-item">
+        <input type="checkbox" ${repriseChecked}>
+        <span><span class="check-label">Une reprise de travail le </span><input class="field-input medium" type="text" value="${repriseDate.replace(/"/g, '&quot;')}"></span>
+      </label>
+    </div>
+  </div>
+  <div class="footer-section">
+    <div class="footer-medecin">Le Médecin</div>
+  </div>
+</div>
+<script>window.onload=function(){ window.print(); window.onafterprint=function(){ window.close(); }; }</script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=700,height=900')
+    if (win) { win.document.write(html); win.document.close() }
   }
 
   const exportSectionToPDF = async (sectionId: string, fileName: string) => {
@@ -603,6 +1073,19 @@ export default function DMST() {
     }
   }
 
+  const handleExportPDFBulletinAnalyses = async () => {
+    if (!dmst) return
+    try {
+      showSnackbar('Génération du PDF en cours...', 'success')
+      await exportSectionToPDF(
+        'print-section-bulletin',
+        `bulletin_analyses_${dmst.agent_matricule}_${new Date().toISOString().split('T')[0]}.pdf`
+      )
+    } catch (e) {
+      showSnackbar(`Erreur PDF: ${e instanceof Error ? e.message : 'Erreur'}`, 'error')
+    }
+  }
+
   const handleExportPDF = async () => {
     if (!dmst) {
       showSnackbar('Aucun DMST disponible', 'error')
@@ -684,7 +1167,6 @@ export default function DMST() {
         allowTaint: false,
         removeContainer: false,
         imageTimeout: 15000,
-        letterRendering: true,
         onclone: (clonedDoc) => {
           // S'assurer que tous les styles sont appliqués dans le clone EXACTEMENT comme l'impression
           const clonedSection = clonedDoc.getElementById('print-section')
@@ -918,9 +1400,9 @@ export default function DMST() {
             ) : (
               <>
                 <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ mr: 1 }}>
-                  {tabValue === 0 ? 'Remplir la fiche' : 'Modifier'}
+                  {tabValue === 1 ? 'Remplir la fiche' : 'Modifier'}
                 </Button>
-                {tabValue === 0 && (
+                {tabValue === 1 && (
                   <>
                     <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ mr: 1 }}>
                       Imprimer
@@ -930,11 +1412,8 @@ export default function DMST() {
                     </Button>
                   </>
                 )}
-                {tabValue === 1 && (
+                {tabValue === 2 && (
                   <>
-                    <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ mr: 1 }}>
-                      Modifier
-                    </Button>
                     <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintOrdonnance} sx={{ mr: 1 }}>
                       Imprimer l'ordonnance
                     </Button>
@@ -943,11 +1422,8 @@ export default function DMST() {
                     </Button>
                   </>
                 )}
-                {tabValue === 2 && (
+                {tabValue === 3 && (
                   <>
-                    <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ mr: 1 }}>
-                      Modifier
-                    </Button>
                     <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintExamen} sx={{ mr: 1 }}>
                       Imprimer la demande
                     </Button>
@@ -956,6 +1432,21 @@ export default function DMST() {
                     </Button>
                   </>
                 )}
+                {tabValue === 4 && (
+                  <>
+                    <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintBulletinAnalyses} sx={{ mr: 1 }}>
+                      Imprimer le bulletin
+                    </Button>
+                    <Button variant="outlined" startIcon={<PdfIcon />} onClick={handleExportPDFBulletinAnalyses} color="error">
+                      Exporter PDF
+                    </Button>
+                  </>
+                )}
+                {tabValue === 5 && (
+                  <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintCertificat}>
+                    Imprimer le certificat
+                  </Button>
+                )}
               </>
             )}
           </Box>
@@ -963,14 +1454,16 @@ export default function DMST() {
       </Box>
 
       <Paper>
-        <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
+        <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} variant="scrollable" scrollButtons="auto">
+          <Tab label={`Visites (${dmst.visits_count})`} icon={<MedicalServicesIcon />} iconPosition="start" />
           <Tab label="Fiche d'observation" icon={<MedicalServicesIcon />} iconPosition="start" />
           <Tab label="Ordonnance" icon={<DescriptionIcon />} iconPosition="start" />
           <Tab label="Demande d'examen" icon={<ScienceIcon />} iconPosition="start" />
-          <Tab label={`Visites (${dmst.visits_count})`} icon={<MedicalServicesIcon />} iconPosition="start" />
+          <Tab label="Bulletin d'analyses" icon={<ScienceIcon />} iconPosition="start" />
+          <Tab label="Certificat médical" icon={<DescriptionIcon />} iconPosition="start" />
         </Tabs>
 
-        <TabPanel value={tabValue} index={0}>
+        <TabPanel value={tabValue} index={1}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
@@ -1144,38 +1637,131 @@ export default function DMST() {
 
             {/* V. ÉTAT GÉNÉRAL ET CONSTANTES */}
             <Grid item xs={12}><Divider sx={{ my: 2 }} /><Typography variant="subtitle1" fontWeight="bold" gutterBottom>V. ÉTAT GÉNÉRAL ET CONSTANTES</Typography></Grid>
+            {/* TA Systolique */}
             <Grid item xs={12} sm={2}>
-              <TextField fullWidth size="small" label="TA (mmHg)" placeholder="___/___" value={[formData.blood_pressure_systolic, formData.blood_pressure_diastolic].map((x) => x ?? '').join('/').replace(/^\/$/, '')} onChange={(e) => { const v = e.target.value; const [s, d] = v.split('/'); setFormData(prev => ({ ...prev, blood_pressure_systolic: (s || '').trim(), blood_pressure_diastolic: (d || '').trim() })) }} disabled={!editMode} />
+              <Autocomplete
+                freeSolo disableClearable disabled={!editMode}
+                options={VITALS.sys}
+                getOptionLabel={(o) => typeof o === 'string' ? o : o.label}
+                value={formData.blood_pressure_systolic || ''}
+                onInputChange={(_, v) => setFormData(prev => ({ ...prev, blood_pressure_systolic: v }))}
+                renderOption={(props, o) => <li {...props} style={{ color: o.color, fontWeight: 600 }}>{o.label}</li>}
+                renderInput={(params) => <TextField {...params} size="small" label="TA Sys (mmHg)" fullWidth />}
+              />
             </Grid>
+            {/* TA Diastolique */}
             <Grid item xs={12} sm={2}>
-              <TextField fullWidth size="small" label="T° (°C)" value={formData.temperature} onChange={(e) => setFormData({ ...formData, temperature: e.target.value })} disabled={!editMode} />
+              <Autocomplete
+                freeSolo disableClearable disabled={!editMode}
+                options={VITALS.dia}
+                getOptionLabel={(o) => typeof o === 'string' ? o : o.label}
+                value={formData.blood_pressure_diastolic || ''}
+                onInputChange={(_, v) => setFormData(prev => ({ ...prev, blood_pressure_diastolic: v }))}
+                renderOption={(props, o) => <li {...props} style={{ color: o.color, fontWeight: 600 }}>{o.label}</li>}
+                renderInput={(params) => <TextField {...params} size="small" label="TA Dia (mmHg)" fullWidth />}
+              />
             </Grid>
+            {/* Température */}
             <Grid item xs={12} sm={2}>
-              <TextField fullWidth size="small" label="FC (/min)" value={formData.heart_rate} onChange={(e) => setFormData({ ...formData, heart_rate: e.target.value })} disabled={!editMode} />
+              <Autocomplete
+                freeSolo disableClearable disabled={!editMode}
+                options={VITALS.temperature}
+                getOptionLabel={(o) => typeof o === 'string' ? o : o.label}
+                value={formData.temperature || ''}
+                onInputChange={(_, v) => setFormData(prev => ({ ...prev, temperature: v }))}
+                renderOption={(props, o) => <li {...props} style={{ color: o.color, fontWeight: 600 }}>{o.label}</li>}
+                renderInput={(params) => <TextField {...params} size="small" label="T° (°C)" fullWidth />}
+              />
             </Grid>
+            {/* Fréquence cardiaque */}
             <Grid item xs={12} sm={2}>
-              <TextField fullWidth size="small" label="Poids (kg)" value={formData.weight} onChange={(e) => { const weight = e.target.value; setFormData(prev => { const next = { ...prev, weight }; if (weight && prev.height) { const h = parseFloat(prev.height) / 100; const w = parseFloat(weight); if (h > 0 && w > 0) next.bmi = (w / (h * h)).toFixed(2); } return next }) }} disabled={!editMode} />
+              <Autocomplete
+                freeSolo disableClearable disabled={!editMode}
+                options={VITALS.heart_rate}
+                getOptionLabel={(o) => typeof o === 'string' ? o : o.label}
+                value={formData.heart_rate || ''}
+                onInputChange={(_, v) => setFormData(prev => ({ ...prev, heart_rate: v }))}
+                renderOption={(props, o) => <li {...props} style={{ color: o.color, fontWeight: 600 }}>{o.label}</li>}
+                renderInput={(params) => <TextField {...params} size="small" label="FC (bpm)" fullWidth />}
+              />
             </Grid>
+            {/* SpO₂ */}
             <Grid item xs={12} sm={2}>
-              <TextField fullWidth size="small" label="Taille (cm)" value={formData.height} onChange={(e) => { const height = e.target.value; setFormData(prev => { const next = { ...prev, height }; if (height && prev.weight) { const h = parseFloat(height) / 100; const w = parseFloat(prev.weight); if (h > 0 && w > 0) next.bmi = (w / (h * h)).toFixed(2); } return next }) }} disabled={!editMode} />
+              <Autocomplete
+                freeSolo disableClearable disabled={!editMode}
+                options={VITALS.spo2}
+                getOptionLabel={(o) => typeof o === 'string' ? o : o.label}
+                value={String(getObs('spo2') || '')}
+                onInputChange={(_, v) => setObs('spo2', v)}
+                renderOption={(props, o) => <li {...props} style={{ color: o.color, fontWeight: 600 }}>{o.label}</li>}
+                renderInput={(params) => <TextField {...params} size="small" label="SpO₂ (%)" fullWidth />}
+              />
             </Grid>
+            {/* Dextro à jeun */}
             <Grid item xs={12} sm={2}>
-              <TextField fullWidth size="small" label="IMC (kg/m²)" value={formData.bmi} onChange={(e) => setFormData({ ...formData, bmi: e.target.value })} disabled={!editMode} />
+              <Autocomplete
+                freeSolo disableClearable disabled={!editMode}
+                options={VITALS.glycemie}
+                getOptionLabel={(o) => typeof o === 'string' ? o : o.label}
+                value={formData.dextro_jn || ''}
+                onInputChange={(_, v) => setFormData(prev => ({ ...prev, dextro_jn: v }))}
+                renderOption={(props, o) => <li {...props} style={{ color: o.color, fontWeight: 600 }}>{o.label}</li>}
+                renderInput={(params) => <TextField {...params} size="small" label="Dextro à jeun (g/L)" fullWidth />}
+              />
+            </Grid>
+            {/* Dextro post-prandial */}
+            <Grid item xs={12} sm={2}>
+              <Autocomplete
+                freeSolo disableClearable disabled={!editMode}
+                options={VITALS.glycemie}
+                getOptionLabel={(o) => typeof o === 'string' ? o : o.label}
+                value={formData.dextro_pp || ''}
+                onInputChange={(_, v) => setFormData(prev => ({ ...prev, dextro_pp: v }))}
+                renderOption={(props, o) => <li {...props} style={{ color: o.color, fontWeight: 600 }}>{o.label}</li>}
+                renderInput={(params) => <TextField {...params} size="small" label="Dextro post-prandial (g/L)" fullWidth />}
+              />
+            </Grid>
+            {/* Poids */}
+            <Grid item xs={12} sm={2}>
+              <Autocomplete
+                freeSolo disableClearable disabled={!editMode}
+                options={VITALS.poids}
+                getOptionLabel={(o) => typeof o === 'string' ? o : o.label}
+                value={formData.weight || ''}
+                onInputChange={(_, v) => { setFormData(prev => { const next = { ...prev, weight: v }; if (v && prev.height) { const h = parseFloat(prev.height) / 100; const w = parseFloat(v); if (h > 0 && w > 0) next.bmi = (w / (h * h)).toFixed(2); } return next }) }}
+                renderOption={(props, o) => <li {...props} style={{ color: o.color, fontWeight: 600 }}>{o.label}</li>}
+                renderInput={(params) => <TextField {...params} size="small" label="Poids (kg)" fullWidth />}
+              />
+            </Grid>
+            {/* Taille */}
+            <Grid item xs={12} sm={2}>
+              <Autocomplete
+                freeSolo disableClearable disabled={!editMode}
+                options={VITALS.taille}
+                getOptionLabel={(o) => typeof o === 'string' ? o : o.label}
+                value={formData.height || ''}
+                onInputChange={(_, v) => { setFormData(prev => { const next = { ...prev, height: v }; if (v && prev.weight) { const h = parseFloat(v) / 100; const w = parseFloat(prev.weight); if (h > 0 && w > 0) next.bmi = (w / (h * h)).toFixed(2); } return next }) }}
+                renderOption={(props, o) => <li {...props} style={{ color: o.color, fontWeight: 600 }}>{o.label}</li>}
+                renderInput={(params) => <TextField {...params} size="small" label="Taille (cm)" fullWidth />}
+              />
+            </Grid>
+            {/* IMC — calculé automatiquement */}
+            <Grid item xs={12} sm={2}>
+              <Autocomplete
+                freeSolo disableClearable disabled={!editMode}
+                options={VITALS.imc}
+                getOptionLabel={(o) => typeof o === 'string' ? o : o.label}
+                value={formData.bmi || ''}
+                onInputChange={(_, v) => setFormData(prev => ({ ...prev, bmi: v }))}
+                renderOption={(props, o) => <li {...props} style={{ color: o.color, fontWeight: 600 }}>{o.label}</li>}
+                renderInput={(params) => <TextField {...params} size="small" label="IMC (kg/m²)" fullWidth />}
+              />
             </Grid>
             <Grid item xs={12} sm={2}>
               <TextField fullWidth size="small" label="Tour de taille (cm)" value={getObs('tour_taille')} onChange={(e) => setObs('tour_taille', e.target.value)} disabled={!editMode} />
             </Grid>
             <Grid item xs={12} sm={2}>
               <TextField fullWidth size="small" label="Périmètre ombilical (cm)" value={getObs('perimetre_ombilical')} onChange={(e) => setObs('perimetre_ombilical', e.target.value)} disabled={!editMode} />
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <TextField fullWidth size="small" label="SpO₂ (%)" value={getObs('spo2')} onChange={(e) => setObs('spo2', e.target.value)} disabled={!editMode} />
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <TextField fullWidth size="small" label="Dextro (jn) g/L" value={formData.dextro_jn} onChange={(e) => setFormData({ ...formData, dextro_jn: e.target.value })} disabled={!editMode} />
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <TextField fullWidth size="small" label="Dextro (pp) g/L" value={formData.dextro_pp} onChange={(e) => setFormData({ ...formData, dextro_pp: e.target.value })} disabled={!editMode} />
             </Grid>
 
             {/* TEST D'ACUITÉ VISUELLE */}
@@ -1397,7 +1983,7 @@ export default function DMST() {
         </TabPanel>
 
         {/* Onglet Ordonnance */}
-        <TabPanel value={tabValue} index={1}>
+        <TabPanel value={tabValue} index={2}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
@@ -1437,109 +2023,240 @@ export default function DMST() {
                 disabled={!editMode}
               />
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Instructions particulières"
-                multiline
-                rows={3}
-                value={getObs('ordonnance_instructions')}
-                onChange={(e) => setObs('ordonnance_instructions', e.target.value)}
-                disabled={!editMode}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Suivi recommandé"
-                multiline
-                rows={2}
-                value={getObs('ordonnance_suivi')}
-                onChange={(e) => setObs('ordonnance_suivi', e.target.value)}
-                disabled={!editMode}
-              />
-            </Grid>
           </Grid>
         </TabPanel>
 
         {/* Onglet Demande d'examen */}
-        <TabPanel value={tabValue} index={2}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                DEMANDE D'EXAMEN MÉDICAL
-              </Typography>
-              <Divider sx={{ mb: 3 }} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Date"
-                type="date"
-                value={getObs('examen_date') || formData.observation_date || ''}
-                onChange={(e) => setObs('examen_date', e.target.value)}
-                disabled={!editMode}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Médecin demandeur"
-                value={getObs('examen_medecin') || formData.observer_name || ''}
-                onChange={(e) => setObs('examen_medecin', e.target.value)}
-                disabled={!editMode}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Types d'examens demandés :</Typography>
-              <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
-                <FormControlLabel control={<Checkbox checked={getObsBool('examen_biologie')} onChange={(e) => setObs('examen_biologie', e.target.checked)} disabled={!editMode} />} label="Biologie / Analyses de sang" />
-                <FormControlLabel control={<Checkbox checked={getObsBool('examen_radiologie')} onChange={(e) => setObs('examen_radiologie', e.target.checked)} disabled={!editMode} />} label="Radiologie" />
-                <FormControlLabel control={<Checkbox checked={getObsBool('examen_ecg')} onChange={(e) => setObs('examen_ecg', e.target.checked)} disabled={!editMode} />} label="ECG" />
-                <FormControlLabel control={<Checkbox checked={getObsBool('examen_spiro')} onChange={(e) => setObs('examen_spiro', e.target.checked)} disabled={!editMode} />} label="Spirométrie" />
-                <FormControlLabel control={<Checkbox checked={getObsBool('examen_audiometrie')} onChange={(e) => setObs('examen_audiometrie', e.target.checked)} disabled={!editMode} />} label="Audiométrie" />
-                <FormControlLabel control={<Checkbox checked={getObsBool('examen_acuite')} onChange={(e) => setObs('examen_acuite', e.target.checked)} disabled={!editMode} />} label="Acuité visuelle" />
+        <TabPanel value={tabValue} index={3}>
+          <Box sx={{ maxWidth: '148mm', mx: 'auto', fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
+            {/* EN-TÊTE */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '10px' }}>
+              <tbody><tr>
+                <td style={{ width: '52px', textAlign: 'center', padding: '3px', verticalAlign: 'middle' }}>
+                  <img src="/coly.png" alt="Logo" style={{ width: '50px', height: '50px', objectFit: 'contain', display: 'block', margin: 'auto' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                </td>
+                <td style={{ paddingLeft: '7px', verticalAlign: 'middle' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1F4788' }}>CABINET MÉDICAL LIONEL</div>
+                  <div style={{ fontSize: '7px', color: '#333', lineHeight: 1.6 }}>Autorisation n° : 26JUIL2022*022346<br />RC : SN.THS.2024.A.266<br />NINEA : 010949412</div>
+                </td>
+                <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '3px' }}>
+                  <TextField size="small" label="Date" type="date" value={getObs('examen_date') as string || formData.observation_date || ''} onChange={(e) => setObs('examen_date', e.target.value)} disabled={!editMode} InputLabelProps={{ shrink: true }} sx={{ width: '140px' }} />
+                </td>
+              </tr></tbody>
+            </table>
+            {/* TITRE */}
+            <Box sx={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#1F4788', border: '2px solid #1F4788', background: '#E8F0F8', py: '4px', mt: '20px', mb: '12px', letterSpacing: '0.5px' }}>
+              BULLETIN D&apos;EXAMEN
+            </Box>
+            {/* PATIENT */}
+            <Box sx={{ border: '1px solid #ccc', p: '7px 9px', mb: '12px', fontSize: '9px' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: '7px', gap: '4px' }}>
+                <Typography sx={{ fontWeight: 'bold', fontSize: '9px', whiteSpace: 'nowrap' }}>Nom :</Typography>
+                <Typography sx={{ fontSize: '9px', borderBottom: '1px dotted #ccc', flex: 1 }}>{dmst.agent_name?.split(' ').slice(-1)[0] || ''}</Typography>
               </Box>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Examens spécifiques demandés"
-                multiline
-                rows={3}
-                placeholder="Décrire les examens demandés (ex : NFS, bilan hépatique, radiographie thoracique)"
-                value={getObs('examen_specifique')}
-                onChange={(e) => setObs('examen_specifique', e.target.value)}
-                disabled={!editMode}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Motif de la demande"
-                multiline
-                rows={3}
-                value={getObs('examen_motif')}
-                onChange={(e) => setObs('examen_motif', e.target.value)}
-                disabled={!editMode}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Observations cliniques"
-                multiline
-                rows={2}
-                value={getObs('examen_observations')}
-                onChange={(e) => setObs('examen_observations', e.target.value)}
-                disabled={!editMode}
-              />
-            </Grid>
-          </Grid>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: '7px', gap: '4px' }}>
+                <Typography sx={{ fontWeight: 'bold', fontSize: '9px', whiteSpace: 'nowrap' }}>Prénom :</Typography>
+                <Typography sx={{ fontSize: '9px', borderBottom: '1px dotted #ccc', flex: 1 }}>{dmst.agent_name?.split(' ').slice(0, -1).join(' ') || ''}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Typography sx={{ fontWeight: 'bold', fontSize: '9px', whiteSpace: 'nowrap' }}>Age :</Typography>
+                <Typography sx={{ fontSize: '9px', borderBottom: '1px dotted #ccc', width: '55px' }}>{dmst.agent_age ? `${dmst.agent_age} ans` : ''}</Typography>
+                <Typography sx={{ fontWeight: 'bold', fontSize: '9px', whiteSpace: 'nowrap', ml: 1 }}>Sexe :</Typography>
+                <FormControlLabel sx={{ mx: 0 }} control={<Checkbox size="small" checked={getObsBool('sex_m')} onChange={(e) => setObs('sex_m', e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '9px' }}>M</Typography>} />
+                <FormControlLabel sx={{ mx: 0 }} control={<Checkbox size="small" checked={getObsBool('sex_f')} onChange={(e) => setObs('sex_f', e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '9px' }}>F</Typography>} />
+                <Typography sx={{ fontWeight: 'bold', fontSize: '9px', whiteSpace: 'nowrap', ml: 1 }}>Tél :</Typography>
+                <TextField size="small" value={getObs('telephone') as string || ''} onChange={(e) => setObs('telephone', e.target.value)} disabled={!editMode} sx={{ flex: 1 }} inputProps={{ style: { fontSize: '9px', padding: '2px 4px' } }} variant="standard" />
+              </Box>
+            </Box>
+            {/* SECTION 1 */}
+            <Box sx={{ mb: '12px' }}>
+              <Typography sx={{ fontWeight: 'bold', fontSize: '9.5px', color: '#1F4788', borderBottom: '1.5px solid #1F4788', pb: '3px', mb: '6px' }}>1. Examen(s) demandé(s) :</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                {[['examen_biologie','Biologie'],['examen_radiologie','Radiologie'],['examen_ecg','ECG'],['examen_spiro','Spirométrie'],['examen_audiometrie','Audiométrie'],['examen_acuite','Acuité visuelle']].map(([k,l]) => (
+                  <FormControlLabel key={k} sx={{ my: 0 }} control={<Checkbox size="small" checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '9px' }}>{l}</Typography>} />
+                ))}
+              </Box>
+              <TextField fullWidth multiline rows={3} placeholder="Examens spécifiques..." value={getObs('examen_specifique') as string || ''} onChange={(e) => setObs('examen_specifique', e.target.value)} disabled={!editMode} size="small" inputProps={{ style: { fontSize: '9px' } }} />
+            </Box>
+            {/* SECTION 2 */}
+            <Box sx={{ mb: '12px' }}>
+              <Typography sx={{ fontWeight: 'bold', fontSize: '9.5px', color: '#1F4788', borderBottom: '1.5px solid #1F4788', pb: '3px', mb: '6px' }}>2. Renseignements cliniques :</Typography>
+              <TextField fullWidth multiline rows={3} value={getObs('examen_motif') as string || ''} onChange={(e) => setObs('examen_motif', e.target.value)} disabled={!editMode} size="small" inputProps={{ style: { fontSize: '9px' } }} sx={{ mb: 1 }} />
+              <TextField fullWidth multiline rows={2} placeholder="Observations cliniques..." value={getObs('examen_observations') as string || ''} onChange={(e) => setObs('examen_observations', e.target.value)} disabled={!editMode} size="small" inputProps={{ style: { fontSize: '9px' } }} />
+            </Box>
+            {/* PIED */}
+            <Box sx={{ borderTop: '1px solid #ccc', pt: '6px', mt: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <Typography sx={{ fontSize: '9px', fontWeight: 'bold' }}>Date : {(getObs('examen_date') || formData.observation_date) ? new Date(String(getObs('examen_date') || formData.observation_date)).toLocaleDateString('fr-FR') : ''}</Typography>
+              <Typography sx={{ fontSize: '9px', fontWeight: 'bold', color: '#1F4788', textDecoration: 'underline', pt: '35px' }}>Le Prescripteur</Typography>
+            </Box>
+          </Box>
         </TabPanel>
 
-        <TabPanel value={tabValue} index={3}>
+        {/* Onglet Bulletin d'analyses */}
+        <TabPanel value={tabValue} index={4}>
+          <Box sx={{ maxWidth: '148mm', mx: 'auto', fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
+            {/* EN-TÊTE */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '5px' }}>
+              <tbody><tr>
+                <td style={{ width: '52px', textAlign: 'center', padding: '3px', verticalAlign: 'middle' }}>
+                  <img src="/coly.png" alt="Logo" style={{ width: '50px', height: '50px', objectFit: 'contain', display: 'block', margin: 'auto' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                </td>
+                <td style={{ paddingLeft: '7px', verticalAlign: 'middle' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1F4788' }}>CABINET MÉDICAL LIONEL</div>
+                  <div style={{ fontSize: '7px', color: '#333', lineHeight: 1.6 }}>Autorisation n° : 26JUIL2022*022346<br />RC : SN.THS.2024.A.266<br />NINEA : 010949412</div>
+                </td>
+                <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '3px' }}>
+                  <TextField size="small" label="Date" type="date" value={getObs('ba_date') as string || formData.observation_date || ''} onChange={(e) => setObs('ba_date', e.target.value)} disabled={!editMode} InputLabelProps={{ shrink: true }} sx={{ width: '140px' }} />
+                </td>
+              </tr></tbody>
+            </table>
+            {/* TITRE */}
+            <Box sx={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#1F4788', border: '2px solid #1F4788', background: '#E8F0F8', py: '3px', mb: '5px', letterSpacing: '0.5px' }}>
+              BULLETIN D&apos;ANALYSES
+            </Box>
+            {/* PATIENT */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '5px', fontSize: '9px', border: '1px solid #ccc' }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '3px 5px', border: '1px solid #ddd' }}><strong>Nom : </strong>{dmst.agent_name?.split(' ').slice(-1)[0] || ''}</td>
+                  <td style={{ padding: '3px 5px', border: '1px solid #ddd' }}><strong>Prénom : </strong>{dmst.agent_name?.split(' ').slice(0, -1).join(' ') || ''}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '3px 5px', border: '1px solid #ddd' }}>
+                    <strong>Age : </strong>{dmst.agent_age ? `${dmst.agent_age} ans` : ''}&nbsp;&nbsp;
+                    <strong>Sexe : </strong>
+                    <FormControlLabel sx={{ mx: 0 }} control={<Checkbox size="small" checked={getObsBool('sex_m')} onChange={(e) => setObs('sex_m', e.target.checked)} disabled={!editMode} />} label="M" />
+                    <FormControlLabel sx={{ mx: 0 }} control={<Checkbox size="small" checked={getObsBool('sex_f')} onChange={(e) => setObs('sex_f', e.target.checked)} disabled={!editMode} />} label="F" />
+                  </td>
+                  <td style={{ padding: '3px 5px', border: '1px solid #ddd' }}>
+                    <TextField size="small" label="Téléphone" value={getObs('telephone') as string || ''} onChange={(e) => setObs('telephone', e.target.value)} disabled={!editMode} sx={{ width: '160px' }} inputProps={{ style: { fontSize: '8px', padding: '3px 6px' } }} InputLabelProps={{ style: { fontSize: '8px' } }} />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            {/* TABLEAU ANALYSES */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '8.5px' }}>
+              <tbody>
+                <tr>
+                  {/* COL 1 */}
+                  <td style={{ border: '1px solid #ccc', padding: '3px 5px', verticalAlign: 'top', width: '33%' }}>
+                    <Box sx={{ background: '#1F4788', color: 'white', fontWeight: 'bold', fontSize: '8px', p: '2px 5px', mb: '2px', textAlign: 'center' }}>HÉMATOLOGIE</Box>
+                    {[['ba_nfs','NFS'],['ba_taux_ret','Taux Rét.'],['ba_te','T E'],['ba_vs','V S'],['ba_gs','G S'],['ba_rhesus','Rhesus'],['ba_abo','ABO'],['ba_rai','RAI']].map(([k,l]) => (
+                      <FormControlLabel key={k} sx={{ display: 'flex', ml: 0, my: 0, height: '20px' }} control={<Checkbox size="small" sx={{ p: '1px' }} checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '8px' }}>{l}</Typography>} />
+                    ))}
+                    <Box sx={{ background: '#1F4788', color: 'white', fontWeight: 'bold', fontSize: '8px', p: '2px 5px', mt: '4px', mb: '2px', textAlign: 'center' }}>BIOCHIMIE</Box>
+                    {[['ba_gaj','G A J'],['ba_gpp','G P P'],['ba_hba1c','HbA1c'],['ba_uree','Urée'],['ba_creat','Créat'],['ba_acide_urique','Acide urique'],['ba_psa','PSA'],['ba_afp','AFP'],['ba_lipasemie','Lipasémie'],['ba_electroph_pr','Electroph. Pr'],['ba_electroph_hb','Electroph. Hb']].map(([k,l]) => (
+                      <FormControlLabel key={k} sx={{ display: 'flex', ml: 0, my: 0, height: '20px' }} control={<Checkbox size="small" sx={{ p: '1px' }} checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '8px' }}>{l}</Typography>} />
+                    ))}
+                    <Box sx={{ display: 'flex' }}>
+                      <FormControlLabel sx={{ ml: 0, my: 0, height: '20px' }} control={<Checkbox size="small" sx={{ p: '1px' }} checked={getObsBool('ba_tsh')} onChange={(e) => setObs('ba_tsh', e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '8px' }}>TSH</Typography>} />
+                      <FormControlLabel sx={{ ml: 1, my: 0, height: '20px' }} control={<Checkbox size="small" sx={{ p: '1px' }} checked={getObsBool('ba_t4')} onChange={(e) => setObs('ba_t4', e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '8px' }}>T4</Typography>} />
+                    </Box>
+                    {[['ba_pu24','PU 24'],['ba_micro_albumin','Micro-albuminurie']].map(([k,l]) => (
+                      <FormControlLabel key={k} sx={{ display: 'flex', ml: 0, my: 0, height: '20px' }} control={<Checkbox size="small" sx={{ p: '1px' }} checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '8px' }}>{l}</Typography>} />
+                    ))}
+                  </td>
+                  {/* COL 2 */}
+                  <td style={{ border: '1px solid #ccc', padding: '3px 5px', verticalAlign: 'top', width: '34%' }}>
+                    <Box sx={{ background: '#1F4788', color: 'white', fontWeight: 'bold', fontSize: '8px', p: '2px 5px', mb: '2px', textAlign: 'center' }}>B. LIPIDIQUE</Box>
+                    {[['ba_ch_total','Ch. total'],['ba_ch_hdl','Ch. HDL'],['ba_ch_ldl','Ch. LDL'],['ba_tgl','TGL']].map(([k,l]) => (
+                      <FormControlLabel key={k} sx={{ display: 'flex', ml: 0, my: 0, height: '20px' }} control={<Checkbox size="small" sx={{ p: '1px' }} checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '8px' }}>{l}</Typography>} />
+                    ))}
+                    <Box sx={{ background: '#2E75B6', color: 'white', fontWeight: 'bold', fontSize: '8px', p: '2px 5px', mt: '4px', mb: '2px', textAlign: 'center' }}>IONOGRAMME SANGUIN</Box>
+                    {[['ba_na','Na+'],['ba_k','K+'],['ba_cl','Cl-'],['ba_calcemie','Calcémie'],['ba_phosphore','Phosphore'],['ba_magnesemie','Magnésémie'],['ba_bicarbonates','Bicarbonates']].map(([k,l]) => (
+                      <FormControlLabel key={k} sx={{ display: 'flex', ml: 0, my: 0, height: '20px' }} control={<Checkbox size="small" sx={{ p: '1px' }} checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '8px' }}>{l}</Typography>} />
+                    ))}
+                    <Box sx={{ background: '#2E75B6', color: 'white', fontWeight: 'bold', fontSize: '8px', p: '2px 5px', mt: '4px', mb: '2px', textAlign: 'center' }}>F. HÉPATIQUE HÉMOSTASE</Box>
+                    {[['ba_bilirubine','Bilirubine libre et conjuguée'],['ba_asat_alat','ASAT ALAT'],['ba_pal','PAL'],['ba_ggt','GGT'],['ba_tp','TP'],['ba_tck','TCK'],['ba_inr','INR'],['ba_fibrinogene','Fibrinogène']].map(([k,l]) => (
+                      <FormControlLabel key={k} sx={{ display: 'flex', ml: 0, my: 0, height: '20px' }} control={<Checkbox size="small" sx={{ p: '1px' }} checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '8px' }}>{l}</Typography>} />
+                    ))}
+                  </td>
+                  {/* COL 3 */}
+                  <td style={{ border: '1px solid #ccc', padding: '3px 5px', verticalAlign: 'top', width: '33%' }}>
+                    <Box sx={{ background: '#C41E3A', color: 'white', fontWeight: 'bold', fontSize: '8px', p: '2px 5px', mb: '2px', textAlign: 'center' }}>SÉROLOGIE IMMUNOLOGIE</Box>
+                    {[['ba_aghbs','AgHbs'],['ba_bhcg','B-HCG Plasm.'],['ba_aslo','ASLO'],['ba_fr','F. Rhumatoïde'],['ba_widal','Widal et Félix'],['ba_bw','BW (TPHA-RPR)'],['ba_crp','CRP'],['ba_waler_rose','Waler Rose'],['ba_ac_anti_ccp','Ac Anti CCP'],['ba_ac_anti_dna','Ac Anti DNA natif']].map(([k,l]) => (
+                      <FormControlLabel key={k} sx={{ display: 'flex', ml: 0, my: 0, height: '20px' }} control={<Checkbox size="small" sx={{ p: '1px' }} checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '8px' }}>{l}</Typography>} />
+                    ))}
+                    <Box sx={{ background: '#2E8B57', color: 'white', fontWeight: 'bold', fontSize: '8px', p: '2px 5px', mt: '4px', mb: '2px', textAlign: 'center' }}>BACTÉRIOLOGIE PARASITOLOGIE</Box>
+                    {[['ba_hemoculture','Hémoculture'],['ba_goutte_epaisse','Goutte épaisse'],['ba_frottis','Frottis sanguin'],['ba_ecbu','ECBU'],['ba_addis',"Compte d'Addis"],['ba_coproculture','Coproculture'],['ba_selles_kaop','Selles KAOP'],['ba_crachats_baar','Crachats BAAR']].map(([k,l]) => (
+                      <FormControlLabel key={k} sx={{ display: 'flex', ml: 0, my: 0, height: '20px' }} control={<Checkbox size="small" sx={{ p: '1px' }} checked={getObsBool(k)} onChange={(e) => setObs(k, e.target.checked)} disabled={!editMode} />} label={<Typography sx={{ fontSize: '8px' }}>{l}</Typography>} />
+                    ))}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={3} style={{ border: '1px solid #ccc', padding: '4px 5px' }}>
+                    <Box sx={{ height: '35px' }} />
+                    <Typography sx={{ textAlign: 'right', fontSize: '8px', color: '#1F4788', fontWeight: 'bold', textDecoration: 'underline' }}>Le Prescripteur</Typography>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </Box>
+        </TabPanel>
+
+        {/* Onglet Certificat médical */}
+        <TabPanel value={tabValue} index={5}>
+          <Box sx={{ maxWidth: '560px', mx: 'auto' }}>
+            <Grid container spacing={2}>
+              {/* Date et ville */}
+              <Grid item xs={6}>
+                <TextField fullWidth size="small" label="Ville" value={getObs('cert_ville') as string || 'Dakar'} onChange={(e) => setObs('cert_ville', e.target.value)} disabled={!editMode} />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField fullWidth size="small" label="Date" type="date" value={getObs('cert_date') as string || formData.observation_date || ''} onChange={(e) => setObs('cert_date', e.target.value)} disabled={!editMode} InputLabelProps={{ shrink: true }} />
+              </Grid>
+              {/* Médecin */}
+              <Grid item xs={12}>
+                <TextField fullWidth size="small" label="Je soussigné (nom du médecin)" value={getObs('cert_medecin') as string || formData.observer_name || ''} onChange={(e) => setObs('cert_medecin', e.target.value)} disabled={!editMode} />
+              </Grid>
+              {/* Patient */}
+              <Grid item xs={12}>
+                <TextField fullWidth size="small" label="Nom complet du patient (M. / Mme / Mle)" value={getObs('cert_patient') as string || dmst.agent_name || ''} onChange={(e) => setObs('cert_patient', e.target.value)} disabled={!editMode} />
+              </Grid>
+              {/* Service */}
+              <Grid item xs={12}>
+                <TextField fullWidth size="small" label="Service" value={getObs('cert_service') as string || dmst.agent_direction || ''} onChange={(e) => setObs('cert_service', e.target.value)} disabled={!editMode} />
+              </Grid>
+              {/* Début */}
+              <Grid item xs={12}>
+                <TextField fullWidth size="small" label="Nécessite à compter du" value={getObs('cert_debut') as string || ''} onChange={(e) => setObs('cert_debut', e.target.value)} disabled={!editMode} placeholder="ex: 01/01/2025" />
+              </Grid>
+              {/* Cases à cocher */}
+              <Grid item xs={12}>
+                <Box sx={{ background: '#F5F5F5', border: '1px solid #ddd', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <FormControlLabel
+                      control={<Checkbox size="small" checked={getObsBool('cert_arret')} onChange={(e) => setObs('cert_arret', e.target.checked)} disabled={!editMode} />}
+                      label={<Typography sx={{ fontWeight: 'bold', fontSize: '13px' }}>Un arrêt de travail de</Typography>}
+                      sx={{ mr: 0 }}
+                    />
+                    <TextField size="small" sx={{ width: '80px' }} value={getObs('cert_arret_jours') as string || ''} onChange={(e) => setObs('cert_arret_jours', e.target.value)} disabled={!editMode} placeholder="nbr" inputProps={{ style: { textAlign: 'center' } }} />
+                    <Typography sx={{ fontWeight: 'bold' }}>jours.</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <FormControlLabel
+                      control={<Checkbox size="small" checked={getObsBool('cert_prolongation')} onChange={(e) => setObs('cert_prolongation', e.target.checked)} disabled={!editMode} />}
+                      label={<Typography sx={{ fontWeight: 'bold', fontSize: '13px' }}>Une prolongation d'arrêt de travail de</Typography>}
+                      sx={{ mr: 0 }}
+                    />
+                    <TextField size="small" sx={{ width: '80px' }} value={getObs('cert_prolongation_jours') as string || ''} onChange={(e) => setObs('cert_prolongation_jours', e.target.value)} disabled={!editMode} placeholder="nbr" inputProps={{ style: { textAlign: 'center' } }} />
+                    <Typography sx={{ fontWeight: 'bold' }}>jours.</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <FormControlLabel
+                      control={<Checkbox size="small" checked={getObsBool('cert_reprise')} onChange={(e) => setObs('cert_reprise', e.target.checked)} disabled={!editMode} />}
+                      label={<Typography sx={{ fontWeight: 'bold', fontSize: '13px' }}>Une reprise de travail le</Typography>}
+                      sx={{ mr: 0 }}
+                    />
+                    <TextField size="small" sx={{ width: '140px' }} value={getObs('cert_reprise_date') as string || ''} onChange={(e) => setObs('cert_reprise_date', e.target.value)} disabled={!editMode} placeholder="date" />
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={0}>
           <Box display="flex" justifyContent="flex-end" mb={2}>
             <Button
               variant="contained"
@@ -1695,42 +2412,24 @@ export default function DMST() {
         }}
       >
         
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Box sx={{ flex: '0 0 80px', mr: 2, display: 'flex', alignItems: 'center' }}>
-            <img 
-              src="/coly.png" 
-              alt="Logo" 
-              style={{ width: '80px', height: 'auto', maxWidth: '80px' }}
-              onError={(e) => {
-                // Ne pas afficher l'URL en cas d'erreur (évite le https en haut à droite)
-                const target = e.target as HTMLImageElement
-                target.style.display = 'none'
-              }}
-            />
-          </Box>
-          <Box
-            sx={{
-              flex: 1,
-              backgroundColor: '#0D47A1',
-              color: 'white',
-              padding: '10px 20px',
-              textAlign: 'center',
-              fontWeight: 'bold',
-              fontSize: '16px',
-              borderRadius: '50px', // Forme ovale
-              minHeight: '50px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            FICHE D'OBSERVATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL
-          </Box>
-          <Box sx={{ flex: '0 0 140px', textAlign: 'right', ml: 2 }}>
-            <Typography variant="body2">Fait à Dakar, le {formData.observation_date ? new Date(formData.observation_date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}</Typography>
-            <Typography variant="body2">Type : {[obs.visit_type_embauche && 'Embauche', obs.visit_type_periodique && 'Périodique', obs.visit_type_reprise && 'Reprise'].filter(Boolean).join(', ') || '-'}</Typography>
-            <Typography variant="body2">Médecin : {formData.observer_name || ''}</Typography>
-          </Box>
+        {/* EN-TÊTE style bulletin */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '10px' }}>
+          <tbody><tr>
+            <td style={{ width: '52px', textAlign: 'center', padding: '3px', verticalAlign: 'middle' }}>
+              <img src="/coly.png" alt="Logo" style={{ width: '50px', height: '50px', objectFit: 'contain', display: 'block', margin: 'auto' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            </td>
+            <td style={{ paddingLeft: '7px', verticalAlign: 'middle' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1F4788' }}>CABINET MÉDICAL LIONEL</div>
+              <div style={{ fontSize: '7px', color: '#333', lineHeight: 1.6 }}>Autorisation n° : 26JUIL2022*022346<br />RC : SN.THS.2024.A.266<br />NINEA : 010949412</div>
+            </td>
+            <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '3px', whiteSpace: 'nowrap', fontSize: '8.5px' }}>
+              <em>Le </em>{formData.observation_date ? new Date(formData.observation_date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}
+            </td>
+          </tr></tbody>
+        </table>
+        {/* TITRE */}
+        <Box sx={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#1F4788', border: '2px solid #1F4788', background: '#E8F0F8', py: '4px', mt: '20px', mb: '12px', letterSpacing: '0.5px' }}>
+          FICHE D'OBSERVATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL
         </Box>
 
         <Box sx={{ mt: 3 }}>
@@ -1800,8 +2499,8 @@ export default function DMST() {
           <Divider sx={{ my: 2 }} />
           <Typography variant="h6" fontWeight="bold" gutterBottom>VIII. CONCLUSION MÉDICALE — AVIS D'APTITUDE</Typography>
           <Typography sx={{ mb: 1 }}>{[formData.medical_conclusion_apte && 'APTE', formData.medical_conclusion_asr && 'ASR', formData.medical_conclusion_aar && 'AAR', formData.medical_conclusion_int && `INT (durée : ${obs.int_duree || ''})`, formData.medical_conclusion_ind && 'IND'].filter(Boolean).join('  ') || 'Aucun'}</Typography>
-          {obs.conclusion_restrictions && <Typography sx={{ mb: 1 }}><strong>Restrictions / Aménagements :</strong> {String(obs.conclusion_restrictions)}</Typography>}
-          {obs.conclusion_recommendations && <Typography sx={{ mb: 2 }}><strong>Recommandations :</strong> {String(obs.conclusion_recommendations)}</Typography>}
+          {!!obs.conclusion_restrictions && <Typography sx={{ mb: 1 }}><strong>Restrictions / Aménagements :</strong> {String(obs.conclusion_restrictions)}</Typography>}
+          {!!obs.conclusion_recommendations && <Typography sx={{ mb: 2 }}><strong>Recommandations :</strong> {String(obs.conclusion_recommendations)}</Typography>}
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="h6" fontWeight="bold" gutterBottom>IX. ÉDUCATION THÉRAPEUTIQUE ET SENSIBILISATION</Typography>
@@ -1821,130 +2520,259 @@ export default function DMST() {
         </Box>
       </Box>
 
-      {/* Section d'impression Ordonnance (logo + même style que les autres) */}
+      {/* Section d'impression Ordonnance — format ordonnance.html */}
       <Box
         id="print-section-ordonnance"
         className="print-section"
         sx={{
           display: 'none',
-          width: '210mm',
-          padding: '20mm',
+          width: '148mm',
+          minHeight: '210mm',
           backgroundColor: '#ffffff',
+          fontFamily: 'Arial, sans-serif',
+          fontSize: '11px',
+          flexDirection: 'column',
+          p: '8px',
           '@media print': {
-            display: 'block !important',
-            padding: '20mm',
+            display: 'flex !important',
             position: 'absolute',
             left: 0,
             top: 0,
-            width: '100%',
             zIndex: 9999,
           },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Box sx={{ flex: '0 0 80px', mr: 2, display: 'flex', alignItems: 'center' }}>
-            <img src="/coly.png" alt="Logo" style={{ width: '80px', height: 'auto', maxWidth: '80px' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-          </Box>
-          <Box sx={{ flex: 1, backgroundColor: '#0D47A1', color: 'white', padding: '10px 20px', textAlign: 'center', fontWeight: 'bold', fontSize: '16px', borderRadius: '50px', minHeight: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            ORDONNANCE MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL
-          </Box>
-          <Box sx={{ flex: '0 0 140px', textAlign: 'right', ml: 2 }}>
-            <Typography variant="body2">Fait à Dakar, le {getObs('ordonnance_date') || formData.observation_date ? new Date(String(getObs('ordonnance_date') || formData.observation_date)).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}</Typography>
-            <Typography variant="body2">Médecin : {getObs('ordonnance_medecin') || formData.observer_name || ''}</Typography>
-          </Box>
-        </Box>
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Patient</Typography>
-          <Typography variant="body2" sx={{ mb: 2 }}><strong>Nom et prénoms :</strong> {dmst.agent_name} — <strong>Matricule :</strong> {dmst.agent_matricule}</Typography>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Médicaments prescrits</Typography>
-          <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('ordonnance_medicaments') || '—'}</Typography>
-          {getObs('ordonnance_instructions') && (
-            <>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Instructions particulières</Typography>
-              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('ordonnance_instructions')}</Typography>
-            </>
-          )}
-          {getObs('ordonnance_suivi') && (
-            <>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Suivi recommandé</Typography>
-              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('ordonnance_suivi')}</Typography>
-            </>
-          )}
-          <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #ccc', display: 'flex', justifyContent: 'flex-end' }}>
-            <Box sx={{ textAlign: 'right', minWidth: '250px' }}>
-              <Typography variant="body2" sx={{ mb: 1 }}><strong>Le médecin du travail — Signature et cachet</strong></Typography>
-              <Typography variant="body2">{getObs('ordonnance_medecin') || formData.observer_name || ''}</Typography>
-              <Box sx={{ mt: 2, height: '40px', borderBottom: '1px solid #000', width: '200px', mx: 'auto' }} />
-            </Box>
-          </Box>
-        </Box>
+        {/* EN-TÊTE */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '6px' }}>
+          <tbody>
+            <tr>
+              <td style={{ width: '55px', textAlign: 'center', padding: '4px', verticalAlign: 'middle' }}>
+                <img src="/coly.png" alt="Logo" style={{ width: '52px', height: '52px', objectFit: 'contain', display: 'block', margin: 'auto' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              </td>
+              <td style={{ paddingLeft: '8px', verticalAlign: 'middle' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1F4788' }}>CABINET MÉDICAL LIONEL</div>
+                <div style={{ fontSize: '7.5px', color: '#333333', lineHeight: 1.6 }}>
+                  Autorisation n° : 26JUIL2022*022346<br />
+                  RC : SN.THS.2024.A.266<br />
+                  NINEA : 010949412
+                </div>
+              </td>
+              <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '4px', whiteSpace: 'nowrap', fontSize: '9px' }}>
+                <em>Le </em>
+                {(getObs('ordonnance_date') || formData.observation_date)
+                  ? new Date(String(getObs('ordonnance_date') || formData.observation_date)).toLocaleDateString('fr-FR')
+                  : new Date().toLocaleDateString('fr-FR')}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* CHAMPS PATIENT */}
+        <div style={{ fontSize: '9.5px', lineHeight: 1.9, padding: '0 2px' }}>
+          <div><strong>Prénoms et Nom : </strong>{dmst.agent_name || <span style={{ color: '#CCCCCC' }}>{'......................................................'}</span>}</div>
+          <div>
+            <strong>Matricule : </strong>{dmst.agent_matricule || <span style={{ color: '#CCCCCC' }}>{'...................'}</span>}
+            &nbsp;&nbsp;&nbsp;<strong>Age : </strong>{dmst.agent_age ? `${dmst.agent_age} ans` : <span style={{ color: '#CCCCCC' }}>{'............'}</span>}
+            &nbsp;&nbsp;&nbsp;<strong>Poids : </strong>{formData.weight ? `${formData.weight} kg` : <span style={{ color: '#CCCCCC' }}>{'............'}</span>}
+          </div>
+        </div>
+
+        {/* TITRE ORDONNANCE */}
+        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '16px', color: '#1F4788', border: '2px solid #1F4788', background: '#E8F0F8', padding: '4px 0 5px 0', margin: '8px 0 0 0', letterSpacing: '1px' }}>
+          ORDONNANCE
+        </div>
+
+        {/* ZONE PRESCRIPTION */}
+        <div style={{ flex: 1, minHeight: '95mm', padding: '8px 4px', whiteSpace: 'pre-wrap', fontSize: '10px', lineHeight: 1.7 }}>
+          {getObs('ordonnance_medicaments') || ''}
+        </div>
+
+        {/* PIED DE PAGE */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '6px' }}>
+          <tbody>
+            <tr>
+              <td style={{ verticalAlign: 'bottom', padding: '2px', width: '60%', fontSize: '8.5px', fontStyle: 'italic', color: '#666666' }}>
+                <em>Veuillez ramener l'ordonnance à la prochaine visite</em>
+              </td>
+              <td style={{ verticalAlign: 'bottom', textAlign: 'center', fontSize: '9px' }}>
+                <div style={{ border: '1px solid #aaa', height: '45px', width: '90%', margin: '0 auto 4px auto' }}></div>
+                <strong style={{ color: '#1F4788', textDecoration: 'underline' }}>Signature et cachet</strong>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </Box>
 
-      {/* Section d'impression Demande d'examen (logo + même style) */}
+      {/* Section d'impression Demande d'examen — format bulletin_examens.html */}
       <Box
         id="print-section-examen"
         className="print-section"
         sx={{
           display: 'none',
-          width: '210mm',
-          padding: '20mm',
+          width: '148mm',
+          minHeight: '210mm',
           backgroundColor: '#ffffff',
+          fontFamily: 'Arial, sans-serif',
+          fontSize: '10px',
+          flexDirection: 'column',
+          p: '8px',
           '@media print': {
-            display: 'block !important',
-            padding: '20mm',
+            display: 'flex !important',
             position: 'absolute',
             left: 0,
             top: 0,
-            width: '100%',
             zIndex: 9999,
           },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Box sx={{ flex: '0 0 80px', mr: 2, display: 'flex', alignItems: 'center' }}>
-            <img src="/coly.png" alt="Logo" style={{ width: '80px', height: 'auto', maxWidth: '80px' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-          </Box>
-          <Box sx={{ flex: 1, backgroundColor: '#0D47A1', color: 'white', padding: '10px 20px', textAlign: 'center', fontWeight: 'bold', fontSize: '16px', borderRadius: '50px', minHeight: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            DEMANDE D'EXAMEN MÉDICAL — SERVICE DE SANTÉ AU TRAVAIL
-          </Box>
-          <Box sx={{ flex: '0 0 140px', textAlign: 'right', ml: 2 }}>
-            <Typography variant="body2">Date : {getObs('examen_date') || formData.observation_date ? new Date(String(getObs('examen_date') || formData.observation_date)).toLocaleDateString('fr-FR') : ''}</Typography>
-            <Typography variant="body2">Médecin : {getObs('examen_medecin') || formData.observer_name || ''}</Typography>
-          </Box>
-        </Box>
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Patient</Typography>
-          <Typography variant="body2" sx={{ mb: 2 }}><strong>Nom et prénoms :</strong> {dmst.agent_name} — <strong>Matricule :</strong> {dmst.agent_matricule}</Typography>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Types d'examens demandés</Typography>
-          <Typography variant="body2" sx={{ mb: 2 }}>{[obs.examen_biologie && 'Biologie / Analyses de sang', obs.examen_radiologie && 'Radiologie', obs.examen_ecg && 'ECG', obs.examen_spiro && 'Spirométrie', obs.examen_audiometrie && 'Audiométrie', obs.examen_acuite && 'Acuité visuelle'].filter(Boolean).join(' ; ') || '—'}</Typography>
-          {getObs('examen_specifique') && (
-            <>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Examens spécifiques</Typography>
-              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('examen_specifique')}</Typography>
-            </>
-          )}
-          {getObs('examen_motif') && (
-            <>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Motif de la demande</Typography>
-              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('examen_motif')}</Typography>
-            </>
-          )}
-          {getObs('examen_observations') && (
-            <>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>Observations cliniques</Typography>
-              <Typography sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>{getObs('examen_observations')}</Typography>
-            </>
-          )}
-          <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #ccc', display: 'flex', justifyContent: 'flex-end' }}>
-            <Box sx={{ textAlign: 'right', minWidth: '250px' }}>
-              <Typography variant="body2" sx={{ mb: 1 }}><strong>Le médecin du travail — Signature et cachet</strong></Typography>
-              <Typography variant="body2">{getObs('examen_medecin') || formData.observer_name || ''}</Typography>
-              <Box sx={{ mt: 2, height: '40px', borderBottom: '1px solid #000', width: '200px', mx: 'auto' }} />
+        <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '10px' }}>
+          <tbody><tr>
+            <td style={{ width: '52px', textAlign: 'center', padding: '3px', verticalAlign: 'middle' }}>
+              <img src="/coly.png" alt="Logo" style={{ width: '50px', height: '50px', objectFit: 'contain', display: 'block', margin: 'auto' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            </td>
+            <td style={{ paddingLeft: '7px', verticalAlign: 'middle' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1F4788' }}>CABINET MÉDICAL LIONEL</div>
+              <div style={{ fontSize: '7px', color: '#333', lineHeight: 1.6 }}>Autorisation n° : 26JUIL2022*022346<br />RC : SN.THS.2024.A.266<br />NINEA : 010949412</div>
+            </td>
+            <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '3px', whiteSpace: 'nowrap', fontSize: '8.5px' }}>
+              <em>Le </em>{(getObs('examen_date') || formData.observation_date) ? new Date(String(getObs('examen_date') || formData.observation_date)).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}
+            </td>
+          </tr></tbody>
+        </table>
+        <Box sx={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#1F4788', border: '2px solid #1F4788', background: '#E8F0F8', py: '4px', mt: '20px', mb: '12px' }}>BULLETIN D&apos;EXAMEN</Box>
+        <Box sx={{ border: '1px solid #ccc', p: '7px 9px', mb: '12px', fontSize: '9px' }}>
+          {[['Nom', dmst.agent_name?.split(' ').slice(-1)[0] || ''], ['Prénom', dmst.agent_name?.split(' ').slice(0, -1).join(' ') || '']].map(([l, v]) => (
+            <Box key={l} sx={{ display: 'flex', alignItems: 'baseline', mb: '7px', gap: '4px' }}>
+              <Typography sx={{ fontWeight: 'bold', fontSize: '9px', whiteSpace: 'nowrap' }}>{l} :</Typography>
+              <Box sx={{ flex: 1, borderBottom: '1px dotted #ccc', fontSize: '9px', p: '1px 2px' }}>{v}</Box>
             </Box>
+          ))}
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+            <Typography sx={{ fontWeight: 'bold', fontSize: '9px' }}>Age :</Typography>
+            <Box sx={{ width: '55px', borderBottom: '1px dotted #ccc', fontSize: '9px', p: '1px 2px' }}>{dmst.agent_age ? `${dmst.agent_age} ans` : ''}</Box>
+            <Typography sx={{ fontWeight: 'bold', fontSize: '9px', ml: 1 }}>Sexe :</Typography>
+            <Box sx={{ width: '55px', borderBottom: '1px dotted #ccc', fontSize: '9px', p: '1px 2px' }}>{obs.sex_m ? 'M' : obs.sex_f ? 'F' : ''}</Box>
+            <Typography sx={{ fontWeight: 'bold', fontSize: '9px', ml: 1 }}>Tél :</Typography>
+            <Box sx={{ flex: 1, borderBottom: '1px dotted #ccc', fontSize: '9px', p: '1px 2px' }}>{getObs('telephone') as string || ''}</Box>
           </Box>
         </Box>
+        {/* Section 1 */}
+        <Box sx={{ mb: '12px', flex: 1 }}>
+          <Typography sx={{ fontWeight: 'bold', fontSize: '9.5px', color: '#1F4788', borderBottom: '1.5px solid #1F4788', pb: '3px', mb: '6px' }}>1. Examen(s) demandé(s) :</Typography>
+          {[[obs.examen_biologie && 'Biologie / Analyses de sang', obs.examen_radiologie && 'Radiologie', obs.examen_ecg && 'ECG', obs.examen_spiro && 'Spirométrie', obs.examen_audiometrie && 'Audiométrie', obs.examen_acuite && 'Acuité visuelle'].filter(Boolean).join(', '), getObs('examen_specifique') as string || ''].filter(Boolean).join('\n').split('\n').concat(['','','','','']).slice(0,5).map((line, i) => (
+            <Box key={i} sx={{ borderBottom: '1px dotted #ccc', fontSize: '9px', p: '3px 2px', minHeight: '18px', mb: '6px' }}>{line}</Box>
+          ))}
+        </Box>
+        {/* Section 2 */}
+        <Box sx={{ mb: '12px', flex: 1 }}>
+          <Typography sx={{ fontWeight: 'bold', fontSize: '9.5px', color: '#1F4788', borderBottom: '1.5px solid #1F4788', pb: '3px', mb: '6px' }}>2. Renseignements cliniques :</Typography>
+          {[(getObs('examen_motif') as string || ''), (getObs('examen_observations') as string || '')].filter(Boolean).join('\n').split('\n').concat(['','','','','']).slice(0,5).map((line, i) => (
+            <Box key={i} sx={{ borderBottom: '1px dotted #ccc', fontSize: '9px', p: '3px 2px', minHeight: '18px', mb: '6px' }}>{line}</Box>
+          ))}
+        </Box>
+        {/* Pied */}
+        <Box sx={{ borderTop: '1px solid #ccc', pt: '6px', mt: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <Typography sx={{ fontSize: '9px' }}><strong>Date : </strong>{(getObs('examen_date') || formData.observation_date) ? new Date(String(getObs('examen_date') || formData.observation_date)).toLocaleDateString('fr-FR') : ''}</Typography>
+          <Typography sx={{ fontSize: '9px', fontWeight: 'bold', color: '#1F4788', textDecoration: 'underline', pt: '35px' }}>Le Prescripteur</Typography>
+        </Box>
+      </Box>
+
+      {/* Section d'impression Bulletin d'analyses — format bulletin_analyses.html */}
+      <Box
+        id="print-section-bulletin"
+        className="print-section"
+        sx={{
+          display: 'none',
+          width: '148mm',
+          minHeight: '210mm',
+          backgroundColor: '#ffffff',
+          fontFamily: 'Arial, sans-serif',
+          fontSize: '10px',
+          flexDirection: 'column',
+          p: '8px',
+          '@media print': {
+            display: 'flex !important',
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            zIndex: 9999,
+          },
+        }}
+      >
+        <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '5px' }}>
+          <tbody><tr>
+            <td style={{ width: '52px', textAlign: 'center', padding: '3px', verticalAlign: 'middle' }}>
+              <img src="/coly.png" alt="Logo" style={{ width: '50px', height: '50px', objectFit: 'contain', display: 'block', margin: 'auto' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            </td>
+            <td style={{ paddingLeft: '7px', verticalAlign: 'middle' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1F4788' }}>CABINET MÉDICAL LIONEL</div>
+              <div style={{ fontSize: '7px', color: '#333', lineHeight: 1.6 }}>Autorisation n° : 26JUIL2022*022346<br />RC : SN.THS.2024.A.266<br />NINEA : 010949412</div>
+            </td>
+            <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '3px', whiteSpace: 'nowrap', fontSize: '8.5px' }}>
+              <em>Date : </em>{formData.observation_date ? new Date(String(formData.observation_date)).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}
+            </td>
+          </tr></tbody>
+        </table>
+        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#1F4788', border: '2px solid #1F4788', background: '#E8F0F8', padding: '3px 0 4px 0', marginBottom: '5px', letterSpacing: '0.5px' }}>BULLETIN D&apos;ANALYSES</div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '5px', fontSize: '9px', border: '1px solid #ccc' }}>
+          <tbody>
+            <tr>
+              <td style={{ padding: '3px 5px', border: '1px solid #ddd' }}><strong>Nom : </strong>{dmst.agent_name?.split(' ').slice(-1)[0] || ''}</td>
+              <td style={{ padding: '3px 5px', border: '1px solid #ddd' }}><strong>Prénom : </strong>{dmst.agent_name?.split(' ').slice(0, -1).join(' ') || ''}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '3px 5px', border: '1px solid #ddd' }}><strong>Age : </strong>{dmst.agent_age ? `${dmst.agent_age} ans` : ''}&nbsp;&nbsp;<strong>Sexe : </strong>{obs.sex_m ? 'M' : obs.sex_f ? 'F' : ''}</td>
+              <td style={{ padding: '3px 5px', border: '1px solid #ddd' }}><strong>Téléphone : </strong>{getObs('telephone') as string || ''}</td>
+            </tr>
+          </tbody>
+        </table>
+        <table style={{ width: '100%', borderCollapse: 'collapse', flex: 1, fontSize: '8.5px' }}>
+          <tbody>
+            <tr>
+              {/* Col 1 */}
+              <td style={{ border: '1px solid #ccc', padding: '3px 5px', verticalAlign: 'top', width: '33%' }}>
+                {[{ t: 'HÉMATOLOGIE', bg: '#1F4788', items: [['ba_nfs','NFS'],['ba_taux_ret','Taux Rét.'],['ba_te','T E'],['ba_vs','V S'],['ba_gs','G S'],['ba_rhesus','Rhesus'],['ba_abo','ABO'],['ba_rai','RAI']] }, { t: 'BIOCHIMIE', bg: '#1F4788', items: [['ba_gaj','G A J'],['ba_gpp','G P P'],['ba_hba1c','HbA1c'],['ba_uree','Urée'],['ba_creat','Créat'],['ba_acide_urique','Acide urique'],['ba_psa','PSA'],['ba_afp','AFP'],['ba_lipasemie','Lipasémie'],['ba_electroph_pr','Electroph. Pr'],['ba_electroph_hb','Electroph. Hb'],['ba_tsh','TSH'],['ba_pu24','PU 24'],['ba_micro_albumin','Micro-albuminurie']] }].map((sec) => (
+                  <Box key={sec.t}>
+                    <Box sx={{ background: sec.bg, color: 'white', fontWeight: 'bold', fontSize: '8px', p: '2px 5px', mt: '4px', mb: '2px' }}>{sec.t}</Box>
+                    {sec.items.map(([k, l]) => k === 'ba_tsh' ? (
+                      <Typography key={k} sx={{ fontSize: '8px', lineHeight: 1.65, py: '1.5px' }}>{obs['ba_tsh'] ? '☑' : '☐'} TSH &nbsp; {obs['ba_t4'] ? '☑' : '☐'} T4</Typography>
+                    ) : (
+                      <Typography key={k} sx={{ fontSize: '8px', lineHeight: 1.65, py: '1.5px' }}>{obs[k] ? '☑' : '☐'} {l}</Typography>
+                    ))}
+                  </Box>
+                ))}
+              </td>
+              {/* Col 2 */}
+              <td style={{ border: '1px solid #ccc', padding: '3px 5px', verticalAlign: 'top', width: '34%' }}>
+                {[{ t: 'B. LIPIDIQUE', bg: '#1F4788', items: [['ba_ch_total','Ch. total'],['ba_ch_hdl','Ch. HDL'],['ba_ch_ldl','Ch. LDL'],['ba_tgl','TGL']] }, { t: 'IONOGRAMME SANGUIN', bg: '#2E75B6', items: [['ba_na','Na+'],['ba_k','K+'],['ba_cl','Cl-'],['ba_calcemie','Calcémie'],['ba_phosphore','Phosphore'],['ba_magnesemie','Magnésémie'],['ba_bicarbonates','Bicarbonates']] }, { t: 'F. HÉPATIQUE HÉMOSTASE', bg: '#2E75B6', items: [['ba_bilirubine','Bilirubine libre et conjuguée'],['ba_asat_alat','ASAT ALAT'],['ba_pal','PAL'],['ba_ggt','GGT'],['ba_tp','TP'],['ba_tck','TCK'],['ba_inr','INR'],['ba_fibrinogene','Fibrinogène']] }].map((sec) => (
+                  <Box key={sec.t}>
+                    <Box sx={{ background: sec.bg, color: 'white', fontWeight: 'bold', fontSize: '8px', p: '2px 5px', mt: '4px', mb: '2px' }}>{sec.t}</Box>
+                    {sec.items.map(([k, l]) => (
+                      <Typography key={k} sx={{ fontSize: '8px', lineHeight: 1.65, py: '1.5px' }}>{obs[k] ? '☑' : '☐'} {l}</Typography>
+                    ))}
+                  </Box>
+                ))}
+              </td>
+              {/* Col 3 */}
+              <td style={{ border: '1px solid #ccc', padding: '3px 5px', verticalAlign: 'top', width: '33%' }}>
+                {[{ t: 'SÉROLOGIE IMMUNOLOGIE', bg: '#C41E3A', items: [['ba_aghbs','AgHbs'],['ba_bhcg','B-HCG Plasm.'],['ba_aslo','ASLO'],['ba_fr','F. Rhumatoïde'],['ba_widal','Widal et Félix'],['ba_bw','BW (TPHA-RPR)'],['ba_crp','CRP'],['ba_waler_rose','Waler Rose'],['ba_ac_anti_ccp','Ac Anti CCP'],['ba_ac_anti_dna','Ac Anti DNA natif']] }, { t: 'BACTÉRIOLOGIE PARASITOLOGIE', bg: '#2E8B57', items: [['ba_hemoculture','Hémoculture'],['ba_goutte_epaisse','Goutte épaisse'],['ba_frottis','Frottis sanguin'],['ba_ecbu','ECBU'],['ba_addis',"Compte d'Addis"],['ba_coproculture','Coproculture'],['ba_selles_kaop','Selles KAOP'],['ba_crachats_baar','Crachats BAAR']] }].map((sec) => (
+                  <Box key={sec.t}>
+                    <Box sx={{ background: sec.bg, color: 'white', fontWeight: 'bold', fontSize: '8px', p: '2px 5px', mt: '4px', mb: '2px' }}>{sec.t}</Box>
+                    {sec.items.map(([k, l]) => (
+                      <Typography key={k} sx={{ fontSize: '8px', lineHeight: 1.65, py: '1.5px' }}>{obs[k] ? '☑' : '☐'} {l}</Typography>
+                    ))}
+                  </Box>
+                ))}
+              </td>
+            </tr>
+            <tr>
+              <td colSpan={3} style={{ border: '1px solid #ccc', borderTop: '1px solid #ccc', padding: '4px 5px' }}>
+                <div style={{ height: '35px' }}></div>
+                <div style={{ textAlign: 'right', fontSize: '8px', color: '#333' }}><strong style={{ color: '#1F4788', textDecoration: 'underline' }}>Le Prescripteur</strong></div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </Box>
     </Box>
   )

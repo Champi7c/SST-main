@@ -124,7 +124,12 @@ class AgentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def unarchive(self, request, pk=None):
         """Action pour désarchiver un agent"""
-        agent = self.get_object()
+        # get_queryset exclut les archivés par défaut → récupérer directement
+        try:
+            agent = Agent.objects.get(pk=pk)
+        except Agent.DoesNotExist:
+            from rest_framework.exceptions import NotFound
+            raise NotFound('Agent introuvable.')
         if not agent.is_archived:
             return Response(
                 {'detail': 'Cet agent n\'est pas archivé.'},
