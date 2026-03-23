@@ -1,0 +1,87 @@
+# Utilisé sur le serveur de production — images tirées du Docker Hub
+# Usage : docker compose -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  static_files:
+  media_files:
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: sst_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE:      ${MYSQL_DATABASE}
+      MYSQL_USER:          ${MYSQL_USER}
+      MYSQL_PASSWORD:      ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  backend:
+    image: ${DOCKER_USERNAME}/sst-backend:latest
+    container_name: sst_backend
+    restart: always
+    environment:
+      SECRET_KEY:           ${DJANGO_SECRET_KEY}
+      DEBUG:                "False"
+      ALLOWED_HOSTS:        ${ALLOWED_HOSTS}
+      SST_DB_NAME:          ${MYSQL_DATABASE}
+      SST_DB_HOST:          mysql
+      SST_DB_PORT:          "3306"
+      SST_DB_USER:          ${MYSQL_USER}
+      SST_DB_PASSWORD:      ${MYSQL_PASSWORD}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+    volumes:
+      - static_files:/app/staticfiles
+      - media_files:/app/media
+    networks:
+      - app-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    image: ${DOCKER_USERNAME}/sst-frontend:latest
+    container_name: sst_frontend
+    restart: always
+    ports:
+      - "2000:80"
+    networks:
+      - app-network
+    depends_on:
+      - backend
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: sst_phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST:     mysql
+      PMA_PORT:     "3306"
+      PMA_USER:     root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      UPLOAD_LIMIT: 100M
+    ports:
+      - "2001:80"
+    networks:
+      - app-network
+    depends_on:
+      mysql:
+        condition: service_healthy

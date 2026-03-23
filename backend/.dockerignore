@@ -1,39 +1,17 @@
-# Git et IDE
-.git
-.gitignore
-*.md
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
 .env
 .env.*
-!.env.example
-!.env.production.example
-
-# Python
-__pycache__
-*.py[cod]
-*$py.class
-*.so
-.Python
 venv/
-ENV/
-.venv/
-
-# Django
+env/
+*.sqlite3
+staticfiles/
+media/
+.git
+.gitignore
 *.log
-db.sqlite3
-/media
-/staticfiles
-local_settings.py
-
-# Tests et scripts locaux
-test_*.py
-*_test.py
-fix_*.py
-diagnose_*.py
-check_server.py
-list_users.py
-reset_db.ps1
-
-# Divers
+logs/
 .DS_Store
-*.swp
-*.swo
