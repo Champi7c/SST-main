@@ -1,0 +1,408 @@
+LISTE DES ENTREPRISES — Plateforme SST
+Date : 27/03/2026
+Total : 46 entreprises
+============================================================
+
+1. AB CONSTRUCTION
+   Statut       : Actif
+   SIRET/NINEA  : 10000000000009
+   Adresse      : Fann, Av. Cheikh Anta Diop
+   Téléphone    : 33 864 70 49
+   Email        : abconstruction@orange.sn
+   Créée le     : 05/03/2026
+   --------------------------------------------------
+
+2. AFRICA MANAGEMENT
+   Statut       : Actif
+   SIRET/NINEA  : 10000000000043
+   Adresse      : Ouest Foire, VDN
+   Téléphone    : 33 859 28 56
+   Email        : africmanag@orange.sn
+   Créée le     : 05/03/2026
+   --------------------------------------------------
+
+3. AGEROUTE
+   Statut       : Actif
+   SIRET/NINEA  : 10000000000012
+   Adresse      : Fann Résidence
+   Téléphone    : 33 869 07 51
+   Email        : ageroute@ageroute.sn
+   Créée le     : 05/03/2026
+   Sites        : ACIDE
+   --------------------------------------------------
+
+4. AGS GROUP SARL
+   Statut       : Actif
+   SIRET/NINEA  : 10000000000024
+   Adresse      : Blvd Maurice Gueye, DDD Rufisque
+   Téléphone    : 33 871 23 13
+   Email        : Contact.agsms@gmail.com
+   Créée le     : 05/03/2026
+   --------------------------------------------------
+
+5. AMSA ASSURANCEE
+   Statut       : Actif
+   SIRET/NINEA  : 10000000000037
+   Adresse      : Av Assan II, Dakar
+   Téléphone    : 33 829 36 00 / 33 83
+   Email        : contact-sn@amsaassurances.com
+   Créée le     : 05/03/2026
+   --------------------------------------------------
+
+6. AREZKI
+   Statut       : Actif
+   SIRET/NINEA  : 10000000000013
+   Adresse      : Ngor Almadies, Lot 6
+   Téléphone    : 33 869 90 99
+   Créée le     : 05/03/2026
+   --------------------------------------------------
+
+7. AZUR ENERGY
+   Statut       : Actif
+   SIRET/NINEA  : 10000000000047
+   Adresse      : Non renseignée
+   Créée le     : 05/03/2026
+   --------------------------------------------------
+
+8. BOTO SA
+   Statut       : Actif
+   SIRET/NINEA  : 10000000000046
+   Adresse      : Quartier Ngor, Almadies 8, Zone 7
+   Téléphone    : 33 820 52 14
+   Email        : markting@managemgroup.ch
+   Créée le     : 05/03/2026
+   --------------------------------------------------
+
+9. CABINET ABX
+   Statut       : Actif
+   SIRET/NINEA  : 10000000000034
+   Adresse      : Résidence Adja Coura, Lib 5, Rd Pt JVC
+   Téléphone    : 77 164 51 31
+   Email        : amadou.ba@cabinetabx.sn
+   Créée le     : 05/03/2026
+   --------------------------------------------------
+
+10. CARITAS
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000011
+    Adresse      : Av. Cheikh Anta Diop, Dakar
+    Téléphone    : 33 822 37 60 / 33823
+    Email        : secretariatnational@caritassenegal.org
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+11. CCC COMPAGNY
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000018
+    Adresse      : Immeuble Bienal Home, Rte Aéroport, Virage
+    Téléphone    : 77 366 09 09
+    Email        : contact@ccc.sn
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+12. CDE
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000003
+    Adresse      : Av. F. Eboué / Boulevard Maritime
+    Téléphone    : 33 839 59 59
+    Email        : cde@cde.sn
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+13. CEREEQ
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000016
+    Adresse      : ROUTE FRONT DE TERRE, HANN
+    Téléphone    : 33 831 00 04 / 33 83
+    Email        : cereeq@orange.sn
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+14. COSELEC
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000010
+    Adresse      : Rocade Fann / Bel Air, 13500
+    Téléphone    : 33 839 02 50
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+15. CRBC
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000002
+    Adresse      : Immeuble Arezki, Almadies
+    Téléphone    : 33 869 99 88
+    Email        : sen@crb.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+16. DIAMA TECHNOLOGY
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000017
+    Adresse      : Av. Lamine Gueye
+    Téléphone    : 33 842 04 44
+    Email        : contact@diamatech-sa.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+17. EIFFAGE
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000001
+    Adresse      : Av. Félix Eboué, Rte des Brasseries
+    Téléphone    : 33 839 73 39
+    Email        : Eiffage-senegal@eiffage.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+18. ENIKON
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000004
+    Adresse      : Cité Marine K. Massar, Villa 194
+    Téléphone    : 77 645 03 34
+    Email        : Luka.andrijanic@enikon.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+19. EPHATA
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000042
+    Adresse      : Thiès, Rd Pt Concorde Poste Courant
+    Téléphone    : 77 480 99 99 / 77 70
+    Email        : ephata@ephata.sn
+    Créée le     : 05/03/2026
+    Sites        : ACIDE
+    Services     : APRO
+    --------------------------------------------------
+
+20. FAMI SENEGAL (MINES)
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000023
+    Adresse      : Im le Ponant, Almadies
+    Téléphone    : 33 820 26 09
+    Email        : secretariat@famy.sn
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+21. FONDASOL
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000015
+    Adresse      : Cité Sonatel, Villa 28
+    Téléphone    : 33 864 02 64
+    Email        : senegal@groupefondasol.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+22. GCA GLOBAL CONSTRUCTION AFRIC
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000007
+    Adresse      : Hann Marinas, Cité ISRA 2
+    Téléphone    : 33 832 52 05
+    Email        : gcdakar@globalconstructionafrique.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+23. HERTZ
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000006
+    Adresse      : 102 Rue Amadou Assane Ndoye
+    Téléphone    : 33 889 81 81
+    Email        : hertz@hertz.sn
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+24. HUMANIS INTERIM
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000032
+    Adresse      : Sacré Cœur 1, Dakar
+    Téléphone    : 33 822 86 87
+    Email        : recrutement@humanis-sn.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+25. ICA
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000026
+    Adresse      : Fann Résidence
+    Téléphone    : 33 869 15 68
+    Email        : ica@ica-sn.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+26. ICS
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000039
+    Adresse      : Km 18, Route de Rufisque
+    Téléphone    : 33 879 10 00 / 33 87
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+27. IDC
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000044
+    Adresse      : Cité Teylium VDN, Sud Foire
+    Téléphone    : 33 836 93 00
+    Email        : contact@idc-drilling.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+28. IPM FADIOU
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000041
+    Adresse      : Sicap Karack Lot 02/B, Ecole Yalla Suuren
+    Téléphone    : 33 824 54 61
+    Email        : fadiouipm@yahoo.fr
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+29. KOB LOGISTICS SARL
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000014
+    Adresse      : Lot. Djily Mbaye, Parcelle 315
+    Téléphone    : 77 608 18 63 / 77 20
+    Email        : obklogistics.sn@outlook.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+30. LOCASEN
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000020
+    Adresse      : Immeuble Aida 63, VDN
+    Téléphone    : 33 867 86 85
+    Email        : locasen@grouplocasen.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+31. MCI
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000027
+    Adresse      : Av. Blaise Diagne, Médina Rue 5
+    Téléphone    : 33 842 56 92
+    Email        : Contact.senegal@mci.int.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+32. MSC
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000031
+    Adresse      : Rue des Hydrocarbures, Hann Bel Air
+    Téléphone    : 33 859 01 01
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+33. NAYE VISION
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000048
+    Adresse      : Non renseignée
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+34. OLEA SASSURANCES
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000038
+    Adresse      : Point E, Av Birago Diop
+    Téléphone    : 33 864 52 03
+    Email        : senegal@olea.africa
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+35. RENOV INDUSTRY
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000028
+    Adresse      : Zone Industrielle, Dakar Rue 7
+    Téléphone    : 33 832 32 46
+    Email        : info@renovindustries.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+36. RMO ENERGY
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000045
+    Adresse      : Villa 52, Cité Batrain
+    Téléphone    : 33 864 09 09
+    Email        : info@rmo-energyservices.sn
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+37. SALAM TRANSPORT
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000025
+    Adresse      : Rond Point Sipres
+    Téléphone    : 33 825 01 23
+    Email        : info@salamtransport.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+38. SANY
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000035
+    Adresse      : Non renseignée
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+39. SDV VOYAGE
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000029
+    Adresse      : Av. Hassan II, Dakar
+    Téléphone    : 33 859 55 77
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+40. SELOV
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000019
+    Adresse      : Cité Sipres 2 VDN, Villa 102
+    Téléphone    : 33 827 57 26
+    Email        : selov@selov.sn
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+41. SEN INTERIM
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000040
+    Adresse      : Lot 31, Elton VDN
+    Téléphone    : 33 827 63 49
+    Email        : seninterim@seninterim.sn
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+42. SENAC
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000005
+    Adresse      : 16 Av. L. Gueye x Rue Monteil
+    Téléphone    : 33 842 00 84
+    Email        : contact@senacpeintures.sn
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+43. SENECAR TOUR
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000008
+    Adresse      : Rte A. L. S. Senghor, Keur Yoff
+    Téléphone    : 33 859 77 77
+    Email        : senecar@orange.sn
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+44. SGS
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000036
+    Adresse      : Rue Félix Faure, Dakar
+    Téléphone    : 33 849 43 43
+    Email        : sgs.senegal@.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+45. SUNU MINES
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000033
+    Adresse      : Non renseignée
+    Créée le     : 05/03/2026
+    --------------------------------------------------
+
+46. TTI
+    Statut       : Actif
+    SIRET/NINEA  : 10000000000030
+    Adresse      : Rocade Hann Bel Air, Lot Ne Colobane
+    Téléphone    : 33 832 98 37
+    Email        : support@tti.com
+    Créée le     : 05/03/2026
+    --------------------------------------------------
