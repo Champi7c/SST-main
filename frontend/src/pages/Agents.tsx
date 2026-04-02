@@ -310,8 +310,8 @@ export default function Agents() {
     setFieldErrors({})
     const companyId = formData.company ? parseInt(formData.company, 10) : NaN
     const isCompanyName = formData.company && !Number.isFinite(companyId)
-    if (!editingAgent && (!formData.matricule?.trim() || !formData.first_name?.trim() || !formData.last_name?.trim() || !formData.date_of_birth || !formData.hire_date)) {
-      showSnackbar('Veuillez remplir les champs obligatoires (matricule, prénom, nom, date de naissance, date d\'embauche).', 'error')
+    if (!editingAgent && (!formData.first_name?.trim() || !formData.last_name?.trim() || !formData.date_of_birth)) {
+      showSnackbar('Veuillez remplir les champs obligatoires (prénom, nom, date de naissance).', 'error')
       return
     }
     if (!formData.company || (!Number.isFinite(companyId) && !isCompanyName)) {
@@ -322,12 +322,12 @@ export default function Agents() {
     setSubmitLoading(true)
     try {
       const data: Record<string, unknown> = {
-        matricule: formData.matricule.trim(),
+        matricule: formData.matricule?.trim() || null,
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
         date_of_birth: formData.date_of_birth,
         gender: formData.gender,
-        hire_date: formData.hire_date,
+        hire_date: formData.hire_date || null,
         is_active: formData.is_active,
         title: formData.title || null,
         email: formData.email?.trim() || null,
@@ -601,10 +601,9 @@ export default function Agents() {
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
-                label="Matricule *"
+                label="Matricule"
                 value={formData.matricule}
                 onChange={(e) => setFormData({ ...formData, matricule: e.target.value })}
-                required
                 disabled={!!editingAgent}
                 error={!!fieldErrors.matricule}
                 helperText={fieldErrors.matricule}
@@ -1077,12 +1076,11 @@ export default function Agents() {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Date d'embauche *"
+                label="Date d'embauche"
                 type="date"
                 value={formData.hire_date}
                 onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
                 InputLabelProps={{ shrink: true }}
-                required
                 error={!!fieldErrors.hire_date}
                 helperText={fieldErrors.hire_date}
               />
