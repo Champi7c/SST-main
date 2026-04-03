@@ -23,7 +23,7 @@ class Agent(models.Model):
     ]
     
     # Informations administratives
-    matricule = models.CharField(max_length=50, unique=True, verbose_name="Matricule")
+    matricule = models.CharField(max_length=50, unique=True, blank=True, null=True, verbose_name="Matricule")
     title = models.CharField(max_length=10, choices=TITLE_CHOICES, blank=True, null=True, verbose_name="Civilité")
     first_name = models.CharField(max_length=100, verbose_name="Prénom")
     last_name = models.CharField(max_length=100, verbose_name="Nom")
@@ -53,7 +53,7 @@ class Agent(models.Model):
     supervisor = models.ForeignKey('self', on_delete=models.SET_NULL, blank=True, null=True, related_name='subordinates', verbose_name="Supérieur hiérarchique")
     
     # Dates importantes
-    hire_date = models.DateField(verbose_name="Date d'embauche")
+    hire_date = models.DateField(blank=True, null=True, verbose_name="Date d'embauche")
     is_active = models.BooleanField(default=True, verbose_name="Actif")
     is_archived = models.BooleanField(default=False, verbose_name="Archivé")
     archived_at = models.DateTimeField(blank=True, null=True, verbose_name="Date d'archivage")
