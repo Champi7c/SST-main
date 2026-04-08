@@ -58,22 +58,23 @@ class AgentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filtre les agents selon les permissions et les paramètres"""
         queryset = super().get_queryset().select_related(
-            'company', 'site', 'service', 'job_position', 'supervisor', 
+            'company', 'site', 'service', 'job_position', 'supervisor',
             'created_by', 'updated_by', 'archived_by'
         )
-        
+
         # Par défaut, exclure les agents archivés sauf si explicitement demandé
         show_archived = self.request.query_params.get('show_archived', 'false').lower() == 'true'
         if not show_archived:
             queryset = queryset.filter(is_archived=False)
-        
-        # Filtrage par entreprise si l'utilisateur n'est pas super_admin
-        if hasattr(self.request, 'user') and self.request.user.role != 'super_admin':
+
+        # Filtrage par entreprise : super_admin, médecin et infirmier voient tous les agents
+        unrestricted_roles = ['super_admin', 'medecin', 'infirmier']
+        if hasattr(self.request, 'user') and self.request.user.role not in unrestricted_roles:
             user_companies = list(
                 self.request.user.company_memberships.values_list('company_id', flat=True)
             )
             queryset = queryset.filter(company_id__in=user_companies)
-        
+
         return queryset
     
     def get_serializer_context(self):
@@ -84,7 +85,8 @@ class AgentViewSet(viewsets.ModelViewSet):
     
     def _user_can_access_company(self, company_id):
         """Vérifie si l'utilisateur (non super_admin) a accès à cette entreprise."""
-        if self.request.user.role == 'super_admin':
+        # Le personnel médical (médecin, infirmier) et super_admin ont accès à toutes les entreprises
+        if self.request.user.role in ['super_admin', 'medecin', 'infirmier']:
             return True
         user_companies = list(
             self.request.user.company_memberships.values_list('company_id', flat=True)
