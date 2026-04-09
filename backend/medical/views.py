@@ -162,7 +162,7 @@ class DMSTViewSet(viewsets.ModelViewSet):
     serializer_class = DMSTSerializer
     permission_classes = [permissions.IsAuthenticated, CanViewMedicalData]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['agent__company', 'agent__site', 'under_surveillance', 'agent__is_active']
+    filterset_fields = ['agent', 'agent__company', 'agent__site', 'under_surveillance', 'agent__is_active']
     search_fields = ['agent__matricule', 'agent__last_name', 'agent__first_name']
     ordering_fields = ['created_at', 'updated_at', 'agent__last_name']
     ordering = ['-updated_at']

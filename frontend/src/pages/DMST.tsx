@@ -278,6 +278,9 @@ export default function DMST() {
 
   const fetchDMST = async () => {
     try {
+      setLoading(true)
+      setError('')
+      setDmst(null)
       const response = await client.get(`/medical/dmst/?agent=${agentId}`)
       if (response.data.results && response.data.results.length > 0) {
         const dmstData = response.data.results[0]
