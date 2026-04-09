@@ -5,7 +5,7 @@ from .serializers import (
     CompanySerializer, SiteSerializer, ServiceSerializer,
     CompanyMembershipSerializer, JobPositionSerializer
 )
-from accounts.permissions import IsSuperAdminOrAdmin
+from accounts.permissions import IsSuperAdminOrAdmin, CanManageCompanies
 
 
 class CompanyPagination(PageNumberPagination):
@@ -24,11 +24,11 @@ class CompanyViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Permet la lecture à tous les utilisateurs authentifiés,
-        mais restreint la création/modification/suppression aux super_admin et admin
+        mais restreint la création/modification/suppression aux super_admin, admin et rh
         """
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), IsSuperAdminOrAdmin()]
+        return [permissions.IsAuthenticated(), CanManageCompanies()]
 
 
 class SiteViewSet(viewsets.ModelViewSet):
@@ -76,4 +76,4 @@ class JobPositionViewSet(viewsets.ModelViewSet):
 class CompanyMembershipViewSet(viewsets.ModelViewSet):
     queryset = CompanyMembership.objects.all()
     serializer_class = CompanyMembershipSerializer
-    permission_classes = [permissions.IsAuthenticated, IsSuperAdminOrAdmin]
+    permission_classes = [permissions.IsAuthenticated, CanManageCompanies]

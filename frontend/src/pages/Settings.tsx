@@ -135,299 +135,8 @@ export default function Settings() {
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const { user, canManageUsers } = useAuth()
-
-  const [vaccineForm, setVaccineForm] = useState({ name: '', code: '', validity_period_months: '', description: '' })
-  const [typeForm, setTypeForm] = useState({ name: '', code: '', validity_period_months: '', description: '', drive_link: '' })
-  const [categoryForm, setCategoryForm] = useState({ name: '', code: '', category_type: '', description: '' })
-  const [visitTypeForm, setVisitTypeForm] = useState({ name: '', code: '', description: '' })
-  const [vaccineReqForm, setVaccineReqForm] = useState({
-    vaccine: '',
-    job_position: '',
-    risk_category: '',
-    mandatory: true,
-  })
-  const [companyForm, setCompanyForm] = useState({
-    name: '',
-    siret: '',
-    address: '',
-    phone: '',
-    email: '',
-  })
-
-  useEffect(() => {
-    fetchVaccines()
-    fetchTrainingTypes()
-    fetchCategories()
-    fetchVisitTypes()
-    fetchPathologies()
-    fetchVaccineReqs()
-    fetchCompanies()
-    fetchSites()
-    fetchServices()
-    fetchJobPositions()
-  }, [tabValue])
-
-  const fetchVaccines = async () => {
-    try {
-      const r = await client.get('/vaccination/vaccines/')
-      setVaccines(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
-
-  const fetchTrainingTypes = async () => {
-    try {
-      const r = await client.get('/training/training-types/')
-      setTrainingTypes(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
-
-  const fetchCategories = async () => {
-    try {
-      const r = await client.get('/prevention/risk-categories/')
-      setCategories(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
-
-  const fetchVisitTypes = async () => {
-    try {
-      const r = await client.get('/visits/types/')
-      setVisitTypes(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
-
-  const fetchPathologies = async () => {
-    try {
-      const r = await client.get('/medical/pathologies/')
-      setPathologies(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
-
-  const fetchVaccineReqs = async () => {
-    try {
-      const r = await client.get('/vaccination/requirements/')
-      setVaccineReqs(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
-
-  const fetchCompanies = async () => {
-    try {
-      const r = await client.get('/companies/companies/')
-      setCompanies(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
-
-  const fetchSites = async () => {
-    try {
-      const r = await client.get('/companies/sites/')
-      setSites(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
-
-  const fetchServices = async () => {
-    try {
-      const r = await client.get('/companies/services/')
-      setServices(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
-
-  const fetchJobPositions = async () => {
-    try {
-      const r = await client.get('/companies/job-positions/')
-      setJobPositions(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
-
-  const showSnackbar = (message: string, severity: 'success' | 'error') => {
-    setSnackbar({ open: true, message, severity })
-  }
-
-  const handleCreateVaccine = async () => {
-    try {
-      await client.post('/vaccination/vaccines/', {
-        name: vaccineForm.name,
-        code: vaccineForm.code || null,
-        validity_period_months: vaccineForm.validity_period_months ? parseInt(vaccineForm.validity_period_months) : null,
-        description: vaccineForm.description || null,
-      })
-      showSnackbar('Vaccin ajouté', 'success')
-      setOpenVaccineDialog(false)
-      setVaccineForm({ name: '', code: '', validity_period_months: '', description: '' })
-      fetchVaccines()
-    } catch (err: any) {
-      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
-    }
-  }
-
-  const handleCreateType = async () => {
-    try {
-      await client.post('/training/training-types/', {
-        name: typeForm.name,
-        code: typeForm.code || null,
-        validity_period_months: typeForm.validity_period_months ? parseInt(typeForm.validity_period_months) : null,
-        description: typeForm.description || null,
-        drive_link: typeForm.drive_link?.trim() || null,
-      })
-      showSnackbar('Type de formation ajouté', 'success')
-      setOpenTypeDialog(false)
-      setTypeForm({ name: '', code: '', validity_period_months: '', description: '', drive_link: '' })
-      fetchTrainingTypes()
-    } catch (err: any) {
-      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
-    }
-  }
-
-  const handleCreateCategory = async () => {
-    try {
-      await client.post('/prevention/risk-categories/', {
-        name: categoryForm.name,
-        code: categoryForm.code || null,
-        category_type: categoryForm.category_type || null,
-        description: categoryForm.description || null,
-      })
-      showSnackbar('Catégorie de risque ajoutée', 'success')
-      setOpenCategoryDialog(false)
-      setCategoryForm({ name: '', code: '', category_type: '', description: '' })
-      fetchCategories()
-    } catch (err: any) {
-      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
-    }
-  }
-
-  const handleCreateVisitType = async () => {
-    try {
-      await client.post('/visits/types/', {
-        name: visitTypeForm.name,
-        code: visitTypeForm.code,
-        description: visitTypeForm.description || null,
-      })
-      showSnackbar('Type de visite ajouté', 'success')
-      setOpenVisitTypeDialog(false)
-      setVisitTypeForm({ name: '', code: '', description: '' })
-      fetchVisitTypes()
-    } catch (err: any) {
-      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
-    }
-  }
-
-  const handleCreateVaccineReq = async () => {
-    try {
-      await client.post('/vaccination/requirements/', {
-        vaccine: parseInt(vaccineReqForm.vaccine),
-        job_position: vaccineReqForm.job_position ? parseInt(vaccineReqForm.job_position) : null,
-        risk_category: vaccineReqForm.risk_category ? parseInt(vaccineReqForm.risk_category) : null,
-        mandatory: vaccineReqForm.mandatory,
-      })
-      showSnackbar('Vaccination obligatoire ajoutée', 'success')
-      setOpenVaccineReqDialog(false)
-      setVaccineReqForm({ vaccine: '', job_position: '', risk_category: '', mandatory: true })
-      fetchVaccineReqs()
-    } catch (err: any) {
-      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
-    }
-  }
-
-  const handleCreateCompany = async () => {
-    const siret = companyForm.siret.replace(/\s/g, '')
-    if (siret.length !== 14) {
-      showSnackbar('Le SIRET doit contenir exactement 14 chiffres', 'error')
-      return
-    }
-    try {
-      await client.post('/companies/companies/', {
-        name: companyForm.name.trim(),
-        siret,
-        address: companyForm.address.trim(),
-        phone: companyForm.phone.trim() || null,
-        email: companyForm.email.trim() || null,
-        is_active: true,
-      })
-      showSnackbar('Entreprise ajoutée', 'success')
-      setOpenCompanyDialog(false)
-      setCompanyForm({ name: '', siret: '', address: '', phone: '', email: '' })
-      fetchCompanies()
-    } catch (err: any) {
-      const msg = err.response?.data
-      const detail = typeof msg === 'string' ? msg : msg?.siret?.[0] || msg?.detail || 'Erreur'
-      showSnackbar(String(detail), 'error')
-    }
-  }
-
-  const openEditCompany = (c: Company) => {
-    setCompanyForm({
-      name: c.name,
-      siret: c.siret || '',
-      address: c.address || '',
-      phone: c.phone || '',
-      email: c.email || '',
-    })
-    setEditingCompany(c)
-    setOpenCompanyDialog(true)
-  }
-
-  const handleUpdateCompany = async () => {
-    if (!editingCompany) return
-    const siret = companyForm.siret.replace(/\s/g, '')
-    if (siret.length !== 14) {
-      showSnackbar('Le SIRET doit contenir exactement 14 chiffres', 'error')
-      return
-    }
-    try {
-      await client.patch(`/companies/companies/${editingCompany.id}/`, {
-        name: companyForm.name.trim(),
-        siret,
-        address: companyForm.address.trim(),
-        phone: companyForm.phone.trim() || null,
-        email: companyForm.email.trim() || null,
-      })
-      showSnackbar('Entreprise modifiée', 'success')
-      setOpenCompanyDialog(false)
-      setEditingCompany(null)
-      setCompanyForm({ name: '', siret: '', address: '', phone: '', email: '' })
-      fetchCompanies()
-    } catch (err: any) {
-      const msg = err.response?.data
-      const detail = typeof msg === 'string' ? msg : msg?.siret?.[0] || msg?.detail || 'Erreur'
-      showSnackbar(String(detail), 'error')
-    }
-  }
-
-  const handleConfirmDeleteCompany = async () => {
-    if (!companyToDelete) return
-    try {
-      await client.delete(`/companies/companies/${companyToDelete.id}/`)
-      showSnackbar('Entreprise supprimée', 'success')
-      setCompanyToDelete(null)
-      fetchCompanies()
-      fetchSites()
-      fetchServices()
-      fetchJobPositions()
-    } catch (err: any) {
-      const detail = err.response?.data?.detail || err.response?.data?.siret?.[0] || 'Erreur'
-      showSnackbar(String(detail), 'error')
-    }
-  }
-
   const canManageRefs = canManageUsers
+  const canManageCompanies = user?.role ? ['super_admin', 'admin', 'rh'].includes(user.role) : false
 
   return (
     <Box>
@@ -670,17 +379,19 @@ export default function Settings() {
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2, mb: 1 }}>
               <Typography variant="subtitle1">Entreprises</Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setEditingCompany(null)
-                  setCompanyForm({ name: '', siret: '', address: '', phone: '', email: '' })
-                  setOpenCompanyDialog(true)
-                }}
-              >
-                Ajouter une entreprise
-              </Button>
+              {canManageCompanies && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    setEditingCompany(null)
+                    setCompanyForm({ name: '', siret: '', address: '', phone: '', email: '' })
+                    setOpenCompanyDialog(true)
+                  }}
+                >
+                  Ajouter une entreprise
+                </Button>
+              )}
             </Box>
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
               <Table size="small">
@@ -703,12 +414,16 @@ export default function Settings() {
                       <TableCell>{c.phone || '–'}</TableCell>
                       <TableCell>{c.email || '–'}</TableCell>
                       <TableCell align="right">
-                        <IconButton size="small" color="primary" onClick={() => openEditCompany(c)} title="Modifier" aria-label="Modifier">
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton size="small" color="error" onClick={() => setCompanyToDelete(c)} title="Supprimer" aria-label="Supprimer">
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                        {canManageCompanies && (
+                          <>
+                            <IconButton size="small" color="primary" onClick={() => openEditCompany(c)} title="Modifier" aria-label="Modifier">
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="error" onClick={() => setCompanyToDelete(c)} title="Supprimer" aria-label="Supprimer">
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1004,9 +719,11 @@ export default function Settings() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCompanyToDelete(null)}>Annuler</Button>
-          <Button variant="contained" color="error" onClick={handleConfirmDeleteCompany}>
-            Supprimer
-          </Button>
+          {canManageCompanies && (
+            <Button variant="contained" color="error" onClick={handleConfirmDeleteCompany}>
+              Supprimer
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

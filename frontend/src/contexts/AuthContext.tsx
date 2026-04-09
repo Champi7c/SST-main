@@ -20,6 +20,7 @@ interface AuthContextType {
   logout: () => void
   hasMedicalAccess: boolean
   canManageUsers: boolean
+  canManageCompanies: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -106,9 +107,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const hasMedicalAccess = user?.role ? ['super_admin', 'medecin', 'infirmier'].includes(user.role) : false
   const canManageUsers = user?.role ? ['super_admin', 'admin'].includes(user.role) : false
+  const canManageCompanies = user?.role ? ['super_admin', 'admin', 'rh'].includes(user.role) : false
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, hasMedicalAccess, canManageUsers }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, hasMedicalAccess, canManageUsers, canManageCompanies }}>
       {children}
     </AuthContext.Provider>
   )
