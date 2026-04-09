@@ -149,7 +149,7 @@ export default function Settings() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const { user, canManageUsers } = useAuth()
   const canManageRefs = canManageUsers
-  const canManageCompanies = user?.role ? ['super_admin', 'admin', 'rh'].includes(user.role) : false
+  const canManageCompanies = user?.role ? ['super_admin', 'admin', 'rh', 'infirmier'].includes(user.role) : false
 
   // Chargement des donnees
   useEffect(() => {

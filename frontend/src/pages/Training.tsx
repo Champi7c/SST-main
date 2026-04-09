@@ -172,7 +172,7 @@ export default function Training() {
     is_published: false,
   })
 
-  const canManage = user?.role ? ['super_admin', 'admin', 'consultant', 'hse', 'direction', 'medecin', 'rh'].includes(user.role) : false
+  const canManage = user?.role ? ['super_admin', 'admin', 'consultant', 'hse', 'direction', 'medecin', 'rh', 'infirmier'].includes(user.role) : false
 
   useEffect(() => {
     fetchTrainingTypes()

@@ -30,7 +30,7 @@ class CanManageUsers(permissions.BasePermission):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.can_manage_users
+            request.user.role in ['super_admin', 'admin', 'infirmier']
         )
 
 
@@ -65,10 +65,10 @@ class CanManageAgents(permissions.BasePermission):
 
 
 class CanManageCompanies(permissions.BasePermission):
-    """Permission pour gérer les entreprises (Super Admin, Admin, RH)"""
+    """Permission pour gérer les entreprises (Super Admin, Admin, RH, Infirmier)"""
     def has_permission(self, request, view):
         return (
             request.user and
             request.user.is_authenticated and
-            request.user.role in ['super_admin', 'admin', 'rh']
+            request.user.role in ['super_admin', 'admin', 'rh', 'infirmier']
         )

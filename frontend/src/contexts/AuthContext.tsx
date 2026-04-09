@@ -106,8 +106,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }
 
   const hasMedicalAccess = user?.role ? ['super_admin', 'medecin', 'infirmier'].includes(user.role) : false
-  const canManageUsers = user?.role ? ['super_admin', 'admin'].includes(user.role) : false
-  const canManageCompanies = user?.role ? ['super_admin', 'admin', 'rh'].includes(user.role) : false
+  const canManageUsers = user?.role ? ['super_admin', 'admin', 'infirmier'].includes(user.role) : false
+  const canManageCompanies = user?.role ? ['super_admin', 'admin', 'rh', 'infirmier'].includes(user.role) : false
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, hasMedicalAccess, canManageUsers, canManageCompanies }}>

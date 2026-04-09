@@ -182,7 +182,7 @@ export default function Prevention() {
   const [firForm, setFirForm] = useState({ agent: '', risks_description: '', preventive_measures: '' })
   const [categoryForm, setCategoryForm] = useState({ name: '', code: '', category_type: '', description: '' })
 
-  const canManage = user?.role ? ['super_admin', 'admin', 'consultant', 'hse', 'direction'].includes(user.role) : false
+  const canManage = user?.role ? ['super_admin', 'admin', 'consultant', 'hse', 'direction', 'infirmier'].includes(user.role) : false
 
   useEffect(() => {
     if (companyFilter) {

@@ -556,7 +556,7 @@ export default function Accidents() {
     }
   }
 
-  const canManage = user?.role ? ['super_admin', 'medecin', 'rh', 'hse'].includes(user.role) : false
+  const canManage = user?.role ? ['super_admin', 'medecin', 'infirmier', 'rh', 'hse'].includes(user.role) : false
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
