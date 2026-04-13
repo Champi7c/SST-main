@@ -153,16 +153,16 @@ export default function Settings() {
 
   // Chargement des donnees
   useEffect(() => {
-    client.get('/vaccines/').then((r) => setVaccines(r.data.results ?? r.data)).catch(() => {})
-    client.get('/training-types/').then((r) => setTrainingTypes(r.data.results ?? r.data)).catch(() => {})
-    client.get('/risk-categories/').then((r) => setCategories(r.data.results ?? r.data)).catch(() => {})
-    client.get('/visit-types/').then((r) => setVisitTypes(r.data.results ?? r.data)).catch(() => {})
-    client.get('/pathologies/').then((r) => setPathologies(r.data.results ?? r.data)).catch(() => {})
-    client.get('/vaccine-requirements/').then((r) => setVaccineReqs(r.data.results ?? r.data)).catch(() => {})
-    client.get('/companies/').then((r) => setCompanies(r.data.results ?? r.data)).catch(() => {})
-    client.get('/sites/').then((r) => setSites(r.data.results ?? r.data)).catch(() => {})
-    client.get('/services/').then((r) => setServices(r.data.results ?? r.data)).catch(() => {})
-    client.get('/job-positions/').then((r) => setJobPositions(r.data.results ?? r.data)).catch(() => {})
+    client.get('/vaccination/vaccines/').then((r) => setVaccines(r.data.results ?? r.data)).catch(() => {})
+    client.get('/training/training-types/').then((r) => setTrainingTypes(r.data.results ?? r.data)).catch(() => {})
+    client.get('/prevention/risk-categories/').then((r) => setCategories(r.data.results ?? r.data)).catch(() => {})
+    client.get('/visits/types/').then((r) => setVisitTypes(r.data.results ?? r.data)).catch(() => {})
+    client.get('/medical/pathologies/').then((r) => setPathologies(r.data.results ?? r.data)).catch(() => {})
+    client.get('/vaccination/requirements/').then((r) => setVaccineReqs(r.data.results ?? r.data)).catch(() => {})
+    client.get('/companies/companies/').then((r) => setCompanies(r.data.results ?? r.data)).catch(() => {})
+    client.get('/companies/sites/').then((r) => setSites(r.data.results ?? r.data)).catch(() => {})
+    client.get('/companies/services/').then((r) => setServices(r.data.results ?? r.data)).catch(() => {})
+    client.get('/companies/job-positions/').then((r) => setJobPositions(r.data.results ?? r.data)).catch(() => {})
   }, [])
 
   const showSuccess = (message: string) => setSnackbar({ open: true, message, severity: 'success' })
@@ -176,7 +176,7 @@ export default function Settings() {
         code: vaccineForm.code || undefined,
         validity_period_months: vaccineForm.validity_period_months ? Number(vaccineForm.validity_period_months) : undefined,
       }
-      const { data } = await client.post('/vaccines/', payload)
+      const { data } = await client.post('/vaccination/vaccines/', payload)
       setVaccines((prev) => [...prev, data])
       setOpenVaccineDialog(false)
       setVaccineForm({ name: '', code: '', validity_period_months: '', description: '' })
@@ -195,7 +195,7 @@ export default function Settings() {
         validity_period_months: typeForm.validity_period_months ? Number(typeForm.validity_period_months) : undefined,
         drive_link: typeForm.drive_link || undefined,
       }
-      const { data } = await client.post('/training-types/', payload)
+      const { data } = await client.post('/training/training-types/', payload)
       setTrainingTypes((prev) => [...prev, data])
       setOpenTypeDialog(false)
       setTypeForm({ name: '', code: '', validity_period_months: '', description: '', drive_link: '' })
@@ -213,7 +213,7 @@ export default function Settings() {
         code: categoryForm.code || undefined,
         category_type: categoryForm.category_type || undefined,
       }
-      const { data } = await client.post('/risk-categories/', payload)
+      const { data } = await client.post('/prevention/risk-categories/', payload)
       setCategories((prev) => [...prev, data])
       setOpenCategoryDialog(false)
       setCategoryForm({ name: '', code: '', category_type: '', description: '' })
@@ -231,7 +231,7 @@ export default function Settings() {
         code: visitTypeForm.code,
         description: visitTypeForm.description || undefined,
       }
-      const { data } = await client.post('/visit-types/', payload)
+      const { data } = await client.post('/visits/types/', payload)
       setVisitTypes((prev) => [...prev, data])
       setOpenVisitTypeDialog(false)
       setVisitTypeForm({ name: '', code: '', description: '' })
@@ -250,7 +250,7 @@ export default function Settings() {
         risk_category: vaccineReqForm.risk_category ? Number(vaccineReqForm.risk_category) : undefined,
         mandatory: vaccineReqForm.mandatory,
       }
-      const { data } = await client.post('/vaccine-requirements/', payload)
+      const { data } = await client.post('/vaccination/requirements/', payload)
       setVaccineReqs((prev) => [...prev, data])
       setOpenVaccineReqDialog(false)
       setVaccineReqForm({ vaccine: '', job_position: '', risk_category: '', mandatory: true })
@@ -275,7 +275,7 @@ export default function Settings() {
 
   const handleCreateCompany = async () => {
     try {
-      const { data } = await client.post('/companies/', companyForm)
+      const { data } = await client.post('/companies/companies/', companyForm)
       setCompanies((prev) => [...prev, data])
       setOpenCompanyDialog(false)
       setCompanyForm({ name: '', siret: '', address: '', phone: '', email: '' })
@@ -288,7 +288,7 @@ export default function Settings() {
   const handleUpdateCompany = async () => {
     if (!editingCompany) return
     try {
-      const { data } = await client.put(`/companies/${editingCompany.id}/`, companyForm)
+      const { data } = await client.put(`/companies/companies/${editingCompany.id}/`, companyForm)
       setCompanies((prev) => prev.map((c) => (c.id === editingCompany.id ? data : c)))
       setOpenCompanyDialog(false)
       setEditingCompany(null)
@@ -301,7 +301,7 @@ export default function Settings() {
   const handleConfirmDeleteCompany = async () => {
     if (!companyToDelete) return
     try {
-      await client.delete(`/companies/${companyToDelete.id}/`)
+      await client.delete(`/companies/companies/${companyToDelete.id}/`)
       setCompanies((prev) => prev.filter((c) => c.id !== companyToDelete.id))
       setCompanyToDelete(null)
       showSuccess('Entreprise suprrimee')
