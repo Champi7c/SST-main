@@ -183,7 +183,8 @@ export default function Agents() {
 
   const fetchAgents = async () => {
     try {
-      const params = showArchived ? { show_archived: 'true' } : {}
+      const params: Record<string, string> = { page_size: '1000' }
+      if (showArchived) params.show_archived = 'true'
       const response = await client.get('/medical/agents/', { params })
       setAgents(response.data.results || response.data)
     } catch (error) {
@@ -390,15 +391,19 @@ export default function Agents() {
       }
       
       if (editingAgent) {
-        await client.put(`/medical/agents/${editingAgent.id}/`, data)
+        const { data: updated } = await client.put(`/medical/agents/${editingAgent.id}/`, data)
+        setAgents((prev) => prev.map((a) => (a.id === editingAgent.id ? updated : a)))
         showSnackbar('Agent modifié avec succès', 'success')
+        handleCloseDialog()
       } else {
-        await client.post('/medical/agents/', data)
+        const { data: created } = await client.post('/medical/agents/', data)
+        handleCloseDialog()
+        setAgents((prev) => [created, ...prev])
+        window.scrollTo({ top: 0, behavior: 'smooth' })
         showSnackbar('Agent créé avec succès', 'success')
       }
-      handleCloseDialog()
-      fetchAgents()
-      fetchCompanies() // Rafraîchir la liste des entreprises au cas où une nouvelle a été créée
+      fetchAgents() // rafraîchit en arrière-plan avec les noms complets (company_name, etc.)
+      fetchCompanies()
     } catch (error: any) {
       console.error('Erreur lors de la sauvegarde:', error)
       const msg = getApiErrorMessage(error)
