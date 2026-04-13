@@ -476,7 +476,7 @@ export default function Agents() {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h4">Gestion des Agents</Typography>
+        <Typography variant="h5">Gestion des Agents</Typography>
         <Box>
           <FormControlLabel
             control={
@@ -513,7 +513,7 @@ export default function Agents() {
       />
 
       <TableContainer component={Paper}>
-        <Table>
+        <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>Matricule</TableCell>

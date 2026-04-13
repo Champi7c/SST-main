@@ -14,6 +14,10 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    fontSize: 13,
+    h4: { fontSize: '1.5rem' },
+    h5: { fontSize: '1.2rem' },
+    h6: { fontSize: '1rem' },
   },
   components: {
     MuiButton: {
@@ -21,7 +25,10 @@ const theme = createTheme({
         root: {
           textTransform: 'none',
           minHeight: 44,
-          '@media (min-width: 600px)': { minHeight: 36 },
+          '@media (min-width: 600px)': { minHeight: 30, padding: '4px 12px' },
+        },
+        sizeSmall: {
+          '@media (min-width: 600px)': { minHeight: 26, padding: '2px 8px', fontSize: '0.75rem' },
         },
       },
     },
@@ -30,7 +37,10 @@ const theme = createTheme({
         root: {
           minWidth: 44,
           minHeight: 44,
-          '@media (min-width: 600px)': { minWidth: 40, minHeight: 40 },
+          '@media (min-width: 600px)': { minWidth: 32, minHeight: 32 },
+        },
+        sizeSmall: {
+          '@media (min-width: 600px)': { minWidth: 28, minHeight: 28 },
         },
       },
     },
@@ -45,7 +55,27 @@ const theme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          '@media (max-width: 600px)': { paddingLeft: 12, paddingRight: 12, fontSize: '0.8125rem' },
+          fontSize: '0.8125rem',
+          padding: '6px 12px',
+          '@media (max-width: 600px)': { paddingLeft: 8, paddingRight: 8, fontSize: '0.75rem' },
+        },
+        head: {
+          fontWeight: 600,
+          fontSize: '0.8125rem',
+        },
+        sizeSmall: {
+          padding: '4px 8px',
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          fontSize: '0.75rem',
+        },
+        sizeSmall: {
+          height: 20,
+          fontSize: '0.6875rem',
         },
       },
     },
