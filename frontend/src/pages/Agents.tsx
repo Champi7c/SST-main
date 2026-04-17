@@ -208,6 +208,62 @@ export default function Agents() {
       if (Array.isArray(data)) {
         setAgents(data)
         setTotalCount(data.length)
+      } else {
+        setAgents(data.results || [])
+        setTotalCount(data.count || 0)
+      }
+    } catch (error: any) {
+      console.error('Erreur lors du chargement des agents:', error)
+      if (error.response?.status === 404) {
+        // Page demandée dépasse le total, on récupère le vrai total
+        try {
+          const countRes = await client.get('/medical/agents/', {
+            params: {
+              page_size: 1,
+              show_archived: showArchived ? 'true' : undefined,
+              search: searchQuery.trim() || undefined,
+              ordering: '-created_at'
+            }
+          })
+          let newTotal = 0
+          if (Array.isArray(countRes.data)) {
+            newTotal = countRes.data.length
+          } else if (countRes.data?.count !== undefined) {
+            newTotal = countRes.data.count
+          }
+          setTotalCount(newTotal)
+          const maxPage = Math.max(0, Math.ceil(newTotal / rowsPerPage) - 1)
+          if (fetchPage > maxPage) {
+            setPage(maxPage)
+            fetchAgents(maxPage)
+            return
+          } else {
+            setAgents([])
+            setTotalCount(0)
+          }
+        } catch (e2) {
+          // fallback sur l'ancien total
+          const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
+          if (fetchPage > 0) {
+            setPage(maxPage)
+            fetchAgents(maxPage)
+            return
+          }
+        }
+      }
+      showSnackbar('Erreur lors du chargement des agents', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+      if (showArchived) params.show_archived = 'true'
+      if (searchQuery.trim()) params.search = searchQuery.trim()
+      const response = await client.get('/medical/agents/', { params })
+      const data = response.data
+
+      if (Array.isArray(data)) {
+        setAgents(data)
+        setTotalCount(data.length)
       } else if (data.detail === 'Page non valide.') {
         // Page demandée dépasse le total, on récupère le vrai total
         try {
@@ -290,7 +346,7 @@ export default function Agents() {
     }
   }
 
-  const fetchSupervisors = async (companyId: string) => {
+  const fetchCompanies = async () => {
     try {
       const response = await client.get('/companies/companies/')
       setCompanies(response.data.results || response.data)
