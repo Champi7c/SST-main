@@ -146,14 +146,11 @@ export default function Agents() {
   useEffect(() => {
     fetchAgents()
     fetchCompanies()
-    fetchTotalCount()
   }, [showArchived, page, rowsPerPage])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setPage(0)
-      fetchTotalCount()
-      fetchAgents(0)
     }, 300)
     return () => clearTimeout(timeoutId)
   }, [searchQuery])
@@ -251,6 +248,7 @@ export default function Agents() {
       console.error('Erreur lors du chargement des agents:', error)
       console.log('Error response:', error.response?.data)
       if (error.response?.status === 404) {
+        // Page demandée dépasse le total, on récupère le vrai total
         try {
           const countRes = await client.get('/medical/agents/', {
             params: {
@@ -260,10 +258,15 @@ export default function Agents() {
               ordering: '-created_at'
             }
           })
-          const newTotal = countRes.data?.count || 0
+          let newTotal = 0
+          if (Array.isArray(countRes.data)) {
+            newTotal = countRes.data.length
+          } else if (countRes.data?.count !== undefined) {
+            newTotal = countRes.data.count
+          }
           setTotalCount(newTotal)
           const maxPage = Math.max(0, Math.ceil(newTotal / rowsPerPage) - 1)
-          if (fetchPage > 0) {
+          if (fetchPage > maxPage) {
             setPage(maxPage)
             fetchAgents(maxPage)
             return
@@ -272,7 +275,7 @@ export default function Agents() {
             setTotalCount(0)
           }
         } catch (e2) {
-          // fallback
+          // fallback sur l'ancien total
           const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
           if (fetchPage > 0) {
             setPage(maxPage)
@@ -287,24 +290,7 @@ export default function Agents() {
     }
   }
 
-  const fetchTotalCount = async () => {
-    try {
-      const params: Record<string, string> = { 
-        page_size: '1'
-      }
-      if (showArchived) params.show_archived = 'true'
-      if (searchQuery.trim()) params.search = searchQuery.trim()
-      const response = await client.get('/medical/agents/', { params })
-      const data = response.data
-      if (!Array.isArray(data) && data.count !== undefined) {
-        setTotalCount(data.count)
-      }
-    } catch (error) {
-      console.error('Erreur lors du comptage:', error)
-    }
-  }
-
-  const fetchCompanies = async () => {
+  const fetchSupervisors = async (companyId: string) => {
     try {
       const response = await client.get('/companies/companies/')
       setCompanies(response.data.results || response.data)
