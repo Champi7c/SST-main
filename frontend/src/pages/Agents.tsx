@@ -28,6 +28,7 @@ import {
   InputLabel,
   Autocomplete,
   InputAdornment,
+  TablePagination,
 } from '@mui/material'
 import { Edit as EditIcon, Unarchive as UnarchiveIcon, Add as AddIcon, Delete as DeleteIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
@@ -103,6 +104,9 @@ export default function Agents() {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
   const navigate = useNavigate()
   const { hasMedicalAccess, user } = useAuth()
 
@@ -142,7 +146,15 @@ export default function Agents() {
   useEffect(() => {
     fetchAgents()
     fetchCompanies()
-  }, [showArchived])
+  }, [showArchived, page, rowsPerPage])
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setPage(0)
+      fetchAgents()
+    }, 300)
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery])
 
   useEffect(() => {
     if (formData.company) {
@@ -183,10 +195,16 @@ export default function Agents() {
 
   const fetchAgents = async () => {
     try {
-      const params: Record<string, string> = { page_size: '1000' }
+      const params: Record<string, string> = { 
+        page: (page + 1).toString(),
+        page_size: rowsPerPage.toString(),
+        ordering: '-created_at' 
+      }
       if (showArchived) params.show_archived = 'true'
+      if (searchQuery.trim()) params.search = searchQuery.trim()
       const response = await client.get('/medical/agents/', { params })
       setAgents(response.data.results || response.data)
+      setTotalCount(response.data.count || 0)
     } catch (error) {
       console.error('Erreur lors du chargement des agents:', error)
       showSnackbar('Erreur lors du chargement des agents', 'error')
@@ -455,21 +473,6 @@ export default function Agents() {
   // Vérifier si l'utilisateur peut gérer les agents
   const canManageAgents = user?.role ? ['super_admin', 'admin', 'rh', 'hse', 'medecin', 'infirmier', 'direction'].includes(user.role) : false
 
-  // Filtrer les agents selon la barre de recherche (nom, prénom, matricule, email, entreprise, téléphone)
-  const searchLower = searchQuery.trim().toLowerCase()
-  const filteredAgents = searchLower
-    ? agents.filter(
-        (a) =>
-          (a.full_name && a.full_name.toLowerCase().includes(searchLower)) ||
-          (a.first_name && a.first_name.toLowerCase().includes(searchLower)) ||
-          (a.last_name && a.last_name.toLowerCase().includes(searchLower)) ||
-          (a.matricule && a.matricule.toLowerCase().includes(searchLower)) ||
-          (a.email && a.email.toLowerCase().includes(searchLower)) ||
-          (a.company_name && a.company_name.toLowerCase().includes(searchLower)) ||
-          (a.phone && a.phone.replace(/\s/g, '').includes(searchQuery.trim().replace(/\s/g, '')))
-      )
-    : agents
-
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -536,16 +539,16 @@ export default function Agents() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredAgents.length === 0 ? (
+            {agents.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={12} align="center">
                   <Typography variant="body2" color="text.secondary">
-                    {agents.length === 0 ? 'Aucun agent trouvé' : 'Aucun agent ne correspond à la recherche'}
+                    {totalCount === 0 ? 'Aucun agent trouvé' : 'Aucun agent ne correspond à la recherche'}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredAgents.map((agent) => (
+              agents.map((agent) => (
                 <TableRow key={agent.id}>
                   <TableCell>{agent.matricule}</TableCell>
                   <TableCell>{agent.last_name}</TableCell>
@@ -591,6 +594,21 @@ export default function Agents() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25, 50]}
+        component="div"
+        count={totalCount}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={(_, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10))
+          setPage(0)
+        }}
+        labelDisplayedRows={({ from, to, count }) => `${from}-${to} sur ${count}`}
+        labelRowsPerPage="Lignes par page:"
+      />
 
       {/* Dialog de création/modification */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
