@@ -16,13 +16,11 @@ import {
   Avatar,
   Menu,
   MenuItem,
-  Chip,
 } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import PeopleIcon from '@mui/icons-material/People'
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
-import EventIcon from '@mui/icons-material/Event'
 import WarningIcon from '@mui/icons-material/Warning'
 import VaccinesIcon from '@mui/icons-material/Vaccines'
 import SecurityIcon from '@mui/icons-material/Security'

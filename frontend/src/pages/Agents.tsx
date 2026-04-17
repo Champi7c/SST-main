@@ -199,7 +199,7 @@ export default function Agents() {
         page: fetchPage + 1,
         page_size: rowsPerPage,
         ordering: '-created_at'
-      }
+   }
       if (showArchived) params.show_archived = 'true'
       if (searchQuery.trim()) params.search = searchQuery.trim()
       const response = await client.get('/medical/agents/', { params })
@@ -215,7 +215,6 @@ export default function Agents() {
     } catch (error: any) {
       console.error('Erreur lors du chargement des agents:', error)
       if (error.response?.status === 404) {
-        // Page demandée dépasse le total, on récupère le vrai total
         try {
           const countRes = await client.get('/medical/agents/', {
             params: {
@@ -242,105 +241,18 @@ export default function Agents() {
             setTotalCount(0)
           }
         } catch (e2) {
-          // fallback sur l'ancien total
           const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
           if (fetchPage > 0) {
             setPage(maxPage)
             fetchAgents(maxPage)
             return
           }
-        }
-      }
-      showSnackbar('Erreur lors du chargement des agents', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-      if (showArchived) params.show_archived = 'true'
-      if (searchQuery.trim()) params.search = searchQuery.trim()
-      const response = await client.get('/medical/agents/', { params })
-      const data = response.data
-
-      if (Array.isArray(data)) {
-        setAgents(data)
-        setTotalCount(data.length)
-      } else if (data.detail === 'Page non valide.') {
-        // Page demandée dépasse le total, on récupère le vrai total
-        try {
-          const countRes = await client.get('/medical/agents/', {
-            params: {
-              page_size: 1,
-              show_archived: showArchived ? 'true' : undefined,
-              search: searchQuery.trim() || undefined,
-              ordering: '-created_at'
-            }
-          })
-          const newTotal = countRes.data?.count || 0
-          setTotalCount(newTotal)
-          const maxPage = Math.max(0, Math.ceil(newTotal / rowsPerPage) - 1)
-          if (fetchPage > maxPage) {
-            setPage(maxPage)
-            fetchAgents(maxPage)
-          } else {
-            setAgents([])
-            setTotalCount(0)
-          }
-        } catch (e) {
-          // fallback: utiliser l'ancien totalCount
-          const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
-          if (fetchPage > 0) {
-            setPage(maxPage)
-            fetchAgents(maxPage)
-          } else {
-            setAgents([])
-            setTotalCount(0)
-          }
+          setAgents([])
+          setTotalCount(0)
         }
       } else {
-        setAgents(data.results || [])
-        setTotalCount(data.count || 0)
+        showSnackbar('Erreur lors du chargement des agents', 'error')
       }
-    } catch (error: any) {
-      console.error('Erreur lors du chargement des agents:', error)
-      console.log('Error response:', error.response?.data)
-      if (error.response?.status === 404) {
-        // Page demandée dépasse le total, on récupère le vrai total
-        try {
-          const countRes = await client.get('/medical/agents/', {
-            params: {
-              page_size: 1,
-              show_archived: showArchived ? 'true' : undefined,
-              search: searchQuery.trim() || undefined,
-              ordering: '-created_at'
-            }
-          })
-          let newTotal = 0
-          if (Array.isArray(countRes.data)) {
-            newTotal = countRes.data.length
-          } else if (countRes.data?.count !== undefined) {
-            newTotal = countRes.data.count
-          }
-          setTotalCount(newTotal)
-          const maxPage = Math.max(0, Math.ceil(newTotal / rowsPerPage) - 1)
-          if (fetchPage > maxPage) {
-            setPage(maxPage)
-            fetchAgents(maxPage)
-            return
-          } else {
-            setAgents([])
-            setTotalCount(0)
-          }
-        } catch (e2) {
-          // fallback sur l'ancien total
-          const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
-          if (fetchPage > 0) {
-            setPage(maxPage)
-            fetchAgents(maxPage)
-            return
-          }
-        }
-      }
-      showSnackbar('Erreur lors du chargement des agents', 'error')
     } finally {
       setLoading(false)
     }
@@ -916,10 +828,10 @@ export default function Agents() {
                     : formData.company && companies.find(c => c.id.toString() === formData.company.toString())
                     ? companies.find(c => c.id.toString() === formData.company.toString())!.name
                     : ''
-                }
-                onInputChange={(event, newInputValue, reason) => {
-                  if (reason === 'input' && newInputValue) {
-                    const existingCompany = companies.find(c => c.name.toLowerCase() === newInputValue.toLowerCase())
+                 }
+                 onInputChange={(_event, newInputValue, reason) => {
+                   if (reason === 'input' && newInputValue) {
+                     const existingCompany = companies.find(c => c.name.toLowerCase() === newInputValue.toLowerCase())
                     if (!existingCompany) {
                       setFormData({
                         ...formData,
@@ -931,13 +843,13 @@ export default function Agents() {
                       })
                     }
                   }
-                }}
-                onChange={(event, newValue) => {
-                  if (typeof newValue === 'string') {
-                    setFormData({
-                      ...formData,
-                      company: newValue,
-                      site: '',
+                 }}
+                 onChange={(_event, newValue) => {
+                   if (typeof newValue === 'string') {
+                     setFormData({
+                       ...formData,
+                       company: newValue,
+                       site: '',
                       service: '',
                       job_position: '',
                       supervisor: '',
@@ -996,26 +908,26 @@ export default function Agents() {
                     : formData.site && sites.find(s => s.id.toString() === formData.site.toString())
                     ? sites.find(s => s.id.toString() === formData.site.toString())!.name
                     : ''
-                }
-                onInputChange={(event, newInputValue, reason) => {
-                  if (reason === 'input' && newInputValue && formData.company) {
-                    const existingSite = sites.find(s => s.name.toLowerCase() === newInputValue.toLowerCase())
-                    if (!existingSite) {
-                      // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
-                      setFormData({
+                 }
+                 onInputChange={(_event, newInputValue, reason) => {
+                   if (reason === 'input' && newInputValue && formData.company) {
+                     const existingSite = sites.find(s => s.name.toLowerCase() === newInputValue.toLowerCase())
+                     if (!existingSite) {
+                       // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
+                       setFormData({
                         ...formData,
                         site: newInputValue,
                         service: '',
                       })
                     }
                   }
-                }}
-                onChange={(event, newValue) => {
-                  if (typeof newValue === 'string') {
-                    setFormData({ ...formData, site: newValue, service: '' })
-                  } else if (newValue && 'id' in newValue) {
-                    setFormData({ ...formData, site: newValue.id.toString(), service: '' })
-                  } else {
+                 }}
+                 onChange={(_event, newValue) => {
+                   if (typeof newValue === 'string') {
+                     setFormData({ ...formData, site: newValue, service: '' })
+                   } else if (newValue && 'id' in newValue) {
+                     setFormData({ ...formData, site: newValue.id.toString(), service: '' })
+                   } else {
                     setFormData({ ...formData, site: '', service: '' })
                   }
                 }}
@@ -1051,25 +963,25 @@ export default function Agents() {
                     : formData.service && services.find(s => s.id.toString() === formData.service.toString())
                     ? services.find(s => s.id.toString() === formData.service.toString())!.name
                     : ''
-                }
-                onInputChange={(event, newInputValue, reason) => {
-                  if (reason === 'input' && newInputValue && formData.company) {
-                    const existingService = services.find(s => s.name.toLowerCase() === newInputValue.toLowerCase())
-                    if (!existingService) {
-                      // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
-                      setFormData({
+                 }
+                 onInputChange={(_event, newInputValue, reason) => {
+                   if (reason === 'input' && newInputValue && formData.company) {
+                     const existingService = services.find(s => s.name.toLowerCase() === newInputValue.toLowerCase())
+                     if (!existingService) {
+                       // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
+                       setFormData({
                         ...formData,
                         service: newInputValue,
                       })
                     }
                   }
-                }}
-                onChange={(event, newValue) => {
-                  if (typeof newValue === 'string') {
-                    setFormData({ ...formData, service: newValue })
-                  } else if (newValue && 'id' in newValue) {
-                    setFormData({ ...formData, service: newValue.id.toString() })
-                  } else {
+                 }}
+                 onChange={(_event, newValue) => {
+                   if (typeof newValue === 'string') {
+                     setFormData({ ...formData, service: newValue })
+                   } else if (newValue && 'id' in newValue) {
+                     setFormData({ ...formData, service: newValue.id.toString() })
+                   } else {
                     setFormData({ ...formData, service: '' })
                   }
                 }}
@@ -1105,25 +1017,25 @@ export default function Agents() {
                     : formData.job_position && jobPositions.find(j => j.id.toString() === formData.job_position.toString())
                     ? jobPositions.find(j => j.id.toString() === formData.job_position.toString())!.name
                     : ''
-                }
-                onInputChange={(event, newInputValue, reason) => {
-                  if (reason === 'input' && newInputValue && formData.company) {
-                    const existingJobPosition = jobPositions.find(j => j.name.toLowerCase() === newInputValue.toLowerCase())
-                    if (!existingJobPosition) {
-                      // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
-                      setFormData({
+                 }
+                 onInputChange={(_event, newInputValue, reason) => {
+                   if (reason === 'input' && newInputValue && formData.company) {
+                     const existingJobPosition = jobPositions.find(j => j.name.toLowerCase() === newInputValue.toLowerCase())
+                     if (!existingJobPosition) {
+                       // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
+                       setFormData({
                         ...formData,
                         job_position: newInputValue,
                       })
                     }
                   }
-                }}
-                onChange={(event, newValue) => {
-                  if (typeof newValue === 'string') {
-                    setFormData({ ...formData, job_position: newValue })
-                  } else if (newValue && 'id' in newValue) {
-                    setFormData({ ...formData, job_position: newValue.id.toString() })
-                  } else {
+                 }}
+                 onChange={(_event, newValue) => {
+                   if (typeof newValue === 'string') {
+                     setFormData({ ...formData, job_position: newValue })
+                   } else if (newValue && 'id' in newValue) {
+                     setFormData({ ...formData, job_position: newValue.id.toString() })
+                   } else {
                     setFormData({ ...formData, job_position: '' })
                   }
                 }}
@@ -1183,13 +1095,13 @@ export default function Agents() {
                     : formData.supervisor && supervisors.find(s => s.id.toString() === formData.supervisor.toString())
                     ? `${supervisors.find(s => s.id.toString() === formData.supervisor.toString())!.full_name} (${supervisors.find(s => s.id.toString() === formData.supervisor.toString())!.matricule})`
                     : ''
-                }
-                onInputChange={(event, newInputValue, reason) => {
-                  if (reason === 'input' && newInputValue && formData.company) {
-                    const match = newInputValue.match(/^(.+?)\s*\((.+?)\)$/)
-                    if (match) {
-                      const [, , matricule] = match
-                      const existingSupervisor = supervisors.find(s => 
+                 }
+                 onInputChange={(_event, newInputValue, reason) => {
+                   if (reason === 'input' && newInputValue && formData.company) {
+                     const match = newInputValue.match(/^(.+?)\s*\((.+?)\)$/)
+                     if (match) {
+                       const [, , matricule] = match
+                       const existingSupervisor = supervisors.find(s =>
                         s.matricule.toLowerCase() === matricule.trim().toLowerCase()
                       )
                       if (!existingSupervisor) {
@@ -1205,13 +1117,13 @@ export default function Agents() {
                       }
                     }
                   }
-                }}
-                onChange={(event, newValue) => {
-                  if (typeof newValue === 'string') {
-                    if (newValue.trim() === '' || newValue.toLowerCase() === 'aucun') {
-                      setFormData({ ...formData, supervisor: '' })
-                    } else {
-                      setFormData({ ...formData, supervisor: newValue })
+                 }}
+                 onChange={(_event, newValue) => {
+                   if (typeof newValue === 'string') {
+                     if (newValue.trim() === '' || newValue.toLowerCase() === 'aucun') {
+                       setFormData({ ...formData, supervisor: '' })
+                     } else {
+                       setFormData({ ...formData, supervisor: newValue })
                     }
                   } else if (newValue && 'id' in newValue) {
                     setFormData({ ...formData, supervisor: newValue.id.toString() })

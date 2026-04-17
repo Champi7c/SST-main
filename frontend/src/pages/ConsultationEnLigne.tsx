@@ -189,7 +189,6 @@ export default function ConsultationEnLigne() {
               fullWidth
               size="small"
               value={createdLink}
-              readOnly
               InputProps={{
                 readOnly: true,
                 endAdornment: (

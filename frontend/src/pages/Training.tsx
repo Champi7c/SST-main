@@ -121,7 +121,7 @@ export default function Training() {
   const [trainingTypes, setTrainingTypes] = useState<TrainingType[]>([])
   const [trainings, setTrainings] = useState<TrainingRecord[]>([])
   const [articles, setArticles] = useState<EducationalArticle[]>([])
-  const [agents, setAgents] = useState<Agent[]>([])
+  const [_agents, setAgents] = useState<Agent[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
   const [openTrainingDialog, setOpenTrainingDialog] = useState(false)
