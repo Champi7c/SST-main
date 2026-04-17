@@ -151,7 +151,7 @@ export default function Agents() {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setPage(0)
-      fetchAgents()
+      fetchAgents(0)
     }, 300)
     return () => clearTimeout(timeoutId)
   }, [searchQuery])
@@ -193,20 +193,39 @@ export default function Agents() {
     }
   }, [formData.company])
 
-  const fetchAgents = async () => {
+  const fetchAgents = async (overridePage?: number) => {
     try {
-      const params: Record<string, string> = { 
-        page: (page + 1).toString(),
-        page_size: rowsPerPage.toString(),
+      const fetchPage = overridePage !== undefined ? overridePage : page
+      const params: Record<string, string | number> = { 
+        page: fetchPage + 1,
+        page_size: rowsPerPage,
         ordering: '-created_at' 
       }
       if (showArchived) params.show_archived = 'true'
       if (searchQuery.trim()) params.search = searchQuery.trim()
       const response = await client.get('/medical/agents/', { params })
-      setAgents(response.data.results || response.data)
-      setTotalCount(response.data.count || 0)
-    } catch (error) {
+      const data = response.data
+      console.log('API Response:', data)
+      console.log('Page:', fetchPage + 1, 'PageSize:', rowsPerPage)
+      if (Array.isArray(data)) {
+        setAgents(data)
+        setTotalCount(data.length)
+      } else {
+        console.log('Results:', data.results?.length, 'Count:', data.count)
+        setAgents(data.results || [])
+        setTotalCount(data.count || 0)
+      }
+    } catch (error: any) {
       console.error('Erreur lors du chargement des agents:', error)
+      console.log('Error response:', error.response?.data)
+      if (error.response?.status === 404) {
+        const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
+        if (page > maxPage) {
+          setPage(maxPage)
+          fetchAgents(maxPage)
+          return
+        }
+      }
       showSnackbar('Erreur lors du chargement des agents', 'error')
     } finally {
       setLoading(false)
