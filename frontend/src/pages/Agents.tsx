@@ -196,8 +196,8 @@ export default function Agents() {
   }, [formData.company])
 
   const fetchAgents = async (overridePage?: number) => {
+    const fetchPage = overridePage !== undefined ? overridePage : page
     try {
-      const fetchPage = overridePage !== undefined ? overridePage : page
       const params: Record<string, string | number> = { 
         page: fetchPage + 1,
         page_size: rowsPerPage,
