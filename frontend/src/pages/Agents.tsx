@@ -198,32 +198,52 @@ export default function Agents() {
   const fetchAgents = async (overridePage?: number) => {
     const fetchPage = overridePage !== undefined ? overridePage : page
     try {
-      const params: Record<string, string | number> = { 
+      const params: Record<string, string | number> = {
         page: fetchPage + 1,
         page_size: rowsPerPage,
-        ordering: '-created_at' 
+        ordering: '-created_at'
       }
       if (showArchived) params.show_archived = 'true'
       if (searchQuery.trim()) params.search = searchQuery.trim()
       const response = await client.get('/medical/agents/', { params })
       const data = response.data
-      console.log('API Response:', data)
-      console.log('Page:', fetchPage + 1, 'PageSize:', rowsPerPage)
-      
+
       if (Array.isArray(data)) {
         setAgents(data)
         setTotalCount(data.length)
       } else if (data.detail === 'Page non valide.') {
-        const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
-        if (fetchPage > 0) {
-          setPage(maxPage)
-          fetchAgents(maxPage)
-        } else {
-          setAgents([])
-          setTotalCount(0)
+        // Page demandée dépasse le total, on récupère le vrai total
+        try {
+          const countRes = await client.get('/medical/agents/', {
+            params: {
+              page_size: 1,
+              show_archived: showArchived ? 'true' : undefined,
+              search: searchQuery.trim() || undefined,
+              ordering: '-created_at'
+            }
+          })
+          const newTotal = countRes.data?.count || 0
+          setTotalCount(newTotal)
+          const maxPage = Math.max(0, Math.ceil(newTotal / rowsPerPage) - 1)
+          if (fetchPage > maxPage) {
+            setPage(maxPage)
+            fetchAgents(maxPage)
+          } else {
+            setAgents([])
+            setTotalCount(0)
+          }
+        } catch (e) {
+          // fallback: utiliser l'ancien totalCount
+          const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
+          if (fetchPage > 0) {
+            setPage(maxPage)
+            fetchAgents(maxPage)
+          } else {
+            setAgents([])
+            setTotalCount(0)
+          }
         }
       } else {
-        console.log('Results:', data.results?.length, 'Count:', data.count)
         setAgents(data.results || [])
         setTotalCount(data.count || 0)
       }
@@ -231,11 +251,34 @@ export default function Agents() {
       console.error('Erreur lors du chargement des agents:', error)
       console.log('Error response:', error.response?.data)
       if (error.response?.status === 404) {
-        const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
-        if (fetchPage > 0) {
-          setPage(maxPage)
-          fetchAgents(maxPage)
-          return
+        try {
+          const countRes = await client.get('/medical/agents/', {
+            params: {
+              page_size: 1,
+              show_archived: showArchived ? 'true' : undefined,
+              search: searchQuery.trim() || undefined,
+              ordering: '-created_at'
+            }
+          })
+          const newTotal = countRes.data?.count || 0
+          setTotalCount(newTotal)
+          const maxPage = Math.max(0, Math.ceil(newTotal / rowsPerPage) - 1)
+          if (fetchPage > 0) {
+            setPage(maxPage)
+            fetchAgents(maxPage)
+            return
+          } else {
+            setAgents([])
+            setTotalCount(0)
+          }
+        } catch (e2) {
+          // fallback
+          const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
+          if (fetchPage > 0) {
+            setPage(maxPage)
+            fetchAgents(maxPage)
+            return
+          }
         }
       }
       showSnackbar('Erreur lors du chargement des agents', 'error')

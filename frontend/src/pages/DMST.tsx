@@ -273,13 +273,13 @@ export default function DMST() {
   }, [agentId, hasMedicalAccess])
 
    useEffect(() => {
-     if (dmst && tabValue === 3) {
+     if (dmst && tabValue === 0) {
        fetchVisits(0)
      }
    }, [dmst, tabValue])
 
    useEffect(() => {
-     if (dmst && tabValue === 3) {
+     if (dmst && tabValue === 0) {
        fetchVisits()
      }
    }, [visitsPage, visitsRowsPerPage])
