@@ -250,6 +250,7 @@ export default function Agents() {
         page_size: '1'
       }
       if (showArchived) params.show_archived = 'true'
+      if (searchQuery.trim()) params.search = searchQuery.trim()
       const response = await client.get('/medical/agents/', { params })
       const data = response.data
       if (!Array.isArray(data) && data.count !== undefined) {

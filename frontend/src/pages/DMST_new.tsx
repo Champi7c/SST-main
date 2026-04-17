@@ -30,6 +30,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  TablePagination,
 } from '@mui/material'
 import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon, WorkspacePremium as CertIcon } from '@mui/icons-material'
 import client, { getApiErrorMessage } from '../api/client'
@@ -157,7 +158,12 @@ export default function DMST() {
   const [error, setError] = useState('')
   const [tabValue, setTabValue] = useState(0)
   const [editMode, setEditMode] = useState(false)
-  const [visits, setVisits] = useState<Visit[]>([])
+   const [visits, setVisits] = useState<Visit[]>([])
+   const [visitsLoading, setVisitsLoading] = useState(false)
+   const [visitsError, setVisitsError] = useState('')
+   const [visitsPage, setVisitsPage] = useState(0)
+   const [visitsRowsPerPage, setVisitsRowsPerPage] = useState(5)
+   const [visitsTotalCount, setVisitsTotalCount] = useState(0)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const [openVisitDialog, setOpenVisitDialog] = useState(false)
   const [visitTypes, setVisitTypes] = useState<VisitType[]>([])
@@ -242,11 +248,17 @@ export default function DMST() {
     fetchDMST()
   }, [agentId, hasMedicalAccess])
 
-  useEffect(() => {
-    if (dmst && tabValue === 3) {
-      fetchVisits()
-    }
-  }, [dmst, tabValue])
+   useEffect(() => {
+     if (dmst && tabValue === 0) {
+       fetchVisits(0)
+     }
+   }, [dmst, tabValue])
+
+   useEffect(() => {
+     if (dmst && tabValue === 0) {
+       fetchVisits()
+     }
+   }, [visitsPage, visitsRowsPerPage])
 
   useEffect(() => {
     fetchVisitTypes()
@@ -331,15 +343,34 @@ export default function DMST() {
     }
   }
 
-  const fetchVisits = async () => {
-    if (!dmst) return
-    try {
-      const response = await client.get(`/medical/dmst/${dmst.id}/visits/`)
-      setVisits(response.data.results || response.data)
-    } catch (error) {
-      console.error('Erreur lors du chargement des visites:', error)
-    }
-  }
+   const fetchVisits = async (pageOverride?: number) => {
+     if (!dmst) return
+     try {
+       setVisitsLoading(true)
+       setVisitsError('')
+       const fetchPage = pageOverride !== undefined ? pageOverride : visitsPage
+       const params: Record<string, string | number> = {
+         page: fetchPage + 1,
+         page_size: visitsRowsPerPage,
+         ordering: '-scheduled_date'
+       }
+       const response = await client.get(`/medical/dmst/${dmst.id}/visits/`, { params })
+       const data = response.data
+       
+       if (Array.isArray(data)) {
+         setVisits(data)
+         setVisitsTotalCount(data.length)
+       } else if (data.results) {
+         setVisits(data.results)
+         setVisitsTotalCount(data.count || 0)
+       }
+     } catch (error: any) {
+       console.error('Erreur lors du chargement des visites:', error)
+       setVisitsError('Erreur lors du chargement des visites')
+     } finally {
+       setVisitsLoading(false)
+     }
+   }
 
   const fetchVisitTypes = async () => {
     try {
@@ -1292,50 +1323,78 @@ export default function DMST() {
               Programmer une visite
             </Button>
           </Box>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Statut</TableCell>
-                  <TableCell>Diagnostic</TableCell>
-                  <TableCell>Avis</TableCell>
-                  <TableCell>Médecin</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {visits.length === 0 ? (
+          <Box>
+            {visitsLoading ? (
+              <Box display="flex" justifyContent="center" alignItems="center" py={2}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : visitsError ? (
+              <Alert severity="error" sx={{ mb: 2 }}>{visitsError}</Alert>
+            ) : (
+              <>
+            <TableContainer>
+              <Table>
+                <TableHead>
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
-                      <Typography variant="body2" color="text.secondary">
-                        Aucune visite médicale enregistrée
-                      </Typography>
-                    </TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Statut</TableCell>
+                    <TableCell>Diagnostic</TableCell>
+                    <TableCell>Avis</TableCell>
+                    <TableCell>Médecin</TableCell>
+                    <TableCell>Actions</TableCell>
                   </TableRow>
-                ) : (
-                  visits.map((visit) => (
-                    <TableRow key={visit.id}>
-                      <TableCell>{new Date(visit.scheduled_date).toLocaleDateString('fr-FR')}</TableCell>
-                      <TableCell>{visit.visit_type_name}</TableCell>
-                      <TableCell>
-                        <Chip label={visit.status_display} size="small" color={visit.status === 'completed' ? 'success' : 'default'} />
-                      </TableCell>
-                      <TableCell>{visit.diagnosis || '-'}</TableCell>
-                      <TableCell>{visit.avis_display || '-'}</TableCell>
-                      <TableCell>{visit.doctor_name || '-'}</TableCell>
-                      <TableCell>
-                        <Button size="small" onClick={() => navigate(`/visits/${visit.id}`)}>
-                          Voir
-                        </Button>
+                </TableHead>
+                <TableBody>
+                  {visits.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">
+                        <Typography variant="body2" color="text.secondary">
+                          Aucune visite médicale enregistrée
+                        </Typography>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                  ) : (
+                    visits.map((visit) => (
+                      <TableRow key={visit.id}>
+                        <TableCell>{new Date(visit.scheduled_date).toLocaleDateString('fr-FR')}</TableCell>
+                        <TableCell>{visit.visit_type_name}</TableCell>
+                        <TableCell>
+                          <Chip label={visit.status_display} size="small" color={visit.status === 'completed' ? 'success' : 'default'} />
+                        </TableCell>
+                        <TableCell>{visit.diagnosis || '-'}</TableCell>
+                        <TableCell>{visit.avis_display || '-'}</TableCell>
+                        <TableCell>{visit.doctor_name || '-'}</TableCell>
+                        <TableCell>
+                          <Button size="small" onClick={() => navigate(`/visits/${visit.id}`)}>
+                            Voir
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <Box display="flex" justifyContent="flex-end" mt={2}>
+              <TablePagination
+                rowsPerPageOptions={[5, 10, 25]}
+                component="div"
+                count={visitsTotalCount}
+                rowsPerPage={visitsRowsPerPage}
+                page={visitsPage}
+                onPageChange={(_, newPage) => setVisitsPage(newPage)}
+                onRowsPerPageChange={(e) => {
+                  setVisitsRowsPerPage(parseInt(e.target.value, 10))
+                  setVisitsPage(0)
+                }}
+                labelDisplayedRows={({ from, to, count }) => `${from}-${to} sur ${count}`}
+                labelRowsPerPage="Lignes par page:"
+              />
+            </Box>
+              </>
+            )}
+          </Box>
         </TabPanel>
 
         {/* Onglet Bulletin d'analyses */}
