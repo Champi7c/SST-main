@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Agents from './pages/Agents'
 import DMST from './pages/DMST'
+import DMSTList from './pages/DMSTList'
 import Visits from './pages/Visits'
 import VisitDetail from './pages/VisitDetail'
 import Accidents from './pages/Accidents'
@@ -40,6 +41,7 @@ function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="agents" element={<Agents />} />
+        <Route path="dmst-list" element={<DMSTList />} />
         <Route path="dmst/:agentId" element={<DMST />} />
         <Route path="visits" element={<Visits />} />
         <Route path="visits/:id" element={<VisitDetail />} />
