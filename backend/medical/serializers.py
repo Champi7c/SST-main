@@ -51,6 +51,7 @@ class AgentSerializer(serializers.ModelSerializer):
 
     def get_has_dmst(self, obj):
         """Indique si l'agent a un DMST"""
+        # Avec select_related('dmst'), l'attribut dmst est soit l'objet, soit None
         return hasattr(obj, 'dmst') and obj.dmst is not None
 
     def validate(self, attrs):

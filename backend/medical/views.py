@@ -55,12 +55,12 @@ class AgentViewSet(viewsets.ModelViewSet):
     ordering_fields = ['last_name', 'first_name', 'hire_date', 'created_at']
     ordering = ['last_name', 'first_name']
     
-     def get_queryset(self):
-         """Filtre les agents selon les permissions et les paramètres"""
-         queryset = super().get_queryset().select_related(
-             'company', 'site', 'service', 'job_position', 'supervisor',
-             'created_by', 'updated_by', 'archived_by', 'dmst'
-         )
+    def get_queryset(self):
+        """Filtre les agents selon les permissions et les paramètres"""
+        queryset = super().get_queryset().select_related(
+            'company', 'site', 'service', 'job_position', 'supervisor',
+            'created_by', 'updated_by', 'archived_by', 'dmst'
+        )
 
         # Par défaut, exclure les agents archivés sauf si explicitement demandé
         show_archived = self.request.query_params.get('show_archived', 'false').lower() == 'true'
