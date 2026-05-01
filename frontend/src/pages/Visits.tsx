@@ -42,7 +42,6 @@ export default function Visits() {
 
   useEffect(() => {
     fetchAgents()
-    // Si un agent est passé en paramètre, rediriger vers sa fiche
     const agentParam = searchParams.get('agent')
     if (agentParam) {
       navigate(`/dmst/${agentParam}`)
@@ -68,9 +67,9 @@ export default function Visits() {
   const filteredAgents = agents.filter((agent) => {
     const search = searchTerm.toLowerCase()
     return (
-      agent.full_name.toLowerCase().includes(search) ||
-      agent.matricule.toLowerCase().includes(search) ||
-      agent.company_name.toLowerCase().includes(search)
+      (agent.full_name ?? '').toLowerCase().includes(search) ||
+      (agent.matricule ?? '').toLowerCase().includes(search) ||
+      (agent.company_name ?? '').toLowerCase().includes(search)
     )
   })
 
