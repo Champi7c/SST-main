@@ -1,21 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  CircularProgress,
-  TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  InputAdornment,
-  Alert,
-} from '@mui/material'
+ import {
+   Box,
+   Typography,
+   Paper,
+   Button,
+   CircularProgress,
+   TextField,
+   Table,
+   TableBody,
+   TableCell,
+   TableContainer,
+   TableHead,
+   TableRow,
+   InputAdornment,
+   Alert,
+   Chip,
+ } from '@mui/material'
 import {
   Search as SearchIcon,
   MedicalServices as MedicalServicesIcon,
@@ -30,6 +31,7 @@ interface Agent {
   company_name: string
   site_name?: string
   service_name?: string
+  has_dmst?: boolean
 }
 
 export default function Visits() {
@@ -127,46 +129,54 @@ export default function Visits() {
 
         <TableContainer>
           <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Matricule</TableCell>
-                <TableCell>Nom et prénoms</TableCell>
-                <TableCell>Entreprise</TableCell>
-                <TableCell>Site</TableCell>
-                <TableCell>Service</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
+             <TableHead>
+               <TableRow>
+                 <TableCell>Matricule</TableCell>
+                 <TableCell>Nom et prénoms</TableCell>
+                 <TableCell>Entreprise</TableCell>
+                 <TableCell>Site</TableCell>
+                 <TableCell>Service</TableCell>
+                 <TableCell>DMST</TableCell>
+                 <TableCell>Actions</TableCell>
+               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredAgents.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <Typography variant="body2" color="text.secondary">
-                      {searchTerm ? 'Aucun agent trouvé' : 'Aucun agent disponible'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredAgents.map((agent) => (
-                  <TableRow key={agent.id} hover>
-                    <TableCell>{agent.matricule}</TableCell>
-                    <TableCell>{agent.full_name}</TableCell>
-                    <TableCell>{agent.company_name}</TableCell>
-                    <TableCell>{agent.site_name || '-'}</TableCell>
-                    <TableCell>{agent.service_name || '-'}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<MedicalServicesIcon />}
-                        onClick={() => handleOpenObservationForm(agent.id)}
-                      >
-                        Remplir la fiche
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+               {filteredAgents.length === 0 ? (
+                 <TableRow>
+                   <TableCell colSpan={7} align="center">
+                     <Typography variant="body2" color="text.secondary">
+                       {searchTerm ? 'Aucun agent trouvé' : 'Aucun agent disponible'}
+                     </Typography>
+                   </TableCell>
+                 </TableRow>
+               ) : (
+                 filteredAgents.map((agent) => (
+                   <TableRow key={agent.id} hover>
+                     <TableCell>{agent.matricule}</TableCell>
+                     <TableCell>{agent.full_name}</TableCell>
+                     <TableCell>{agent.company_name}</TableCell>
+                     <TableCell>{agent.site_name || '-'}</TableCell>
+                     <TableCell>{agent.service_name || '-'}</TableCell>
+                     <TableCell>
+                       {agent.has_dmst ? (
+                         <Chip label="Créé" color="success" size="small" />
+                       ) : (
+                         <Chip label="Non créé" color="default" size="small" />
+                       )}
+                     </TableCell>
+                     <TableCell>
+                       <Button
+                         variant="contained"
+                         color={agent.has_dmst ? "info" : "primary"}
+                         startIcon={<MedicalServicesIcon />}
+                         onClick={() => handleOpenObservationForm(agent.id)}
+                       >
+                         {agent.has_dmst ? 'Voir/Modifier' : 'Créer'}
+                       </Button>
+                     </TableCell>
+                   </TableRow>
+                 ))
+               )}
             </TableBody>
           </Table>
         </TableContainer>

@@ -15,6 +15,7 @@ class AgentSerializer(serializers.ModelSerializer):
     supervisor_matricule = serializers.CharField(source='supervisor.matricule', read_only=True, allow_null=True)
     full_name = serializers.SerializerMethodField()
     age = serializers.ReadOnlyField()
+    has_dmst = serializers.SerializerMethodField()
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, allow_null=True)
     updated_by_name = serializers.CharField(source='updated_by.get_full_name', read_only=True, allow_null=True)
     archived_by_name = serializers.CharField(source='archived_by.get_full_name', read_only=True, allow_null=True)
@@ -47,7 +48,11 @@ class AgentSerializer(serializers.ModelSerializer):
         if obj.supervisor:
             return f"{obj.supervisor.last_name} {obj.supervisor.first_name}"
         return None
-    
+
+    def get_has_dmst(self, obj):
+        """Indique si l'agent a un DMST"""
+        return hasattr(obj, 'dmst') and obj.dmst is not None
+
     def validate(self, attrs):
         """Valide que soit company soit company_name_input est fourni, puis vérifie cohérence site/service/job_position."""
         company = attrs.get('company')
