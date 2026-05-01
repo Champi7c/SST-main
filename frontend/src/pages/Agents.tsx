@@ -807,84 +807,84 @@ export default function Agents() {
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <Autocomplete
-                freeSolo
-                options={companies}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') return option
-                  return option.name
-                }}
-                value={
-                  formData.company
-                    ? (companies.find(c => c.id.toString() === formData.company.toString()) || 
-                       (typeof formData.company === 'string' && !isNaN(Number(formData.company)) 
-                        ? null 
-                        : formData.company))
-                    : null
-                }
-                inputValue={
-                  formData.company && typeof formData.company === 'string' && isNaN(Number(formData.company))
-                    ? formData.company
-                    : formData.company && companies.find(c => c.id.toString() === formData.company.toString())
-                    ? companies.find(c => c.id.toString() === formData.company.toString())!.name
-                    : ''
-                 }
-                 onInputChange={(_event, newInputValue, reason) => {
-                   if (reason === 'input' && newInputValue) {
-                     const existingCompany = companies.find(c => c.name.toLowerCase() === newInputValue.toLowerCase())
-                    if (!existingCompany) {
-                      setFormData({
-                        ...formData,
-                        company: newInputValue,
-                        site: '',
-                        service: '',
-                        job_position: '',
-                        supervisor: '',
-                      })
-                    }
-                  }
-                 }}
-                 onChange={(_event, newValue) => {
-                   if (typeof newValue === 'string') {
-                     setFormData({
-                       ...formData,
-                       company: newValue,
-                       site: '',
-                      service: '',
-                      job_position: '',
-                      supervisor: '',
-                    })
-                  } else if (newValue && 'id' in newValue) {
-                    setFormData({
-                      ...formData,
-                      company: newValue.id.toString(),
-                      site: '',
-                      service: '',
-                      job_position: '',
-                      supervisor: '',
-                    })
-                  } else {
-                    setFormData({
-                      ...formData,
-                      company: '',
-                      site: '',
-                      service: '',
-                      job_position: '',
-                      supervisor: '',
-                    })
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Entreprise *"
-                    required
-                    placeholder="Sélectionnez ou tapez un nom d'entreprise"
-                    error={!!fieldErrors.company}
-                    helperText={fieldErrors.company}
-                  />
-                )}
-              />
+        <Autocomplete
+          freeSolo
+          options={companies}
+          getOptionLabel={(option) => {
+            if (typeof option === 'string') return option
+            return option.name
+          }}
+          value={
+            formData.company
+              ? (companies.find(c => c.id.toString() === formData.company.toString()) || 
+                 (typeof formData.company === 'string' && !isNaN(Number(formData.company)) 
+                  ? null 
+                  : formData.company))
+              : null
+          }
+          inputValue={
+            formData.company && typeof formData.company === 'string' && isNaN(Number(formData.company))
+              ? formData.company
+              : formData.company && companies.find(c => c.id.toString() === formData.company.toString())
+              ? companies.find(c => c.id.toString() === formData.company.toString())!.name
+              : ''
+           }
+          onInputChange={(_event, newInputValue, reason) => {
+            if (reason === 'input' && newInputValue) {
+              const existingCompany = companies.find(c => c.name?.toLowerCase() === newInputValue.toLowerCase())
+             if (!existingCompany) {
+                       setFormData({
+                         ...formData,
+                         company: newInputValue,
+                         site: '',
+                         service: '',
+                         job_position: '',
+                         supervisor: '',
+                       })
+                     }
+                   }
+                  }}
+          onChange={(_event, newValue) => {
+            if (typeof newValue === 'string') {
+              setFormData({
+                ...formData,
+                company: newValue,
+                site: '',
+               service: '',
+               job_position: '',
+               supervisor: '',
+             })
+           } else if (newValue && 'id' in newValue) {
+             setFormData({
+               ...formData,
+               company: newValue.id.toString(),
+               site: '',
+               service: '',
+               job_position: '',
+               supervisor: '',
+             })
+           } else {
+             setFormData({
+               ...formData,
+               company: '',
+               site: '',
+               service: '',
+               job_position: '',
+               supervisor: '',
+             })
+           }
+         }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Entreprise *"
+              required
+              placeholder="Sélectionnez ou tapez un nom d'entreprise"
+              error={!!fieldErrors.company}
+              helperText={fieldErrors.company}
+            />
+          )}
+        />
             </Grid>
             <Grid item xs={12} sm={6}>
               <Autocomplete
@@ -909,37 +909,37 @@ export default function Agents() {
                     ? sites.find(s => s.id.toString() === formData.site.toString())!.name
                     : ''
                  }
-                 onInputChange={(_event, newInputValue, reason) => {
-                   if (reason === 'input' && newInputValue && formData.company) {
-                     const existingSite = sites.find(s => s.name.toLowerCase() === newInputValue.toLowerCase())
-                     if (!existingSite) {
-                       // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
-                       setFormData({
-                        ...formData,
-                        site: newInputValue,
-                        service: '',
-                      })
-                    }
-                  }
+                  onInputChange={(_event, newInputValue, reason) => {
+                    if (reason === 'input' && newInputValue && formData.company) {
+                      const existingSite = sites.find(s => s.name?.toLowerCase() === newInputValue.toLowerCase())
+                      if (!existingSite) {
+                        // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
+                        setFormData({
+                         ...formData,
+                         site: newInputValue,
+                         service: '',
+                       })
+                     }
+                   }
+                  }}
+                  onChange={(_event, newValue) => {
+                    if (typeof newValue === 'string') {
+                      setFormData({ ...formData, site: newValue, service: '' })
+                    } else if (newValue && 'id' in newValue) {
+                      setFormData({ ...formData, site: newValue.id.toString(), service: '' })
+                    } else {
+                     setFormData({ ...formData, site: '', service: '' })
+                   }
                  }}
-                 onChange={(_event, newValue) => {
-                   if (typeof newValue === 'string') {
-                     setFormData({ ...formData, site: newValue, service: '' })
-                   } else if (newValue && 'id' in newValue) {
-                     setFormData({ ...formData, site: newValue.id.toString(), service: '' })
-                   } else {
-                    setFormData({ ...formData, site: '', service: '' })
-                  }
-                }}
-                disabled={!formData.company}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Site"
-                    placeholder="Sélectionnez ou tapez un nom de site"
-                  />
-                )}
-              />
+                 disabled={!formData.company}
+                 renderInput={(params) => (
+                   <TextField
+                     {...params}
+                     label="Site"
+                     placeholder="Sélectionnez ou tapez un nom de site"
+                   />
+                 )}
+               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <Autocomplete
@@ -964,36 +964,36 @@ export default function Agents() {
                     ? services.find(s => s.id.toString() === formData.service.toString())!.name
                     : ''
                  }
-                 onInputChange={(_event, newInputValue, reason) => {
-                   if (reason === 'input' && newInputValue && formData.company) {
-                     const existingService = services.find(s => s.name.toLowerCase() === newInputValue.toLowerCase())
-                     if (!existingService) {
-                       // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
-                       setFormData({
-                        ...formData,
-                        service: newInputValue,
-                      })
-                    }
-                  }
+                  onInputChange={(_event, newInputValue, reason) => {
+                    if (reason === 'input' && newInputValue && formData.company) {
+                      const existingService = services.find(s => s.name?.toLowerCase() === newInputValue.toLowerCase())
+                      if (!existingService) {
+                        // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
+                        setFormData({
+                         ...formData,
+                         service: newInputValue,
+                       })
+                     }
+                   }
+                  }}
+                  onChange={(_event, newValue) => {
+                    if (typeof newValue === 'string') {
+                      setFormData({ ...formData, service: newValue })
+                    } else if (newValue && 'id' in newValue) {
+                      setFormData({ ...formData, service: newValue.id.toString() })
+                    } else {
+                     setFormData({ ...formData, service: '' })
+                   }
                  }}
-                 onChange={(_event, newValue) => {
-                   if (typeof newValue === 'string') {
-                     setFormData({ ...formData, service: newValue })
-                   } else if (newValue && 'id' in newValue) {
-                     setFormData({ ...formData, service: newValue.id.toString() })
-                   } else {
-                    setFormData({ ...formData, service: '' })
-                  }
-                }}
-                disabled={!formData.company}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Service"
-                    placeholder="Sélectionnez ou tapez un nom de service"
-                  />
-                )}
-              />
+                 disabled={!formData.company}
+                 renderInput={(params) => (
+                   <TextField
+                     {...params}
+                     label="Service"
+                     placeholder="Sélectionnez ou tapez un nom de service"
+                   />
+                 )}
+               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <Autocomplete
@@ -1018,36 +1018,36 @@ export default function Agents() {
                     ? jobPositions.find(j => j.id.toString() === formData.job_position.toString())!.name
                     : ''
                  }
-                 onInputChange={(_event, newInputValue, reason) => {
-                   if (reason === 'input' && newInputValue && formData.company) {
-                     const existingJobPosition = jobPositions.find(j => j.name.toLowerCase() === newInputValue.toLowerCase())
-                     if (!existingJobPosition) {
-                       // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
-                       setFormData({
-                        ...formData,
-                        job_position: newInputValue,
-                      })
-                    }
-                  }
+                  onInputChange={(_event, newInputValue, reason) => {
+                    if (reason === 'input' && newInputValue && formData.company) {
+                      const existingJobPosition = jobPositions.find(j => j.name?.toLowerCase() === newInputValue.toLowerCase())
+                      if (!existingJobPosition) {
+                        // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
+                        setFormData({
+                         ...formData,
+                         job_position: newInputValue,
+                       })
+                     }
+                   }
+                  }}
+                  onChange={(_event, newValue) => {
+                    if (typeof newValue === 'string') {
+                      setFormData({ ...formData, job_position: newValue })
+                    } else if (newValue && 'id' in newValue) {
+                      setFormData({ ...formData, job_position: newValue.id.toString() })
+                    } else {
+                     setFormData({ ...formData, job_position: '' })
+                   }
                  }}
-                 onChange={(_event, newValue) => {
-                   if (typeof newValue === 'string') {
-                     setFormData({ ...formData, job_position: newValue })
-                   } else if (newValue && 'id' in newValue) {
-                     setFormData({ ...formData, job_position: newValue.id.toString() })
-                   } else {
-                    setFormData({ ...formData, job_position: '' })
-                  }
-                }}
-                disabled={!formData.company}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Poste de travail"
-                    placeholder="Sélectionnez ou tapez un nom de poste"
-                  />
-                )}
-              />
+                 disabled={!formData.company}
+                 renderInput={(params) => (
+                   <TextField
+                     {...params}
+                     label="Poste de travail"
+                     placeholder="Sélectionnez ou tapez un nom de poste"
+                   />
+                 )}
+               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
@@ -1096,50 +1096,50 @@ export default function Agents() {
                     ? `${supervisors.find(s => s.id.toString() === formData.supervisor.toString())!.full_name} (${supervisors.find(s => s.id.toString() === formData.supervisor.toString())!.matricule})`
                     : ''
                  }
-                 onInputChange={(_event, newInputValue, reason) => {
-                   if (reason === 'input' && newInputValue && formData.company) {
-                     const match = newInputValue.match(/^(.+?)\s*\((.+?)\)$/)
-                     if (match) {
-                       const [, , matricule] = match
-                       const existingSupervisor = supervisors.find(s =>
-                        s.matricule.toLowerCase() === matricule.trim().toLowerCase()
-                      )
-                      if (!existingSupervisor) {
-                        setFormData({ ...formData, supervisor: matricule.trim() })
-                      }
-                    } else {
-                      const existingSupervisor = supervisors.find(s => 
-                        s.full_name.toLowerCase().includes(newInputValue.toLowerCase()) ||
-                        s.matricule.toLowerCase() === newInputValue.toLowerCase()
-                      )
-                      if (!existingSupervisor) {
-                        setFormData({ ...formData, supervisor: newInputValue })
-                      }
-                    }
-                  }
-                 }}
-                 onChange={(_event, newValue) => {
-                   if (typeof newValue === 'string') {
-                     if (newValue.trim() === '' || newValue.toLowerCase() === 'aucun') {
-                       setFormData({ ...formData, supervisor: '' })
+                  onInputChange={(_event, newInputValue, reason) => {
+                    if (reason === 'input' && newInputValue && formData.company) {
+                      const match = newInputValue.match(/^(.+?)\s*\((.+?)\)$/)
+                      if (match) {
+                        const [, , matricule] = match
+                        const existingSupervisor = supervisors.find(s =>
+                         s.matricule?.toLowerCase() === matricule.trim().toLowerCase()
+                       )
+                       if (!existingSupervisor) {
+                         setFormData({ ...formData, supervisor: matricule.trim() })
+                       }
                      } else {
-                       setFormData({ ...formData, supervisor: newValue })
-                    }
-                  } else if (newValue && 'id' in newValue) {
-                    setFormData({ ...formData, supervisor: newValue.id.toString() })
-                  } else {
-                    setFormData({ ...formData, supervisor: '' })
-                  }
-                }}
-                disabled={!formData.company}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Supérieur hiérarchique"
-                    placeholder="Sélectionnez ou tapez un nom/matricule (ou laissez vide)"
-                  />
-                )}
-              />
+                       const existingSupervisor = supervisors.find(s => 
+                         s.full_name?.toLowerCase().includes(newInputValue.toLowerCase()) ||
+                         s.matricule?.toLowerCase() === newInputValue.toLowerCase()
+                       )
+                       if (!existingSupervisor) {
+                         setFormData({ ...formData, supervisor: newInputValue })
+                       }
+                     }
+                   }
+                  }}
+                  onChange={(_event, newValue) => {
+                    if (typeof newValue === 'string') {
+                      if (newValue.trim() === '' || newValue?.toLowerCase() === 'aucun') {
+                        setFormData({ ...formData, supervisor: '' })
+                      } else {
+                        setFormData({ ...formData, supervisor: newValue })
+                     }
+                   } else if (newValue && 'id' in newValue) {
+                     setFormData({ ...formData, supervisor: newValue.id.toString() })
+                   } else {
+                     setFormData({ ...formData, supervisor: '' })
+                   }
+                 }}
+                 disabled={!formData.company}
+                 renderInput={(params) => (
+                   <TextField
+                     {...params}
+                     label="Supérieur hiérarchique"
+                     placeholder="Sélectionnez ou tapez un nom/matricule (ou laissez vide)"
+                   />
+                 )}
+               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
