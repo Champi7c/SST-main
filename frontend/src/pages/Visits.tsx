@@ -60,6 +60,8 @@ export default function Visits() {
         }
       })
       const data = response.data
+      const dmstList = Array.isArray(data) ? data : (data.results || [])
+      setDmsts(dmstList)
     } catch (error) {
       console.error('Erreur lors du chargement des DMST:', error)
     } finally {
