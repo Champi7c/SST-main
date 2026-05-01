@@ -1,22 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
- import {
-   Box,
-   Typography,
-   Paper,
-   Button,
-   CircularProgress,
-   TextField,
-   Table,
-   TableBody,
-   TableCell,
-   TableContainer,
-   TableHead,
-   TableRow,
-   InputAdornment,
-   Alert,
-   Chip,
- } from '@mui/material'
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  CircularProgress,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  InputAdornment,
+  Alert,
+} from '@mui/material'
 import {
   Search as SearchIcon,
   MedicalServices as MedicalServicesIcon,
@@ -24,46 +23,47 @@ import {
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
-interface Agent {
+interface DMST {
   id: number
-  matricule: string
-  full_name: string
-  company_name: string
-  site_name?: string
-  service_name?: string
-  has_dmst?: boolean
+  agent: number
+  agent_name: string
+  agent_matricule: string
+  agent_age?: number
+  agent_direction?: string
+  agent_site_name?: string
+  created_at?: string
+  updated_at?: string
 }
 
 export default function Visits() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const [agents, setAgents] = useState<Agent[]>([])
+  const [dmsts, setDmsts] = useState<DMST[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const { hasMedicalAccess } = useAuth()
 
   useEffect(() => {
-    fetchAgents()
+    fetchDMSTs()
     const agentParam = searchParams.get('agent')
     if (agentParam) {
       navigate(`/dmst/${agentParam}`)
     }
   }, [searchParams, navigate])
 
-  const fetchAgents = async () => {
+  const fetchDMSTs = async () => {
     try {
-      const response = await client.get('/medical/agents/', {
+      const response = await client.get('/medical/dmst/', {
         params: {
-          is_active: true,
           page_size: 1000,
           ordering: '-created_at'
         }
       })
       const data = response.data
-      const agentsList = Array.isArray(data) ? data : (data.results || [])
-      setAgents(agentsList.filter((a: any) => !a.is_archived))
+      const dmstList = Array.isArray(data) ? data : (data.results || [])
+      setDmsts(dmstList)
     } catch (error) {
-      console.error('Erreur lors du chargement des agents:', error)
+      console.error('Erreur lors du chargement des DMST:', error)
     } finally {
       setLoading(false)
     }
@@ -73,12 +73,11 @@ export default function Visits() {
     navigate(`/dmst/${agentId}`)
   }
 
-  const filteredAgents = agents.filter((agent) => {
+  const filteredDmsts = dmsts.filter((dmst) => {
     const search = searchTerm.toLowerCase()
     return (
-      (agent.full_name ?? '').toLowerCase().includes(search) ||
-      (agent.matricule ?? '').toLowerCase().includes(search) ||
-      (agent.company_name ?? '').toLowerCase().includes(search)
+      (dmst.agent_name ?? '').toLowerCase().includes(search) ||
+      (dmst.agent_matricule ?? '').toLowerCase().includes(search)
     )
   })
 
@@ -101,12 +100,12 @@ export default function Visits() {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Fiche d'observation</Typography>
+        <Typography variant="h4">Fiches d'observation médicale</Typography>
       </Box>
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="body1" color="text.secondary" gutterBottom>
-          Sélectionnez un agent pour remplir sa fiche d'observation médicale
+          Liste des fiches d'observation médicale déjà créées. Cliquez sur "Voir/Modifier" pour accéder à une fiche.
         </Typography>
       </Paper>
 
@@ -114,7 +113,7 @@ export default function Visits() {
         <Box sx={{ p: 2 }}>
           <TextField
             fullWidth
-            placeholder="Rechercher un agent par nom, matricule ou entreprise..."
+            placeholder="Rechercher par nom ou matricule de l'agent..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
@@ -129,54 +128,50 @@ export default function Visits() {
 
         <TableContainer>
           <Table>
-             <TableHead>
-               <TableRow>
-                 <TableCell>Matricule</TableCell>
-                 <TableCell>Nom et prénoms</TableCell>
-                 <TableCell>Entreprise</TableCell>
-                 <TableCell>Site</TableCell>
-                 <TableCell>Service</TableCell>
-                 <TableCell>DMST</TableCell>
-                 <TableCell>Actions</TableCell>
-               </TableRow>
+            <TableHead>
+              <TableRow>
+                <TableCell>Matricule</TableCell>
+                <TableCell>Nom et prénoms</TableCell>
+                <TableCell>Âge</TableCell>
+                <TableCell>Direction</TableCell>
+                <TableCell>Site</TableCell>
+                <TableCell>Date de création</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
             </TableHead>
             <TableBody>
-               {filteredAgents.length === 0 ? (
-                 <TableRow>
-                   <TableCell colSpan={7} align="center">
-                     <Typography variant="body2" color="text.secondary">
-                       {searchTerm ? 'Aucun agent trouvé' : 'Aucun agent disponible'}
-                     </Typography>
-                   </TableCell>
-                 </TableRow>
-               ) : (
-                 filteredAgents.map((agent) => (
-                   <TableRow key={agent.id} hover>
-                     <TableCell>{agent.matricule}</TableCell>
-                     <TableCell>{agent.full_name}</TableCell>
-                     <TableCell>{agent.company_name}</TableCell>
-                     <TableCell>{agent.site_name || '-'}</TableCell>
-                     <TableCell>{agent.service_name || '-'}</TableCell>
-                     <TableCell>
-                       {agent.has_dmst ? (
-                         <Chip label="Créé" color="success" size="small" />
-                       ) : (
-                         <Chip label="Non créé" color="default" size="small" />
-                       )}
-                     </TableCell>
-                     <TableCell>
-                       <Button
-                         variant="contained"
-                         color={agent.has_dmst ? "info" : "primary"}
-                         startIcon={<MedicalServicesIcon />}
-                         onClick={() => handleOpenObservationForm(agent.id)}
-                       >
-                         {agent.has_dmst ? 'Voir/Modifier' : 'Créer'}
-                       </Button>
-                     </TableCell>
-                   </TableRow>
-                 ))
-               )}
+              {filteredDmsts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center">
+                    <Typography variant="body2" color="text.secondary">
+                      {searchTerm ? 'Aucune fiche trouvée' : 'Aucune fiche de observation médicale créée'}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredDmsts.map((dmst) => (
+                  <TableRow key={dmst.id} hover>
+                    <TableCell>{dmst.agent_matricule}</TableCell>
+                    <TableCell>{dmst.agent_name}</TableCell>
+                    <TableCell>{dmst.agent_age || '-'}</TableCell>
+                    <TableCell>{dmst.agent_direction || '-'}</TableCell>
+                    <TableCell>{dmst.agent_site_name || '-'}</TableCell>
+                    <TableCell>
+                      {dmst.created_at ? new Date(dmst.created_at).toLocaleDateString('fr-FR') : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="contained"
+                        color="info"
+                        startIcon={<MedicalServicesIcon />}
+                        onClick={() => handleOpenObservationForm(dmst.agent)}
+                      >
+                        Voir/Modifier
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
