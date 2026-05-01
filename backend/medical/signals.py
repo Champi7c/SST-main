@@ -4,7 +4,18 @@ Signals pour la gestion automatique de l'historique DMST
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import DMST, DMSTHistory
+from .models import DMST, DMSTHistory, Agent
+
+
+@receiver(post_save, sender=Agent)
+def create_dmst_for_agent(sender, instance, created, **kwargs):
+    """Crée automatiquement un DMST pour chaque nouvel agent"""
+    if created:
+        DMST.objects.create(
+            agent=instance,
+            created_by=getattr(instance, 'created_by', None),
+            updated_by=getattr(instance, 'updated_by', None)
+        )
 
 
 @receiver(pre_save, sender=DMST)
