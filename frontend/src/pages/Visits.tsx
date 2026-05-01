@@ -50,9 +50,16 @@ export default function Visits() {
 
   const fetchAgents = async () => {
     try {
-      const response = await client.get('/medical/agents/?is_active=true')
-      const data = response.data.results || response.data
-      setAgents(data.filter((a: any) => !a.is_archived))
+      const response = await client.get('/medical/agents/', {
+        params: {
+          is_active: true,
+          page_size: 1000,
+          ordering: '-created_at'
+        }
+      })
+      const data = response.data
+      const agentsList = Array.isArray(data) ? data : (data.results || [])
+      setAgents(agentsList.filter((a: any) => !a.is_archived))
     } catch (error) {
       console.error('Erreur lors du chargement des agents:', error)
     } finally {
