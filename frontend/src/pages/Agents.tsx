@@ -110,14 +110,12 @@ export default function Agents() {
   const navigate = useNavigate()
   const { hasMedicalAccess, user } = useAuth()
 
-  // Données pour les formulaires
   const [companies, setCompanies] = useState<Company[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([])
   const [supervisors, setSupervisors] = useState<Agent[]>([])
 
-  // Formulaire
   const [formData, setFormData] = useState({
     matricule: '',
     title: '',
@@ -158,13 +156,11 @@ export default function Agents() {
   useEffect(() => {
     if (formData.company) {
       const companyId = parseInt(formData.company, 10)
-      // Ne charger les sites/services que si c'est un ID valide (pas un nom d'entreprise)
       if (!isNaN(companyId)) {
         fetchSites(companyId.toString())
         fetchServices(companyId.toString())
         fetchJobPositions(companyId.toString())
       } else {
-        // Si c'est un nom d'entreprise, vider les listes
         setSites([])
         setServices([])
         setJobPositions([])
@@ -199,7 +195,7 @@ export default function Agents() {
         page: fetchPage + 1,
         page_size: rowsPerPage,
         ordering: '-created_at'
-   }
+      }
       if (showArchived) params.show_archived = 'true'
       if (searchQuery.trim()) params.search = searchQuery.trim()
       const response = await client.get('/medical/agents/', { params })
@@ -404,15 +400,13 @@ export default function Agents() {
         grade: formData.grade?.trim() || null,
         professional_category: formData.professional_category?.trim() || null,
       }
-      
-      // Si c'est un nom d'entreprise, envoyer company_name_input, sinon company (ID)
+
       if (isCompanyName) {
         data.company_name_input = formData.company.trim()
       } else {
         data.company = companyId
       }
-      
-      // Gérer le site
+
       if (formData.site) {
         const siteId = parseInt(formData.site, 10)
         if (!isNaN(siteId)) {
@@ -421,8 +415,7 @@ export default function Agents() {
           data.site_name_input = formData.site.trim()
         }
       }
-      
-      // Gérer le service
+
       if (formData.service) {
         const serviceId = parseInt(formData.service, 10)
         if (!isNaN(serviceId)) {
@@ -431,8 +424,7 @@ export default function Agents() {
           data.service_name_input = formData.service.trim()
         }
       }
-      
-      // Gérer le poste de travail
+
       if (formData.job_position) {
         const jobPositionId = parseInt(formData.job_position, 10)
         if (!isNaN(jobPositionId)) {
@@ -441,18 +433,16 @@ export default function Agents() {
           data.job_position_name_input = formData.job_position.trim()
         }
       }
-      
-      // Gérer le superviseur
+
       if (formData.supervisor) {
         const supervisorId = parseInt(formData.supervisor, 10)
         if (!isNaN(supervisorId)) {
           data.supervisor = supervisorId
         } else {
-          // C'est un matricule ou un nom
           data.supervisor_matricule_input = formData.supervisor.trim()
         }
       }
-      
+
       if (editingAgent) {
         const { data: updated } = await client.put(`/medical/agents/${editingAgent.id}/`, data)
         setAgents((prev) => prev.map((a) => (a.id === editingAgent.id ? updated : a)))
@@ -465,7 +455,7 @@ export default function Agents() {
         window.scrollTo({ top: 0, behavior: 'smooth' })
         showSnackbar('Agent créé avec succès', 'success')
       }
-      fetchAgents() // rafraîchit en arrière-plan avec les noms complets (company_name, etc.)
+      fetchAgents()
       fetchCompanies()
     } catch (error: any) {
       console.error('Erreur lors de la sauvegarde:', error)
@@ -515,7 +505,6 @@ export default function Agents() {
     setSnackbar({ ...snackbar, open: false })
   }
 
-  // Vérifier si l'utilisateur peut gérer les agents
   const canManageAgents = user?.role ? ['super_admin', 'admin', 'rh', 'hse', 'medecin', 'infirmier', 'direction'].includes(user.role) : false
 
   if (loading) {
@@ -655,12 +644,10 @@ export default function Agents() {
         labelRowsPerPage="Lignes par page:"
       />
 
-      {/* Dialog de création/modification */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>{editingAgent ? 'Modifier l\'agent' : 'Nouvel agent'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            {/* Informations administratives */}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
                 Informations administratives
@@ -769,7 +756,6 @@ export default function Agents() {
               />
             </Grid>
 
-            {/* Contact d'urgence */}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Contact d'urgence
@@ -800,105 +786,97 @@ export default function Agents() {
               />
             </Grid>
 
-            {/* Informations professionnelles */}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Informations professionnelles
               </Typography>
             </Grid>
+
+            {/* ✅ CORRIGÉ: Entreprise avec filterOptions null-safe */}
             <Grid item xs={12} sm={6}>
-        <Autocomplete
-          freeSolo
-          options={companies}
-          getOptionLabel={(option) => {
-            if (typeof option === 'string') return option
-            return option.name
-          }}
-          value={
-            formData.company
-              ? (companies.find(c => c.id.toString() === formData.company.toString()) || 
-                 (typeof formData.company === 'string' && !isNaN(Number(formData.company)) 
-                  ? null 
-                  : formData.company))
-              : null
-          }
-          inputValue={
-            formData.company && typeof formData.company === 'string' && isNaN(Number(formData.company))
-              ? formData.company
-              : formData.company && companies.find(c => c.id.toString() === formData.company.toString())
-              ? companies.find(c => c.id.toString() === formData.company.toString())!.name
-              : ''
-           }
-          onInputChange={(_event, newInputValue, reason) => {
-            if (reason === 'input' && newInputValue) {
-              const existingCompany = companies.find(c => c.name?.toLowerCase() === newInputValue.toLowerCase())
-             if (!existingCompany) {
-                       setFormData({
-                         ...formData,
-                         company: newInputValue,
-                         site: '',
-                         service: '',
-                         job_position: '',
-                         supervisor: '',
-                       })
-                     }
-                   }
-                  }}
-          onChange={(_event, newValue) => {
-            if (typeof newValue === 'string') {
-              setFormData({
-                ...formData,
-                company: newValue,
-                site: '',
-               service: '',
-               job_position: '',
-               supervisor: '',
-             })
-           } else if (newValue && 'id' in newValue) {
-             setFormData({
-               ...formData,
-               company: newValue.id.toString(),
-               site: '',
-               service: '',
-               job_position: '',
-               supervisor: '',
-             })
-           } else {
-             setFormData({
-               ...formData,
-               company: '',
-               site: '',
-               service: '',
-               job_position: '',
-               supervisor: '',
-             })
-           }
-         }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Entreprise *"
-              required
-              placeholder="Sélectionnez ou tapez un nom d'entreprise"
-              error={!!fieldErrors.company}
-              helperText={fieldErrors.company}
-            />
-          )}
-        />
+              <Autocomplete
+                freeSolo
+                options={companies}
+                filterOptions={(options, { inputValue }) =>
+                  options.filter((c) =>
+                    (c.name ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                  )
+                }
+                getOptionLabel={(option) => {
+                  if (typeof option === 'string') return option
+                  return option.name ?? ''
+                }}
+                value={
+                  formData.company
+                    ? (companies.find(c => c.id.toString() === formData.company.toString()) ||
+                       (typeof formData.company === 'string' && !isNaN(Number(formData.company))
+                        ? null
+                        : formData.company))
+                    : null
+                }
+                inputValue={
+                  formData.company && typeof formData.company === 'string' && isNaN(Number(formData.company))
+                    ? formData.company
+                    : formData.company && companies.find(c => c.id.toString() === formData.company.toString())
+                    ? companies.find(c => c.id.toString() === formData.company.toString())!.name
+                    : ''
+                }
+                onInputChange={(_event, newInputValue, reason) => {
+                  if (reason === 'input' && newInputValue) {
+                    const existingCompany = companies.find(c => (c.name ?? '').toLowerCase() === newInputValue.toLowerCase())
+                    if (!existingCompany) {
+                      setFormData({
+                        ...formData,
+                        company: newInputValue,
+                        site: '',
+                        service: '',
+                        job_position: '',
+                        supervisor: '',
+                      })
+                    }
+                  }
+                }}
+                onChange={(_event, newValue) => {
+                  if (typeof newValue === 'string') {
+                    setFormData({ ...formData, company: newValue, site: '', service: '', job_position: '', supervisor: '' })
+                  } else if (newValue && 'id' in newValue) {
+                    setFormData({ ...formData, company: newValue.id.toString(), site: '', service: '', job_position: '', supervisor: '' })
+                  } else {
+                    setFormData({ ...formData, company: '', site: '', service: '', job_position: '', supervisor: '' })
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Entreprise *"
+                    required
+                    placeholder="Sélectionnez ou tapez un nom d'entreprise"
+                    error={!!fieldErrors.company}
+                    helperText={fieldErrors.company}
+                  />
+                )}
+              />
             </Grid>
+
+            {/* ✅ CORRIGÉ: Site avec filterOptions null-safe */}
             <Grid item xs={12} sm={6}>
               <Autocomplete
                 freeSolo
                 options={sites}
+                filterOptions={(options, { inputValue }) =>
+                  options.filter((s) =>
+                    (s.name ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                  )
+                }
                 getOptionLabel={(option) => {
                   if (typeof option === 'string') return option
-                  return option.name
+                  return option.name ?? ''
                 }}
                 value={
                   formData.site
-                    ? (sites.find(s => s.id.toString() === formData.site.toString()) || 
-                       (typeof formData.site === 'string' && !isNaN(Number(formData.site)) 
-                        ? null 
+                    ? (sites.find(s => s.id.toString() === formData.site.toString()) ||
+                       (typeof formData.site === 'string' && !isNaN(Number(formData.site))
+                        ? null
                         : formData.site))
                     : null
                 }
@@ -908,52 +886,54 @@ export default function Agents() {
                     : formData.site && sites.find(s => s.id.toString() === formData.site.toString())
                     ? sites.find(s => s.id.toString() === formData.site.toString())!.name
                     : ''
-                 }
-                  onInputChange={(_event, newInputValue, reason) => {
-                    if (reason === 'input' && newInputValue && formData.company) {
-                      const existingSite = sites.find(s => s.name?.toLowerCase() === newInputValue.toLowerCase())
-                      if (!existingSite) {
-                        // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
-                        setFormData({
-                         ...formData,
-                         site: newInputValue,
-                         service: '',
-                       })
-                     }
-                   }
-                  }}
-                  onChange={(_event, newValue) => {
-                    if (typeof newValue === 'string') {
-                      setFormData({ ...formData, site: newValue, service: '' })
-                    } else if (newValue && 'id' in newValue) {
-                      setFormData({ ...formData, site: newValue.id.toString(), service: '' })
-                    } else {
-                     setFormData({ ...formData, site: '', service: '' })
-                   }
-                 }}
-                 disabled={!formData.company}
-                 renderInput={(params) => (
-                   <TextField
-                     {...params}
-                     label="Site"
-                     placeholder="Sélectionnez ou tapez un nom de site"
-                   />
-                 )}
-               />
+                }
+                onInputChange={(_event, newInputValue, reason) => {
+                  if (reason === 'input' && newInputValue && formData.company) {
+                    const existingSite = sites.find(s => (s.name ?? '').toLowerCase() === newInputValue.toLowerCase())
+                    if (!existingSite) {
+                      setFormData({ ...formData, site: newInputValue, service: '' })
+                    }
+                  }
+                }}
+                onChange={(_event, newValue) => {
+                  if (typeof newValue === 'string') {
+                    setFormData({ ...formData, site: newValue, service: '' })
+                  } else if (newValue && 'id' in newValue) {
+                    setFormData({ ...formData, site: newValue.id.toString(), service: '' })
+                  } else {
+                    setFormData({ ...formData, site: '', service: '' })
+                  }
+                }}
+                disabled={!formData.company}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Site"
+                    placeholder="Sélectionnez ou tapez un nom de site"
+                  />
+                )}
+              />
             </Grid>
+
+            {/* ✅ CORRIGÉ: Service avec filterOptions null-safe */}
             <Grid item xs={12} sm={6}>
               <Autocomplete
                 freeSolo
                 options={services}
+                filterOptions={(options, { inputValue }) =>
+                  options.filter((s) =>
+                    (s.name ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                  )
+                }
                 getOptionLabel={(option) => {
                   if (typeof option === 'string') return option
-                  return option.name
+                  return option.name ?? ''
                 }}
                 value={
                   formData.service
-                    ? (services.find(s => s.id.toString() === formData.service.toString()) || 
-                       (typeof formData.service === 'string' && !isNaN(Number(formData.service)) 
-                        ? null 
+                    ? (services.find(s => s.id.toString() === formData.service.toString()) ||
+                       (typeof formData.service === 'string' && !isNaN(Number(formData.service))
+                        ? null
                         : formData.service))
                     : null
                 }
@@ -963,51 +943,54 @@ export default function Agents() {
                     : formData.service && services.find(s => s.id.toString() === formData.service.toString())
                     ? services.find(s => s.id.toString() === formData.service.toString())!.name
                     : ''
-                 }
-                  onInputChange={(_event, newInputValue, reason) => {
-                    if (reason === 'input' && newInputValue && formData.company) {
-                      const existingService = services.find(s => s.name?.toLowerCase() === newInputValue.toLowerCase())
-                      if (!existingService) {
-                        // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
-                        setFormData({
-                         ...formData,
-                         service: newInputValue,
-                       })
-                     }
-                   }
-                  }}
-                  onChange={(_event, newValue) => {
-                    if (typeof newValue === 'string') {
-                      setFormData({ ...formData, service: newValue })
-                    } else if (newValue && 'id' in newValue) {
-                      setFormData({ ...formData, service: newValue.id.toString() })
-                    } else {
-                     setFormData({ ...formData, service: '' })
-                   }
-                 }}
-                 disabled={!formData.company}
-                 renderInput={(params) => (
-                   <TextField
-                     {...params}
-                     label="Service"
-                     placeholder="Sélectionnez ou tapez un nom de service"
-                   />
-                 )}
-               />
+                }
+                onInputChange={(_event, newInputValue, reason) => {
+                  if (reason === 'input' && newInputValue && formData.company) {
+                    const existingService = services.find(s => (s.name ?? '').toLowerCase() === newInputValue.toLowerCase())
+                    if (!existingService) {
+                      setFormData({ ...formData, service: newInputValue })
+                    }
+                  }
+                }}
+                onChange={(_event, newValue) => {
+                  if (typeof newValue === 'string') {
+                    setFormData({ ...formData, service: newValue })
+                  } else if (newValue && 'id' in newValue) {
+                    setFormData({ ...formData, service: newValue.id.toString() })
+                  } else {
+                    setFormData({ ...formData, service: '' })
+                  }
+                }}
+                disabled={!formData.company}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Service"
+                    placeholder="Sélectionnez ou tapez un nom de service"
+                  />
+                )}
+              />
             </Grid>
+
+            {/* ✅ CORRIGÉ: Poste avec filterOptions null-safe */}
             <Grid item xs={12} sm={6}>
               <Autocomplete
                 freeSolo
                 options={jobPositions}
+                filterOptions={(options, { inputValue }) =>
+                  options.filter((j) =>
+                    (j.name ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                  )
+                }
                 getOptionLabel={(option) => {
                   if (typeof option === 'string') return option
-                  return option.name
+                  return option.name ?? ''
                 }}
                 value={
                   formData.job_position
-                    ? (jobPositions.find(j => j.id.toString() === formData.job_position.toString()) || 
-                       (typeof formData.job_position === 'string' && !isNaN(Number(formData.job_position)) 
-                        ? null 
+                    ? (jobPositions.find(j => j.id.toString() === formData.job_position.toString()) ||
+                       (typeof formData.job_position === 'string' && !isNaN(Number(formData.job_position))
+                        ? null
                         : formData.job_position))
                     : null
                 }
@@ -1017,38 +1000,35 @@ export default function Agents() {
                     : formData.job_position && jobPositions.find(j => j.id.toString() === formData.job_position.toString())
                     ? jobPositions.find(j => j.id.toString() === formData.job_position.toString())!.name
                     : ''
-                 }
-                  onInputChange={(_event, newInputValue, reason) => {
-                    if (reason === 'input' && newInputValue && formData.company) {
-                      const existingJobPosition = jobPositions.find(j => j.name?.toLowerCase() === newInputValue.toLowerCase())
-                      if (!existingJobPosition) {
-                        // Permettre la saisie même si l'entreprise est un nom (sera créée par le backend)
-                        setFormData({
-                         ...formData,
-                         job_position: newInputValue,
-                       })
-                     }
-                   }
-                  }}
-                  onChange={(_event, newValue) => {
-                    if (typeof newValue === 'string') {
-                      setFormData({ ...formData, job_position: newValue })
-                    } else if (newValue && 'id' in newValue) {
-                      setFormData({ ...formData, job_position: newValue.id.toString() })
-                    } else {
-                     setFormData({ ...formData, job_position: '' })
-                   }
-                 }}
-                 disabled={!formData.company}
-                 renderInput={(params) => (
-                   <TextField
-                     {...params}
-                     label="Poste de travail"
-                     placeholder="Sélectionnez ou tapez un nom de poste"
-                   />
-                 )}
-               />
+                }
+                onInputChange={(_event, newInputValue, reason) => {
+                  if (reason === 'input' && newInputValue && formData.company) {
+                    const existingJobPosition = jobPositions.find(j => (j.name ?? '').toLowerCase() === newInputValue.toLowerCase())
+                    if (!existingJobPosition) {
+                      setFormData({ ...formData, job_position: newInputValue })
+                    }
+                  }
+                }}
+                onChange={(_event, newValue) => {
+                  if (typeof newValue === 'string') {
+                    setFormData({ ...formData, job_position: newValue })
+                  } else if (newValue && 'id' in newValue) {
+                    setFormData({ ...formData, job_position: newValue.id.toString() })
+                  } else {
+                    setFormData({ ...formData, job_position: '' })
+                  }
+                }}
+                disabled={!formData.company}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Poste de travail"
+                    placeholder="Sélectionnez ou tapez un nom de poste"
+                  />
+                )}
+              />
             </Grid>
+
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
@@ -1073,19 +1053,27 @@ export default function Agents() {
                 onChange={(e) => setFormData({ ...formData, professional_category: e.target.value })}
               />
             </Grid>
+
+            {/* ✅ CORRIGÉ: Superviseur avec filterOptions null-safe */}
             <Grid item xs={12} sm={6}>
               <Autocomplete
                 freeSolo
                 options={supervisors.filter((s) => s.id !== editingAgent?.id)}
+                filterOptions={(options, { inputValue }) =>
+                  options.filter((s) =>
+                    (s.full_name ?? '').toLowerCase().includes(inputValue.toLowerCase()) ||
+                    (s.matricule ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                  )
+                }
                 getOptionLabel={(option) => {
                   if (typeof option === 'string') return option
-                  return `${option.full_name} (${option.matricule})`
+                  return `${option.full_name ?? ''} (${option.matricule ?? ''})`
                 }}
                 value={
                   formData.supervisor
-                    ? (supervisors.find(s => s.id.toString() === formData.supervisor.toString()) || 
-                       (typeof formData.supervisor === 'string' && !isNaN(Number(formData.supervisor)) 
-                        ? null 
+                    ? (supervisors.find(s => s.id.toString() === formData.supervisor.toString()) ||
+                       (typeof formData.supervisor === 'string' && !isNaN(Number(formData.supervisor))
+                        ? null
                         : formData.supervisor))
                     : null
                 }
@@ -1093,54 +1081,55 @@ export default function Agents() {
                   formData.supervisor && typeof formData.supervisor === 'string' && isNaN(Number(formData.supervisor))
                     ? formData.supervisor
                     : formData.supervisor && supervisors.find(s => s.id.toString() === formData.supervisor.toString())
-                    ? `${supervisors.find(s => s.id.toString() === formData.supervisor.toString())!.full_name} (${supervisors.find(s => s.id.toString() === formData.supervisor.toString())!.matricule})`
+                    ? `${supervisors.find(s => s.id.toString() === formData.supervisor.toString())!.full_name ?? ''} (${supervisors.find(s => s.id.toString() === formData.supervisor.toString())!.matricule ?? ''})`
                     : ''
-                 }
-                  onInputChange={(_event, newInputValue, reason) => {
-                    if (reason === 'input' && newInputValue && formData.company) {
-                      const match = newInputValue.match(/^(.+?)\s*\((.+?)\)$/)
-                      if (match) {
-                        const [, , matricule] = match
-                        const existingSupervisor = supervisors.find(s =>
-                         s.matricule?.toLowerCase() === matricule.trim().toLowerCase()
-                       )
-                       if (!existingSupervisor) {
-                         setFormData({ ...formData, supervisor: matricule.trim() })
-                       }
-                     } else {
-                       const existingSupervisor = supervisors.find(s => 
-                         s.full_name?.toLowerCase().includes(newInputValue.toLowerCase()) ||
-                         s.matricule?.toLowerCase() === newInputValue.toLowerCase()
-                       )
-                       if (!existingSupervisor) {
-                         setFormData({ ...formData, supervisor: newInputValue })
-                       }
-                     }
-                   }
-                  }}
-                  onChange={(_event, newValue) => {
-                    if (typeof newValue === 'string') {
-                      if (newValue.trim() === '' || newValue?.toLowerCase() === 'aucun') {
-                        setFormData({ ...formData, supervisor: '' })
-                      } else {
-                        setFormData({ ...formData, supervisor: newValue })
-                     }
-                   } else if (newValue && 'id' in newValue) {
-                     setFormData({ ...formData, supervisor: newValue.id.toString() })
-                   } else {
-                     setFormData({ ...formData, supervisor: '' })
-                   }
-                 }}
-                 disabled={!formData.company}
-                 renderInput={(params) => (
-                   <TextField
-                     {...params}
-                     label="Supérieur hiérarchique"
-                     placeholder="Sélectionnez ou tapez un nom/matricule (ou laissez vide)"
-                   />
-                 )}
-               />
+                }
+                onInputChange={(_event, newInputValue, reason) => {
+                  if (reason === 'input' && newInputValue && formData.company) {
+                    const match = newInputValue.match(/^(.+?)\s*\((.+?)\)$/)
+                    if (match) {
+                      const [, , matricule] = match
+                      const existingSupervisor = supervisors.find(s =>
+                        (s.matricule ?? '').toLowerCase() === matricule.trim().toLowerCase()
+                      )
+                      if (!existingSupervisor) {
+                        setFormData({ ...formData, supervisor: matricule.trim() })
+                      }
+                    } else {
+                      const existingSupervisor = supervisors.find(s =>
+                        (s.full_name ?? '').toLowerCase().includes(newInputValue.toLowerCase()) ||
+                        (s.matricule ?? '').toLowerCase() === newInputValue.toLowerCase()
+                      )
+                      if (!existingSupervisor) {
+                        setFormData({ ...formData, supervisor: newInputValue })
+                      }
+                    }
+                  }
+                }}
+                onChange={(_event, newValue) => {
+                  if (typeof newValue === 'string') {
+                    if (newValue.trim() === '' || newValue?.toLowerCase() === 'aucun') {
+                      setFormData({ ...formData, supervisor: '' })
+                    } else {
+                      setFormData({ ...formData, supervisor: newValue })
+                    }
+                  } else if (newValue && 'id' in newValue) {
+                    setFormData({ ...formData, supervisor: newValue.id.toString() })
+                  } else {
+                    setFormData({ ...formData, supervisor: '' })
+                  }
+                }}
+                disabled={!formData.company}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Supérieur hiérarchique"
+                    placeholder="Sélectionnez ou tapez un nom/matricule (ou laissez vide)"
+                  />
+                )}
+              />
             </Grid>
+
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
