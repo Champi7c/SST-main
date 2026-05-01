@@ -166,6 +166,7 @@ class DMSTViewSet(viewsets.ModelViewSet):
     search_fields = ['agent__matricule', 'agent__last_name', 'agent__first_name']
     ordering_fields = ['created_at', 'updated_at', 'agent__last_name']
     ordering = ['-updated_at']
+    pagination_class = None  # Désactiver la pagination - récupérer tous les DMST d'un coup
     
     def get_queryset(self):
         """Filtre selon les permissions"""
