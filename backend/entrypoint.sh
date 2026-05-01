@@ -7,13 +7,13 @@ if [ -n "$SST_DB_NAME" ] || [ -n "$DATABASE_URL" ]; then
   until python -c "
 import os, sys
 try:
-    import MySQLdb
+    import pymysql as MySQLdb
     MySQLdb.connect(
         host=os.environ.get('SST_DB_HOST', '127.0.0.1'),
         port=int(os.environ.get('SST_DB_PORT', 3306)),
         user=os.environ.get('SST_DB_USER', 'root'),
-        passwd=os.environ.get('SST_DB_PASSWORD', ''),
-        db=os.environ.get('SST_DB_NAME', 'sst_db'),
+        password=os.environ.get('SST_DB_PASSWORD', ''),
+        database=os.environ.get('SST_DB_NAME', 'sst_db'),
     )
     sys.exit(0)
 except Exception:
