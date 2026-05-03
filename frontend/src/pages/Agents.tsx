@@ -12,7 +12,6 @@ import {
   Button,
   CircularProgress,
   Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
@@ -28,7 +27,6 @@ import {
   InputLabel,
   Autocomplete,
   InputAdornment,
-  TablePagination,
 } from '@mui/material'
 import { Edit as EditIcon, Unarchive as UnarchiveIcon, Add as AddIcon, Delete as DeleteIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
@@ -104,8 +102,6 @@ export default function Agents() {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [searchQuery, setSearchQuery] = useState('')
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
   const [totalCount, setTotalCount] = useState(0)
   const navigate = useNavigate()
   const { hasMedicalAccess, user } = useAuth()
@@ -144,14 +140,8 @@ export default function Agents() {
   useEffect(() => {
     fetchAgents()
     fetchCompanies()
-  }, [showArchived, page, rowsPerPage])
+  }, [showArchived])
 
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setPage(0)
-    }, 300)
-    return () => clearTimeout(timeoutId)
-  }, [searchQuery])
 
   useEffect(() => {
     if (formData.company) {
@@ -188,71 +178,56 @@ export default function Agents() {
     }
   }, [formData.company])
 
-  const fetchAgents = async (overridePage?: number) => {
-    const fetchPage = overridePage !== undefined ? overridePage : page
-    try {
-      const params: Record<string, string | number> = {
-        page: fetchPage + 1,
-        page_size: rowsPerPage,
-        ordering: '-created_at'
-      }
-      if (showArchived) params.show_archived = 'true'
-      if (searchQuery.trim()) params.search = searchQuery.trim()
-      const response = await client.get('/medical/agents/', { params })
-      const data = response.data
-
-      if (Array.isArray(data)) {
-        setAgents(data)
-        setTotalCount(data.length)
-      } else {
-        setAgents(data.results || [])
-        setTotalCount(data.count || 0)
-      }
-    } catch (error: any) {
-      console.error('Erreur lors du chargement des agents:', error)
-      if (error.response?.status === 404) {
-        try {
-          const countRes = await client.get('/medical/agents/', {
-            params: {
-              page_size: 1,
-              show_archived: showArchived ? 'true' : undefined,
-              search: searchQuery.trim() || undefined,
-              ordering: '-created_at'
-            }
-          })
-          let newTotal = 0
-          if (Array.isArray(countRes.data)) {
-            newTotal = countRes.data.length
-          } else if (countRes.data?.count !== undefined) {
-            newTotal = countRes.data.count
-          }
-          setTotalCount(newTotal)
-          const maxPage = Math.max(0, Math.ceil(newTotal / rowsPerPage) - 1)
-          if (fetchPage > maxPage) {
-            setPage(maxPage)
-            fetchAgents(maxPage)
-            return
-          } else {
-            setAgents([])
-            setTotalCount(0)
-          }
-        } catch (e2) {
-          const maxPage = Math.max(0, Math.ceil(totalCount / rowsPerPage) - 1)
-          if (fetchPage > 0) {
-            setPage(maxPage)
-            fetchAgents(maxPage)
-            return
-          }
-          setAgents([])
-          setTotalCount(0)
+   const fetchAgents = async () => {
+     try {
+        const params: Record<string, string | number> = {
+          page_size: 10000,
+          has_dmst: 'true',
+          ordering: '-created_at'
         }
-      } else {
-        showSnackbar('Erreur lors du chargement des agents', 'error')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
+       if (showArchived) params.show_archived = 'true'
+       if (searchQuery.trim()) params.search = searchQuery.trim()
+       const response = await client.get('/medical/agents/', { params })
+       const data = response.data
+
+       if (Array.isArray(data)) {
+         setAgents(data)
+         setTotalCount(data.length)
+       } else {
+         setAgents(data.results || [])
+         setTotalCount(data.count || 0)
+       }
+     } catch (error: any) {
+       console.error('Erreur lors du chargement des agents:', error)
+       if (error.response?.status === 404) {
+         try {
+           const countRes = await client.get('/medical/agents/', {
+             params: {
+               page_size: 1,
+               show_archived: showArchived ? 'true' : undefined,
+               search: searchQuery.trim() || undefined,
+               ordering: '-created_at'
+             }
+           })
+           let newTotal = 0
+           if (Array.isArray(countRes.data)) {
+             newTotal = countRes.data.length
+           } else if (countRes.data?.count !== undefined) {
+             newTotal = countRes.data.count
+           }
+           setTotalCount(newTotal)
+           setAgents([])
+         } catch (e2) {
+           setAgents([])
+           setTotalCount(0)
+         }
+       } else {
+         showSnackbar('Erreur lors du chargement des agents', 'error')
+       }
+     } finally {
+       setLoading(false)
+     }
+   }
 
   const fetchCompanies = async () => {
     try {
@@ -516,7 +491,8 @@ export default function Agents() {
   }
 
   return (
-    <Box>
+    <>
+      <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h5">Gestion des Agents</Typography>
         <Box>
@@ -629,55 +605,9 @@ export default function Agents() {
         </Table>
       </TableContainer>
 
-      <TablePagination
-        rowsPerPageOptions={[5, 10, 25, 50]}
-        component="div"
-        count={totalCount}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={(_, newPage) => setPage(newPage)}
-        onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10))
-          setPage(0)
-        }}
-        labelDisplayedRows={({ from, to, count }) => `${from}-${to} sur ${count}`}
-        labelRowsPerPage="Lignes par page:"
-      />
-
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>{editingAgent ? 'Modifier l\'agent' : 'Nouvel agent'}</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                Informations administratives
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="Matricule"
-                value={formData.matricule}
-                onChange={(e) => setFormData({ ...formData, matricule: e.target.value })}
-                disabled={!!editingAgent}
-                error={!!fieldErrors.matricule}
-                helperText={fieldErrors.matricule}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <FormControl fullWidth>
-                <InputLabel>Civilité</InputLabel>
-                <Select
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  label="Civilité"
-                >
-                  <MenuItem value="M">Monsieur</MenuItem>
-                  <MenuItem value="MME">Madame</MenuItem>
-                  <MenuItem value="MLLE">Mademoiselle</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+          <Grid container spacing={2}>
             <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
                 <InputLabel>Sexe *</InputLabel>
@@ -1173,6 +1103,7 @@ export default function Agents() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+      </Box>
+    </>
   )
 }
