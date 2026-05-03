@@ -31,7 +31,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  TablePagination,
 } from '@mui/material'
 import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon } from '@mui/icons-material'
 import client, { getApiErrorMessage } from '../api/client'
@@ -2351,29 +2350,12 @@ export default function DMST() {
                       </TableRow>
                     ))
                   )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <Box display="flex" justifyContent="flex-end" mt={2}>
-              <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={visitsTotalCount}
-                rowsPerPage={visitsRowsPerPage}
-                page={visitsPage}
-                onPageChange={(_, newPage) => setVisitsPage(newPage)}
-                onRowsPerPageChange={(e) => {
-                  setVisitsRowsPerPage(parseInt(e.target.value, 10))
-                  setVisitsPage(0)
-                }}
-                labelDisplayedRows={({ from, to, count }) => `${from}-${to} sur ${count}`}
-                labelRowsPerPage="Lignes par page:"
-              />
-            </Box>
-              </>
-            )}
-          </Box>
-        </TabPanel>
+             </TableBody>
+           </Table>
+         </TableContainer>
+       </Box>
+     </Box>
+   </TabPanel>
 
       </Paper>
 
