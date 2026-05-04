@@ -1330,56 +1330,56 @@ export default function DMST() {
             ) : visitsError ? (
               <Alert severity="error" sx={{ mb: 2 }}>{visitsError}</Alert>
             ) : (
-              <>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Statut</TableCell>
-                    <TableCell>Diagnostic</TableCell>
-                    <TableCell>Avis</TableCell>
-                    <TableCell>Médecin</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {visits.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center">
-                        <Typography variant="body2" color="text.secondary">
-                          Aucune visite médicale enregistrée
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    visits.map((visit) => (
-                      <TableRow key={visit.id}>
-                        <TableCell>{new Date(visit.scheduled_date).toLocaleDateString('fr-FR')}</TableCell>
-                        <TableCell>{visit.visit_type_name}</TableCell>
-                        <TableCell>
-                          <Chip label={visit.status_display} size="small" color={visit.status === 'completed' ? 'success' : 'default'} />
-                        </TableCell>
-                        <TableCell>{visit.diagnosis || '-'}</TableCell>
-                        <TableCell>{visit.avis_display || '-'}</TableCell>
-                        <TableCell>{visit.doctor_name || '-'}</TableCell>
-                        <TableCell>
-                          <Button size="small" onClick={() => navigate(`/visits/${visit.id}`)}>
-                            Voir
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-             </TableBody>
-           </Table>
-         </TableContainer>
-       </Box>
-     </Box>
-   </TabPanel>
-
-        {/* Onglet Bulletin d'analyses */}
+//               <>
+//             <TableContainer>
+//               <Table>
+//                 <TableHead>
+//                   <TableRow>
+//                     <TableCell>Date</TableCell>
+//                     <TableCell>Type</TableCell>
+//                     <TableCell>Statut</TableCell>
+//                     <TableCell>Diagnostic</TableCell>
+//                     <TableCell>Avis</TableCell>
+//                     <TableCell>Médecin</TableCell>
+//                     <TableCell>Actions</TableCell>
+//                   </TableRow>
+//                 </TableHead>
+//                 <TableBody>
+//                   {visits.length === 0 ? (
+//                     <TableRow>
+//                       <TableCell colSpan={7} align="center">
+//                         <Typography variant="body2" color="text.secondary">
+//                           Aucune visite médicale enregistrée
+//                         </Typography>
+//                       </TableCell>
+//                     </TableRow>
+//                   ) : (
+//                     visits.map((visit) => (
+//                       <TableRow key={visit.id}>
+//                         <TableCell>{new Date(visit.scheduled_date).toLocaleDateString('fr-FR')}</TableCell>
+//                         <TableCell>{visit.visit_type_name}</TableCell>
+//                         <TableCell>
+//                           <Chip label={visit.status_display} size="small" color={visit.status === 'completed' ? 'success' : 'default'} />
+//                         </TableCell>
+//                         <TableCell>{visit.diagnosis || '-'}</TableCell>
+//                         <TableCell>{visit.avis_display || '-'}</TableCell>
+//                         <TableCell>{visit.doctor_name || '-'}</TableCell>
+//                         <TableCell>
+//                           <Button size="small" onClick={() => navigate(`/visits/${visit.id}`)}>
+//                             Voir
+//                           </Button>
+//                         </TableCell>
+//                       </TableRow>
+//                     ))
+//                   )}
+//              </TableBody>
+//            </Table>
+//          </TableContainer>
+//        </Box>
+//      </Box>
+//    </TabPanel>
+// 
+//         {/* Onglet Bulletin d'analyses */}
         <TabPanel value={tabValue} index={4}>
           {/* En-tête patient */}
           <Box sx={{ mb: 2, p: 1.5, border: '1px solid #ccc', borderRadius: 1, backgroundColor: '#E8F0F8' }}>
