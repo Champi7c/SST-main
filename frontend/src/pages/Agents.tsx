@@ -182,7 +182,6 @@ export default function Agents() {
      try {
         const params: Record<string, string | number> = {
           page_size: 10000,
-          has_dmst: 'true',
           ordering: '-created_at'
         }
        if (showArchived) params.show_archived = 'true'

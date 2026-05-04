@@ -49,21 +49,30 @@ client.interceptors.response.use(
 export function getApiErrorMessage(error: any): string {
   const status = error?.response?.status
   const d = error?.response?.data
-  if (status === 403 && (!d?.detail || typeof d.detail !== 'string')) {
-    return "Vous n'avez pas les droits pour effectuer cette action."
-  }
   if (!d) return error?.message || 'Erreur lors de la requête'
+
+  // Si DRF detail string
   if (typeof d.detail === 'string') return d.detail
-  if (typeof d.detail === 'object' && d.detail !== null) {
-    const arr = Array.isArray(d.detail) ? d.detail : Object.entries(d.detail).flatMap(([k, v]) => [`${k}: ${Array.isArray(v) ? v[0] : v}`])
-    return arr.slice(0, 3).join(' · ')
+
+  // Si DRF non_field_errors
+  if (d.non_field_errors) {
+    const errs = Array.isArray(d.non_field_errors) ? d.non_field_errors : [d.non_field_errors]
+    return errs.join(' · ')
   }
-  const first = Object.entries(d).find(([, v]) => v != null)
-  if (first) {
-    const [k, v] = first
-    const msg = Array.isArray(v) ? v[0] : String(v)
-    return `${k}: ${msg}`
+
+  // Si c'est un objet de erreurs par champ
+  if (typeof d === 'object') {
+    const messages: string[] = []
+    for (const [field, msgs] of Object.entries(d)) {
+      const arr = Array.isArray(msgs) ? msgs : [msgs]
+      messages.push(`${field}: ${arr.join(', ')}`)
+    }
+    if (messages.length > 0) {
+      return messages.slice(0, 3).join(' · ')
+    }
   }
+
+  // Fallback générique
   return 'Erreur de validation'
 }
 

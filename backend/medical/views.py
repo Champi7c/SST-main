@@ -20,6 +20,7 @@ class AgentViewSet(viewsets.ModelViewSet):
     queryset = Agent.objects.all()
     serializer_class = AgentSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None  # Retourne tous les agents (pas de pagination)
     
     def get_permissions(self):
         """

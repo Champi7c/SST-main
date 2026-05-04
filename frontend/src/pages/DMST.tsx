@@ -1327,9 +1327,11 @@ export default function DMST() {
       showSnackbar('DMST modifié avec succès', 'success')
       setEditMode(false)
       fetchDMST()
-    } catch (error: any) {
-      showSnackbar(getApiErrorMessage(error), 'error')
-    }
+      } catch (error: any) {
+        console.error('Erreur lors de la création du DMST:', error.response?.data || error)
+        const msg = getApiErrorMessage(error)
+        showSnackbar(msg, 'error')
+      }
   }
 
    const handleCreateDMST = async () => {
@@ -1338,20 +1340,27 @@ export default function DMST() {
        showSnackbar('Agent invalide.', 'error')
        return
      }
-     try {
-       const response = await client.post('/medical/dmst/', {
-         ...buildDMSTPayload(),
-         agent: aid,
-       })
+      try {
+        const payload = buildDMSTPayload()
+        const response = await client.post('/medical/dmst/', {
+          ...payload,
+          agent: aid,
+        })
        setDmst(response.data)
        showSnackbar('DMST créé avec succès', 'success')
        setError('')
-     } catch (error: any) {
-       showSnackbar(getApiErrorMessage(error), 'error')
-     }
-   }
+      } catch (error: any) {
+        console.error('Erreur lors de la création du DMST:', error)
+        if (error.response) {
+          console.error('Status:', error.response.status)
+          console.error('Data:', error.response.data)
+        }
+        const msg = getApiErrorMessage(error)
+        showSnackbar(msg, 'error')
+      }
+    }
 
-   const handleDeleteDMST = async () => {
+    const handleDeleteDMST = async () => {
      if (!dmst) return
      try {
        await client.delete(`/medical/dmst/${dmst.id}/`)
@@ -1395,32 +1404,22 @@ export default function DMST() {
     )
   }
 
-  if (error && !dmst) {
-    return (
-      <Box>
-        <Typography variant="h4" gutterBottom>
-          Dossier Médical en Santé au Travail
-        </Typography>
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
-        {canEdit && (
-          <Button variant="contained" onClick={handleCreateDMST}>
-            Créer le DMST
-          </Button>
-        )}
-      </Box>
-    )
-  }
-
-  if (!dmst) {
-    return (
-      <Box>
-        <Typography variant="h4" gutterBottom>
-          Dossier Médical en Santé au Travail
-        </Typography>
-        <Alert severity="info">Aucun DMST trouvé.</Alert>
-      </Box>
-    )
-  }
+   if (!dmst) {
+     return (
+       <Box>
+         <Typography variant="h4" gutterBottom>
+           Dossier Médical en Santé au Travail
+         </Typography>
+         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+         <Alert severity="info">Aucun DMST trouvé pour cet agent.</Alert>
+         {canEdit && (
+           <Button variant="contained" onClick={handleCreateDMST} sx={{ mt: 2 }}>
+             Créer le DMST
+           </Button>
+         )}
+       </Box>
+     )
+   }
 
   return (
     <Box>
