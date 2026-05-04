@@ -288,85 +288,95 @@ export default function DMST() {
     fetchVisitTypes()
   }, [])
 
-  const fetchDMST = async () => {
-    try {
-      setLoading(true)
-      setError('')
-      setDmst(null)
-      const response = await client.get(`/medical/dmst/?agent=${agentId}`)
-      if (response.data.results && response.data.results.length > 0) {
-        const dmstData = response.data.results[0]
-        setDmst(dmstData)
-        setFormData({
-          allergies: dmstData.allergies || '',
-          medical_history: dmstData.medical_history || '',
-          chronic_diseases: dmstData.chronic_diseases || '',
-          smoking: dmstData.smoking || false,
-          alcohol: dmstData.alcohol || false,
-          drugs: dmstData.drugs || false,
-          habits_notes: dmstData.habits_notes || '',
-          physical_pathologies: dmstData.physical_pathologies || '',
-          mental_pathologies: dmstData.mental_pathologies || '',
-          social_pathologies: dmstData.social_pathologies || '',
-          hereditary_diseases: dmstData.hereditary_diseases || '',
-          handicap: dmstData.handicap || false,
-          handicap_details: dmstData.handicap_details || '',
-          pregnancy: dmstData.pregnancy || false,
-          pregnancy_due_date: dmstData.pregnancy_due_date || '',
-          current_treatments: dmstData.current_treatments || '',
-          treating_doctors: dmstData.treating_doctors || '',
-          working_conditions: dmstData.working_conditions || '',
-          under_surveillance: dmstData.under_surveillance || false,
-          surveillance_type: dmstData.surveillance_type || '',
-          observation_date: dmstData.observation_date || '',
-          observation_direction: dmstData.observation_direction || dmstData.agent_direction || '',
-          observation_function: dmstData.observation_function || dmstData.agent_function || '',
-          observation_site: dmstData.observation_site || dmstData.agent_site_name || '',
-          medical_antecedents: dmstData.medical_antecedents || '',
-          surgical_antecedents: dmstData.surgical_antecedents || '',
-          sport_activity: dmstData.sport_activity || false,
-          physical_activity: dmstData.physical_activity || false,
-          tobacco: dmstData.tobacco || false,
-          alcohol_obs: dmstData.alcohol_obs || false,
-          coffee: dmstData.coffee || false,
-          tea: dmstData.tea || false,
-          at_mp_nature: dmstData.at_mp_nature || '',
-          previous_companies: dmstData.previous_companies || '',
-          blood_pressure_systolic: dmstData.blood_pressure_systolic || '',
-          blood_pressure_diastolic: dmstData.blood_pressure_diastolic || '',
-          temperature: dmstData.temperature || '',
-          heart_rate: dmstData.heart_rate || '',
-          dextro_jn: dmstData.dextro_jn || '',
-          dextro_pp: dmstData.dextro_pp || '',
-          weight: dmstData.weight ? String(dmstData.weight) : '',
-          height: dmstData.height ? String(dmstData.height) : '',
-          bmi: dmstData.bmi ? String(dmstData.bmi) : '',
-          clinical_exam: dmstData.clinical_exam || '',
-          medical_conclusion_apte: dmstData.medical_conclusion_apte || false,
-          medical_conclusion_asr: dmstData.medical_conclusion_asr || false,
-          medical_conclusion_aar: dmstData.medical_conclusion_aar || false,
-          medical_conclusion_int: dmstData.medical_conclusion_int || false,
-          medical_conclusion_ind: dmstData.medical_conclusion_ind || false,
-          education_mhd: dmstData.education_mhd || false,
-          education_mhv: dmstData.education_mhv || false,
-          education_fdr_cvx: dmstData.education_fdr_cvx || false,
-          education_ergo: dmstData.education_ergo || false,
-          education_spb_psy: dmstData.education_spb_psy || false,
-          education_therapy: dmstData.education_therapy || false,
-          education_other: dmstData.education_other || '',
-          observer_name: dmstData.observer_name || '',
-          observation_form_data: dmstData.observation_form_data || {},
-        })
-      } else {
-        // Créer un nouveau DMST si inexistant
-        setError('DMST non trouvé. Voulez-vous le créer ?')
-      }
-    } catch (error: any) {
-      setError(error.response?.data?.detail || 'Erreur lors du chargement du DMST')
-    } finally {
-      setLoading(false)
-    }
-  }
+   const fetchDMST = async () => {
+     try {
+       setLoading(true)
+       setError('')
+       setDmst(null)
+       const response = await client.get(`/medical/dmst/?agent=${agentId}`)
+       const data = response.data
+
+       // Gérer à la fois les réponses paginées (data.results) et non-paginées (data = [])
+       const dmstList = Array.isArray(data) ? data : (data.results || [])
+
+       if (dmstList.length > 0) {
+         const dmstData = dmstList[0]
+         setDmst(dmstData)
+         setFormData({
+           allergies: dmstData.allergies || '',
+           medical_history: dmstData.medical_history || '',
+           chronic_diseases: dmstData.chronic_diseases || '',
+           smoking: dmstData.smoking || false,
+           alcohol: dmstData.alcohol || false,
+           drugs: dmstData.drugs || false,
+           habits_notes: dmstData.habits_notes || '',
+           physical_pathologies: dmstData.physical_pathologies || '',
+           mental_pathologies: dmstData.mental_pathologies || '',
+           social_pathologies: dmstData.social_pathologies || '',
+           hereditary_diseases: dmstData.hereditary_diseases || '',
+           handicap: dmstData.handicap || false,
+           handicap_details: dmstData.handicap_details || '',
+           pregnancy: dmstData.pregnancy || false,
+           pregnancy_due_date: dmstData.pregnancy_due_date || '',
+           current_treatments: dmstData.current_treatments || '',
+           treating_doctors: dmstData.treating_doctors || '',
+           working_conditions: dmstData.working_conditions || '',
+           under_surveillance: dmstData.under_surveillance || false,
+           surveillance_type: dmstData.surveillance_type || '',
+           observation_date: dmstData.observation_date || '',
+           observation_direction: dmstData.observation_direction || dmstData.agent_direction || '',
+           observation_function: dmstData.observation_function || dmstData.agent_function || '',
+           observation_site: dmstData.observation_site || dmstData.agent_site_name || '',
+           medical_antecedents: dmstData.medical_antecedents || '',
+           surgical_antecedents: dmstData.surgical_antecedents || '',
+           sport_activity: dmstData.sport_activity || false,
+           physical_activity: dmstData.physical_activity || false,
+           tobacco: dmstData.tobacco || false,
+           alcohol_obs: dmstData.alcohol_obs || false,
+           coffee: dmstData.coffee || false,
+           tea: dmstData.tea || false,
+           at_mp_nature: dmstData.at_mp_nature || '',
+           previous_companies: dmstData.previous_companies || '',
+           blood_pressure_systolic: dmstData.blood_pressure_systolic || '',
+           blood_pressure_diastolic: dmstData.blood_pressure_diastolic || '',
+           temperature: dmstData.temperature || '',
+           heart_rate: dmstData.heart_rate || '',
+           dextro_jn: dmstData.dextro_jn || '',
+           dextro_pp: dmstData.dextro_pp || '',
+           weight: dmstData.weight ? String(dmstData.weight) : '',
+           height: dmstData.height ? String(dmstData.height) : '',
+           bmi: dmstData.bmi ? String(dmstData.bmi) : '',
+           clinical_exam: dmstData.clinical_exam || '',
+           medical_conclusion_apte: dmstData.medical_conclusion_apte || false,
+           medical_conclusion_asr: dmstData.medical_conclusion_asr || false,
+           medical_conclusion_aar: dmstData.medical_conclusion_aar || false,
+           medical_conclusion_int: dmstData.medical_conclusion_int || false,
+           medical_conclusion_ind: dmstData.medical_conclusion_ind || false,
+           education_mhd: dmstData.education_mhd || false,
+           education_mhv: dmstData.education_mhv || false,
+           education_fdr_cvx: dmstData.education_fdr_cvx || false,
+           education_ergo: dmstData.education_ergo || false,
+           education_spb_psy: dmstData.education_spb_psy || false,
+           education_therapy: dmstData.education_therapy || false,
+           education_other: dmstData.education_other || '',
+           observer_name: dmstData.observer_name || '',
+           observation_form_data: dmstData.observation_form_data || {},
+         })
+       } else {
+         setError('Aucun DMST trouvé pour cet agent. Créez-le ci-dessous.')
+       }
+     } catch (error: any) {
+       if (error.response?.status === 404) {
+         setError('Aucun DMST trouvé pour cet agent. Créez-le ci-dessous.')
+         setDmst(null)
+       } else {
+         console.error('Erreur lors du chargement du DMST:', error)
+         setError(error.response?.data?.detail || 'Erreur lors du chargement du DMST')
+       }
+     } finally {
+       setLoading(false)
+     }
+   }
 
    const fetchVisits = async (pageOverride?: number) => {
      if (!dmst) return
@@ -1334,26 +1344,35 @@ export default function DMST() {
       }
   }
 
-   const handleCreateDMST = async () => {
-     const aid = agentId ? parseInt(agentId, 10) : NaN
-     if (!Number.isFinite(aid)) {
-       showSnackbar('Agent invalide.', 'error')
-       return
-     }
+const handleCreateDMST = async () => {
+      const aid = agentId ? parseInt(agentId, 10) : NaN
+      if (!Number.isFinite(aid)) {
+        showSnackbar('Agent invalide.', 'error')
+        return
+      }
       try {
         const payload = buildDMSTPayload()
         const response = await client.post('/medical/dmst/', {
           ...payload,
           agent: aid,
         })
-       setDmst(response.data)
-       showSnackbar('DMST créé avec succès', 'success')
-       setError('')
+        setDmst(response.data)
+        showSnackbar('DMST créé avec succès', 'success')
+        setError('')
       } catch (error: any) {
         console.error('Erreur lors de la création du DMST:', error)
         if (error.response) {
           console.error('Status:', error.response.status)
-          console.error('Data:', error.response.data)
+          console.error('Data:', JSON.stringify(error.response.data, null, 2))
+          // Si DMST existe déjà, essayer de le récupérer
+          if (error.response.status === 400 && error.response.data?.agent) {
+            const detail = Array.isArray(error.response.data.agent) ? error.response.data.agent[0] : error.response.data.agent
+            if (detail?.includes('already exists') || detail?.includes('déjà')) {
+              showSnackbar('Un DMST existe déjà pour cet agent. Rechargement...', 'error')
+              fetchDMST()
+              return
+            }
+          }
         }
         const msg = getApiErrorMessage(error)
         showSnackbar(msg, 'error')
