@@ -32,7 +32,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material'
-import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon } from '@mui/icons-material'
+import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import client, { getApiErrorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { jsPDF } from 'jspdf'
@@ -192,6 +192,7 @@ export default function DMST() {
   const [visitsTotalCount, setVisitsTotalCount] = useState(0)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const [openVisitDialog, setOpenVisitDialog] = useState(false)
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false)
   const [visitTypes, setVisitTypes] = useState<VisitType[]>([])
   const [visitForm, setVisitForm] = useState({
     visit_type: '',
@@ -1331,24 +1332,37 @@ export default function DMST() {
     }
   }
 
-  const handleCreateDMST = async () => {
-    const aid = agentId ? parseInt(agentId, 10) : NaN
-    if (!Number.isFinite(aid)) {
-      showSnackbar('Agent invalide.', 'error')
-      return
-    }
-    try {
-      const response = await client.post('/medical/dmst/', {
-        ...buildDMSTPayload(),
-        agent: aid,
-      })
-      setDmst(response.data)
-      showSnackbar('DMST créé avec succès', 'success')
-      setError('')
-    } catch (error: any) {
-      showSnackbar(getApiErrorMessage(error), 'error')
-    }
-  }
+   const handleCreateDMST = async () => {
+     const aid = agentId ? parseInt(agentId, 10) : NaN
+     if (!Number.isFinite(aid)) {
+       showSnackbar('Agent invalide.', 'error')
+       return
+     }
+     try {
+       const response = await client.post('/medical/dmst/', {
+         ...buildDMSTPayload(),
+         agent: aid,
+       })
+       setDmst(response.data)
+       showSnackbar('DMST créé avec succès', 'success')
+       setError('')
+     } catch (error: any) {
+       showSnackbar(getApiErrorMessage(error), 'error')
+     }
+   }
+
+   const handleDeleteDMST = async () => {
+     if (!dmst) return
+     try {
+       await client.delete(`/medical/dmst/${dmst.id}/`)
+       showSnackbar('DMST supprimé avec succès', 'success')
+       setOpenDeleteDialog(false)
+       // Navigate back to agents list or show empty state
+       window.location.href = '/agents'
+     } catch (error: any) {
+       showSnackbar(getApiErrorMessage(error), 'error')
+     }
+   }
 
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity })
@@ -1431,11 +1445,14 @@ export default function DMST() {
                 </Button>
               </>
             ) : (
-              <>
-                <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ mr: 1 }}>
-                  {tabValue === 1 ? 'Remplir la fiche' : 'Modifier'}
-                </Button>
-                {tabValue === 1 && (
+               <>
+                 <Button variant="contained" startIcon={<EditIcon />} onClick={() => setEditMode(true)} sx={{ mr: 1 }}>
+                   {tabValue === 1 ? 'Remplir la fiche' : 'Modifier'}
+                 </Button>
+                 <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setOpenDeleteDialog(true)} sx={{ mr: 1 }}>
+                   Supprimer
+                 </Button>
+                 {tabValue === 1 && (
                   <>
                     <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ mr: 1 }}>
                       Imprimer
@@ -2308,56 +2325,54 @@ export default function DMST() {
             ) : visitsError ? (
               <Alert severity="error" sx={{ mb: 2 }}>{visitsError}</Alert>
             ) : (
-//               <>
-//             <TableContainer>
-//               <Table>
-//                 <TableHead>
-//                   <TableRow>
-//                     <TableCell>Date</TableCell>
-//                     <TableCell>Type</TableCell>
-//                     <TableCell>Statut</TableCell>
-//                     <TableCell>Diagnostic</TableCell>
-//                     <TableCell>Avis</TableCell>
-//                     <TableCell>Médecin</TableCell>
-//                     <TableCell>Actions</TableCell>
-//                   </TableRow>
-//                 </TableHead>
-//                 <TableBody>
-//                   {visits.length === 0 ? (
-//                     <TableRow>
-//                       <TableCell colSpan={7} align="center">
-//                         <Typography variant="body2" color="text.secondary">
-//                           Aucune visite médicale enregistrée
-//                         </Typography>
-//                       </TableCell>
-//                     </TableRow>
-//                   ) : (
-//                     visits.map((visit) => (
-//                       <TableRow key={visit.id}>
-//                         <TableCell>{new Date(visit.scheduled_date).toLocaleDateString('fr-FR')}</TableCell>
-//                         <TableCell>{visit.visit_type_name}</TableCell>
-//                         <TableCell>
-//                           <Chip label={visit.status_display} size="small" color={visit.status === 'completed' ? 'success' : 'default'} />
-//                         </TableCell>
-//                         <TableCell>{visit.diagnosis || '-'}</TableCell>
-//                         <TableCell>{visit.avis_display || '-'}</TableCell>
-//                         <TableCell>{visit.doctor_name || '-'}</TableCell>
-//                         <TableCell>
-//                           <Button size="small" onClick={() => navigate(`/visits/${visit.id}`)}>
-//                             Voir
-//                           </Button>
-//                         </TableCell>
-//                       </TableRow>
-//                     ))
-//                   )}
-//              </TableBody>
-//            </Table>
-//          </TableContainer>
-//        </Box>
-//      </Box>
-//    </TabPanel>
-// 
-//       </Paper>
+              <>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Statut</TableCell>
+                        <TableCell>Diagnostic</TableCell>
+                        <TableCell>Avis</TableCell>
+                        <TableCell>Médecin</TableCell>
+                        <TableCell>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {visits.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} align="center">
+                            <Typography variant="body2" color="text.secondary">
+                              Aucune visite médicale enregistrée
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        visits.map((visit) => (
+                          <TableRow key={visit.id}>
+                            <TableCell>{new Date(visit.scheduled_date).toLocaleDateString('fr-FR')}</TableCell>
+                            <TableCell>{visit.visit_type_name}</TableCell>
+                            <TableCell>
+                              <Chip label={visit.status_display} size="small" color={visit.status === 'completed' ? 'success' : 'default'} />
+                            </TableCell>
+                            <TableCell>{visit.diagnosis || '-'}</TableCell>
+                            <TableCell>{visit.avis_display || '-'}</TableCell>
+                            <TableCell>{visit.doctor_name || '-'}</TableCell>
+                            <TableCell>
+                              <Button size="small" onClick={() => navigate(`/visits/${visit.id}`)}>
+                                Voir
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                         ))
+                       )}
+                     </TableBody>
+                  </Table>
+                </TableContainer>
+              </>
+            )}
+          </Box>
 
       {/* Dialog Programmer une visite */}
       <Dialog open={openVisitDialog} onClose={() => setOpenVisitDialog(false)} maxWidth="sm" fullWidth>
@@ -2433,9 +2448,26 @@ export default function DMST() {
         <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
-      </Snackbar>
+       </Snackbar>
 
-      {/* Section d'impression cachée */}
+       {/* Delete Confirmation Dialog */}
+       <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)} maxWidth="xs" fullWidth>
+         <DialogTitle>Confirmer la suppression</DialogTitle>
+         <DialogContent>
+           <Typography>
+             Êtes-vous sûr de vouloir supprimer le DMST de l'agent <strong>{dmst?.agent_name}</strong> ?<br />
+             Cette action est irréversible.
+           </Typography>
+         </DialogContent>
+         <DialogActions>
+           <Button onClick={() => setOpenDeleteDialog(false)}>Annuler</Button>
+           <Button variant="contained" color="error" onClick={handleDeleteDMST}>
+             Supprimer
+           </Button>
+         </DialogActions>
+       </Dialog>
+
+       {/* Section d'impression cachée */}
       <Box
         id="print-section"
         className="print-section"
@@ -2817,7 +2849,9 @@ export default function DMST() {
             </tr>
           </tbody>
         </table>
-      </Box>
+       </Box>
+     </TabPanel>
+   </Paper>
     </Box>
   )
 }

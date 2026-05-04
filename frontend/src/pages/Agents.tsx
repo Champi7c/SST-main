@@ -729,7 +729,7 @@ export default function Agents() {
                 options={companies}
                 filterOptions={(options, { inputValue }) =>
                   options.filter((c) =>
-                    (c.name ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                    (typeof c === 'string' ? c : (c as Company).name ?? '').toLowerCase().includes(inputValue.toLowerCase())
                   )
                 }
                 getOptionLabel={(option) => {
@@ -795,7 +795,7 @@ export default function Agents() {
                 options={sites}
                 filterOptions={(options, { inputValue }) =>
                   options.filter((s) =>
-                    (s.name ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                    (typeof s === 'string' ? s : (s as Site).name ?? '').toLowerCase().includes(inputValue.toLowerCase())
                   )
                 }
                 getOptionLabel={(option) => {
@@ -852,7 +852,7 @@ export default function Agents() {
                 options={services}
                 filterOptions={(options, { inputValue }) =>
                   options.filter((s) =>
-                    (s.name ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                    (typeof s === 'string' ? s : (s as Service).name ?? '').toLowerCase().includes(inputValue.toLowerCase())
                   )
                 }
                 getOptionLabel={(option) => {
@@ -909,7 +909,7 @@ export default function Agents() {
                 options={jobPositions}
                 filterOptions={(options, { inputValue }) =>
                   options.filter((j) =>
-                    (j.name ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                    (typeof j === 'string' ? j : (j as JobPosition).name ?? '').toLowerCase().includes(inputValue.toLowerCase())
                   )
                 }
                 getOptionLabel={(option) => {
@@ -991,8 +991,8 @@ export default function Agents() {
                 options={supervisors.filter((s) => s.id !== editingAgent?.id)}
                 filterOptions={(options, { inputValue }) =>
                   options.filter((s) =>
-                    (s.full_name ?? '').toLowerCase().includes(inputValue.toLowerCase()) ||
-                    (s.matricule ?? '').toLowerCase().includes(inputValue.toLowerCase())
+                    (typeof s === 'string' ? s : ((s as Agent).full_name ?? '')).toLowerCase().includes(inputValue.toLowerCase()) ||
+                    (typeof s === 'string' ? '' : (s as Agent).matricule ?? '').toLowerCase().includes(inputValue.toLowerCase())
                   )
                 }
                 getOptionLabel={(option) => {
