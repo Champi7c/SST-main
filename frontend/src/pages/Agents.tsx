@@ -107,6 +107,7 @@ export default function Agents() {
   const { hasMedicalAccess, user } = useAuth()
 
   const [companies, setCompanies] = useState<Company[]>([])
+  const [allSites, setAllSites] = useState<Site[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([])
@@ -140,23 +141,34 @@ export default function Agents() {
   useEffect(() => {
     fetchAgents()
     fetchCompanies()
+    fetchAllSites()
   }, [showArchived])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchAgents()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
 
   useEffect(() => {
     if (formData.company) {
       const companyId = parseInt(formData.company, 10)
       if (!isNaN(companyId)) {
-        fetchSites(companyId.toString())
+        const filtered = allSites.filter(s => s.company.toString() === companyId.toString())
+        setSites(filtered.length > 0 ? filtered : allSites)
         fetchServices(companyId.toString())
         fetchJobPositions(companyId.toString())
       } else {
-        setSites([])
+        setSites(allSites)
         setServices([])
         setJobPositions([])
       }
+    } else {
+      setSites(allSites)
     }
-  }, [formData.company])
+  }, [formData.company, allSites])
 
   useEffect(() => {
     if (formData.site && formData.company) {
@@ -237,10 +249,12 @@ export default function Agents() {
     }
   }
 
-  const fetchSites = async (companyId: string) => {
+  const fetchAllSites = async () => {
     try {
-      const response = await client.get(`/companies/sites/?company=${companyId}`)
-      setSites(response.data.results || response.data)
+      const response = await client.get('/companies/sites/?page_size=1000')
+      const list = response.data.results || response.data
+      setAllSites(list)
+      setSites(list)
     } catch (error) {
       console.error('Erreur lors du chargement des sites:', error)
     }
@@ -833,12 +847,11 @@ export default function Agents() {
                     setFormData({ ...formData, site: '', service: '' })
                   }
                 }}
-                disabled={!formData.company}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Site"
-                    placeholder="Sélectionnez ou tapez un nom de site"
+                    placeholder="Sélectionnez un site"
                   />
                 )}
               />

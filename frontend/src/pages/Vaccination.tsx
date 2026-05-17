@@ -30,7 +30,7 @@ import {
   CardContent,
   IconButton,
 } from '@mui/material'
-import { Add as AddIcon, CheckCircle as CheckIcon, Print as PrintIcon } from '@mui/icons-material'
+import { Add as AddIcon, CheckCircle as CheckIcon, Print as PrintIcon, HourglassEmpty as PendingIcon, CheckCircleOutline as ValidateIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -55,6 +55,7 @@ interface VaccinationRecord {
   batch_number?: string
   is_due: boolean
   observation?: string
+  status: 'pending' | 'validated'
 }
 
 interface MedicalSurveillanceRecord {
@@ -125,12 +126,15 @@ export default function Vaccination() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [openDialog, setOpenDialog] = useState(false)
+  const [editingVaccination, setEditingVaccination] = useState<VaccinationRecord | null>(null)
+  const [vaccinationToDelete, setVaccinationToDelete] = useState<VaccinationRecord | null>(null)
   const [openContraindicationDialog, setOpenContraindicationDialog] = useState(false)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const [carnetPrintData, setCarnetPrintData] = useState<{ agent_name: string; agent_matricule: string; vaccinations: VaccinationRecord[] } | null>(null)
   const [companyFilter, setCompanyFilter] = useState<string>('')
   const [siteFilter, setSiteFilter] = useState<string>('')
   const [serviceFilter, setServiceFilter] = useState<string>('')
+  const [searchQuery, setSearchQuery] = useState<string>('')
   const [companies, setCompanies] = useState<Company[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -303,25 +307,40 @@ export default function Vaccination() {
     setSnackbar({ open: true, message, severity })
   }
 
-  const handleOpenDialog = () => {
-    setFormData({
-      agent: '',
-      vaccine_name: '',
-      vaccination_date: new Date().toISOString().split('T')[0],
-      dose_number: '1',
-      dose_interval_months: '1',
-      next_due_date: '',
-      batch_number: '',
-      observation: '',
-    })
+  const handleOpenDialog = (record?: VaccinationRecord) => {
+    if (record) {
+      setEditingVaccination(record)
+      setFormData({
+        agent: String(record.agent),
+        vaccine_name: record.vaccine_name,
+        vaccination_date: record.vaccination_date,
+        dose_number: String(record.dose_number ?? 1),
+        dose_interval_months: String(record.dose_interval_months ?? 1),
+        next_due_date: record.next_due_date ?? '',
+        batch_number: record.batch_number ?? '',
+        observation: record.observation ?? '',
+      })
+    } else {
+      setEditingVaccination(null)
+      setFormData({
+        agent: '',
+        vaccine_name: '',
+        vaccination_date: new Date().toISOString().split('T')[0],
+        dose_number: '1',
+        dose_interval_months: '1',
+        next_due_date: '',
+        batch_number: '',
+        observation: '',
+      })
+    }
     setOpenDialog(true)
   }
 
   const calculateNextDoseDate = (vaccinationDate: string, doseNumber: string, intervalMonths: string) => {
-    if (!vaccinationDate || doseNumber === '3') return '' // Pas de prochaine dose si c'est la 3ème
-    
-    const date = new Date(vaccinationDate)
+    if (!vaccinationDate || doseNumber === '3') return ''
     const interval = parseInt(intervalMonths)
+    if (!interval || interval <= 0) return '' // 0 mois = pas de rappel
+    const date = new Date(vaccinationDate)
     date.setMonth(date.getMonth() + interval)
     return date.toISOString().split('T')[0]
   }
@@ -332,13 +351,13 @@ export default function Vaccination() {
         showSnackbar('Le nom du vaccin est requis', 'error')
         return
       }
-      
+
       const nextDueDate = formData.next_due_date || calculateNextDoseDate(
         formData.vaccination_date,
         formData.dose_number,
         formData.dose_interval_months
       )
-      
+
       const payload = {
         agent: parseInt(formData.agent),
         vaccine_name_input: formData.vaccine_name.trim(),
@@ -349,21 +368,48 @@ export default function Vaccination() {
         batch_number: formData.batch_number?.trim() || null,
         observation: formData.observation?.trim() || null,
       }
-      
-      console.log('Envoi de la vaccination:', payload)
-      
-      await client.post('/vaccination/vaccinations/', payload)
-      showSnackbar('Vaccination enregistrée', 'success')
+
+      if (editingVaccination) {
+        const { data } = await client.put(`/vaccination/vaccinations/${editingVaccination.id}/`, payload)
+        setVaccinations((prev) => prev.map((v) => (v.id === editingVaccination.id ? data : v)))
+        showSnackbar('Vaccination mise à jour', 'success')
+      } else {
+        await client.post('/vaccination/vaccinations/', payload)
+        showSnackbar('Vaccination enregistrée', 'success')
+        fetchVaccinations()
+      }
       setOpenDialog(false)
-      fetchVaccinations()
+      setEditingVaccination(null)
       fetchAlerts()
     } catch (err: any) {
       console.error('Erreur vaccination:', err.response?.data)
-      const errorMessage = err.response?.data?.vaccine_name_input?.[0] || 
-                          err.response?.data?.detail || 
+      const errorMessage = err.response?.data?.vaccine_name_input?.[0] ||
+                          err.response?.data?.detail ||
                           Object.values(err.response?.data || {}).flat().join(', ') ||
                           'Erreur lors de l\'enregistrement'
       showSnackbar(errorMessage, 'error')
+    }
+  }
+
+  const handleConfirmDeleteVaccination = async () => {
+    if (!vaccinationToDelete) return
+    try {
+      await client.delete(`/vaccination/vaccinations/${vaccinationToDelete.id}/`)
+      setVaccinations((prev) => prev.filter((v) => v.id !== vaccinationToDelete.id))
+      setVaccinationToDelete(null)
+      showSnackbar('Vaccination supprimée', 'success')
+    } catch (err: any) {
+      showSnackbar(err.response?.data?.detail || 'Erreur lors de la suppression', 'error')
+    }
+  }
+
+  const handleChangeStatus = async (id: number, status: 'pending' | 'validated') => {
+    try {
+      const { data } = await client.patch(`/vaccination/vaccinations/${id}/`, { status })
+      setVaccinations((prev) => prev.map((v) => (v.id === id ? { ...v, status: data.status } : v)))
+      showSnackbar(status === 'validated' ? 'Vaccination validée' : 'Vaccination mise en attente', 'success')
+    } catch (err: any) {
+      showSnackbar(err.response?.data?.detail || 'Erreur lors de la mise à jour du statut', 'error')
     }
   }
 
@@ -560,6 +606,16 @@ export default function Vaccination() {
           {tabValue === 0 && (
             <>
               {renderFilters()}
+              {hasMedicalAccess && (
+                <TextField
+                  size="small"
+                  placeholder="Rechercher par agent, matricule ou vaccin..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  sx={{ mb: 2, minWidth: 320 }}
+                  InputProps={{ startAdornment: <Box component="span" sx={{ mr: 1, color: 'text.secondary', fontSize: 18 }}>🔍</Box> }}
+                />
+              )}
               {!hasMedicalAccess ? (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
                   Accès aux données de vaccination réservé au personnel médical.
@@ -575,17 +631,34 @@ export default function Vaccination() {
                         <TableCell>Date</TableCell>
                         <TableCell>Rappel</TableCell>
                         <TableCell>Statut</TableCell>
+                        <TableCell align="right">Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {vaccinations.length === 0 ? (
+                      {vaccinations.filter((v) => {
+                        if (!searchQuery.trim()) return true
+                        const q = searchQuery.toLowerCase()
+                        return (
+                          v.agent_name?.toLowerCase().includes(q) ||
+                          v.agent_matricule?.toLowerCase().includes(q) ||
+                          v.vaccine_name?.toLowerCase().includes(q)
+                        )
+                      }).length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} align="center">
+                          <TableCell colSpan={7} align="center">
                             <Typography variant="body2" color="text.secondary">Aucune vaccination</Typography>
                           </TableCell>
                         </TableRow>
                       ) : (
-                        vaccinations.map((v) => (
+                        vaccinations.filter((v) => {
+                          if (!searchQuery.trim()) return true
+                          const q = searchQuery.toLowerCase()
+                          return (
+                            v.agent_name?.toLowerCase().includes(q) ||
+                            v.agent_matricule?.toLowerCase().includes(q) ||
+                            v.vaccine_name?.toLowerCase().includes(q)
+                          )
+                        }).map((v) => (
                           <TableRow key={v.id}>
                             <TableCell>{v.agent_name} ({v.agent_matricule})</TableCell>
                             <TableCell>{v.vaccine_name}</TableCell>
@@ -596,10 +669,29 @@ export default function Vaccination() {
                             <TableCell>{new Date(v.vaccination_date).toLocaleDateString('fr-FR')}</TableCell>
                             <TableCell>{v.next_due_date ? new Date(v.next_due_date).toLocaleDateString('fr-FR') : '–'}</TableCell>
                             <TableCell>
-                              {v.is_due ? (
-                                <Chip label="Rappel à faire" size="small" color="error" />
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                {v.is_due ? (
+                                  <Chip label="Rappel à faire" size="small" color="error" />
+                                ) : (
+                                  <Chip label="À jour" size="small" color="success" />
+                                )}
+                                <Chip
+                                  label={v.status === 'validated' ? 'Validé' : 'En attente'}
+                                  size="small"
+                                  color={v.status === 'validated' ? 'success' : 'warning'}
+                                  variant="outlined"
+                                />
+                              </Box>
+                            </TableCell>
+                            <TableCell align="right">
+                              {v.status !== 'validated' ? (
+                                <IconButton size="small" color="success" onClick={() => handleChangeStatus(v.id, 'validated')} title="Valider">
+                                  <ValidateIcon fontSize="small" />
+                                </IconButton>
                               ) : (
-                                <Chip label="À jour" size="small" color="success" />
+                                <IconButton size="small" color="warning" onClick={() => handleChangeStatus(v.id, 'pending')} title="Mettre en attente">
+                                  <PendingIcon fontSize="small" />
+                                </IconButton>
                               )}
                             </TableCell>
                           </TableRow>
@@ -951,8 +1043,8 @@ export default function Vaccination() {
         </Box>
       )}
 
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Enregistrer une vaccination</DialogTitle>
+      <Dialog open={openDialog} onClose={() => { setOpenDialog(false); setEditingVaccination(null) }} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingVaccination ? 'Modifier la vaccination' : 'Enregistrer une vaccination'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
@@ -1013,21 +1105,19 @@ export default function Vaccination() {
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={3}>
-              <FormControl fullWidth required>
-                <InputLabel>Intervalle *</InputLabel>
-                <Select
-                  value={formData.dose_interval_months}
-                  onChange={(e) => {
-                    const newInterval = e.target.value
-                    const nextDue = calculateNextDoseDate(formData.vaccination_date, formData.dose_number, newInterval)
-                    setFormData({ ...formData, dose_interval_months: newInterval, next_due_date: nextDue })
-                  }}
-                  label="Intervalle *"
-                >
-                  <MenuItem value="1">1 mois</MenuItem>
-                  <MenuItem value="6">6 mois</MenuItem>
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                label="Intervalle (mois)"
+                type="number"
+                value={formData.dose_interval_months}
+                onChange={(e) => {
+                  const newInterval = e.target.value
+                  const nextDue = calculateNextDoseDate(formData.vaccination_date, formData.dose_number, newInterval)
+                  setFormData({ ...formData, dose_interval_months: newInterval, next_due_date: nextDue })
+                }}
+                inputProps={{ min: 0 }}
+                helperText="0 = pas de rappel"
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -1037,8 +1127,8 @@ export default function Vaccination() {
                 value={formData.next_due_date}
                 onChange={(e) => setFormData({ ...formData, next_due_date: e.target.value })}
                 InputLabelProps={{ shrink: true }}
-                disabled={formData.dose_number === '3'}
-                helperText={formData.dose_number === '3' ? 'Pas de rappel pour la 3ème dose' : 'Calculée automatiquement selon l\'intervalle'}
+                disabled={formData.dose_number === '3' || formData.dose_interval_months === '0'}
+                helperText={formData.dose_number === '3' || formData.dose_interval_months === '0' ? 'Pas de rappel' : 'Calculée automatiquement selon l\'intervalle'}
               />
             </Grid>
             <Grid item xs={12}>
@@ -1062,14 +1152,28 @@ export default function Vaccination() {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Annuler</Button>
+          <Button onClick={() => { setOpenDialog(false); setEditingVaccination(null) }}>Annuler</Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
             disabled={!formData.agent || !formData.vaccine_name || !formData.vaccination_date}
           >
-            Enregistrer
+            {editingVaccination ? 'Enregistrer' : 'Créer'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Confirmation suppression vaccination */}
+      <Dialog open={!!vaccinationToDelete} onClose={() => setVaccinationToDelete(null)}>
+        <DialogTitle>Supprimer la vaccination</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Supprimer l&apos;enregistrement de vaccination de &quot;{vaccinationToDelete?.agent_name}&quot; pour le vaccin &quot;{vaccinationToDelete?.vaccine_name}&quot; ?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVaccinationToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleConfirmDeleteVaccination}>Supprimer</Button>
         </DialogActions>
       </Dialog>
 

@@ -31,8 +31,10 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Switch,
+  IconButton,
 } from '@mui/material'
-import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon, Delete as DeleteIcon, Add as AddIcon, AssignmentLate as AbnormalIcon } from '@mui/icons-material'
 import client, { getApiErrorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { jsPDF } from 'jspdf'
@@ -47,6 +49,8 @@ interface DMST {
   agent_direction?: string
   agent_function?: string
   agent_site_name?: string
+  agent_phone?: string
+  agent_gender?: string
   allergies?: string
   medical_history?: string
   chronic_diseases?: string
@@ -201,6 +205,140 @@ export default function DMST() {
     reason: '',
   })
   const { hasMedicalAccess, user } = useAuth()
+  const [doctors, setDoctors] = useState<{ id: number; full_name: string; last_name?: string; first_name?: string; specialty?: string }[]>([])
+
+  // ── Résultats médicaux ──────────────────────────────────────────────────────
+  interface MedicalResult {
+    id: number
+    result_type: string
+    result_type_display: string
+    title: string
+    exam_date: string
+    result_value: string
+    normal_range?: string
+    interpretation?: string
+    performed_by?: string
+    is_abnormal: boolean
+    pdf_file_url?: string | null
+    created_by_name?: string
+    created_at: string
+  }
+  const RESULT_TYPES = [
+    { value: 'biologique', label: 'Analyses biologiques' },
+    { value: 'radiologie', label: 'Radiologie / Imagerie' },
+    { value: 'ecg', label: 'ECG / Cardiologie' },
+    { value: 'audiometrie', label: 'Audiométrie' },
+    { value: 'spirometrie', label: 'Spirométrie / EFR' },
+    { value: 'visuel', label: 'Acuité visuelle' },
+    { value: 'toxicologie', label: 'Toxicologie' },
+    { value: 'autre', label: 'Autre' },
+  ]
+  const emptyResultForm = {
+    result_type: 'biologique',
+    title: '',
+    exam_date: new Date().toISOString().split('T')[0],
+    result_value: '',
+    normal_range: '',
+    interpretation: '',
+    performed_by: '',
+    is_abnormal: false,
+  }
+  const [results, setResults] = useState<MedicalResult[]>([])
+  const [resultsLoading, setResultsLoading] = useState(false)
+  const [openResultDialog, setOpenResultDialog] = useState(false)
+  const [editingResult, setEditingResult] = useState<MedicalResult | null>(null)
+  const [resultToDelete, setResultToDelete] = useState<MedicalResult | null>(null)
+  const [resultForm, setResultForm] = useState(emptyResultForm)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [removePdf, setRemovePdf] = useState(false)
+
+  const fetchResults = async () => {
+    if (!agentId) return
+    setResultsLoading(true)
+    try {
+      const r = await client.get('/medical/results/', { params: { agent: agentId } })
+      setResults(r.data.results ?? r.data)
+    } catch { /**/ } finally { setResultsLoading(false) }
+  }
+
+  useEffect(() => {
+    if (tabValue === 6) fetchResults()
+  }, [tabValue, agentId])
+
+  const handleOpenResultDialog = (result?: MedicalResult) => {
+    setSelectedFile(null)
+    setRemovePdf(false)
+    if (result) {
+      setEditingResult(result)
+      setResultForm({
+        result_type: result.result_type,
+        title: result.title,
+        exam_date: result.exam_date,
+        result_value: result.result_value,
+        normal_range: result.normal_range ?? '',
+        interpretation: result.interpretation ?? '',
+        performed_by: result.performed_by ?? '',
+        is_abnormal: result.is_abnormal,
+      })
+    } else {
+      setEditingResult(null)
+      setResultForm(emptyResultForm)
+    }
+    setOpenResultDialog(true)
+  }
+
+  const handleSaveResult = async () => {
+    if (!agentId) return
+    const buildFormData = () => {
+      const fd = new FormData()
+      fd.append('agent', agentId)
+      fd.append('result_type', resultForm.result_type)
+      fd.append('title', resultForm.title.trim())
+      fd.append('exam_date', resultForm.exam_date)
+      fd.append('result_value', resultForm.result_value.trim())
+      fd.append('normal_range', resultForm.normal_range || '')
+      fd.append('interpretation', resultForm.interpretation || '')
+      fd.append('performed_by', resultForm.performed_by || '')
+      fd.append('is_abnormal', String(resultForm.is_abnormal))
+      if (selectedFile) fd.append('pdf_file', selectedFile)
+      else if (removePdf) fd.append('pdf_file', '')
+      return fd
+    }
+    try {
+      const headers = { 'Content-Type': 'multipart/form-data' }
+      if (editingResult) {
+        const { data } = await client.patch(`/medical/results/${editingResult.id}/`, buildFormData(), { headers })
+        setResults((prev) => prev.map((r) => (r.id === editingResult.id ? data : r)))
+        setSnackbar({ open: true, message: 'Résultat mis à jour', severity: 'success' })
+      } else {
+        const { data } = await client.post('/medical/results/', buildFormData(), { headers })
+        setResults((prev) => [data, ...prev])
+        setSnackbar({ open: true, message: 'Résultat ajouté', severity: 'success' })
+      }
+      setOpenResultDialog(false)
+    } catch {
+      setSnackbar({ open: true, message: 'Erreur lors de l\'enregistrement', severity: 'error' })
+    }
+  }
+
+  const handleDeleteResult = async () => {
+    if (!resultToDelete) return
+    try {
+      await client.delete(`/medical/results/${resultToDelete.id}/`)
+      setResults((prev) => prev.filter((r) => r.id !== resultToDelete.id))
+      setResultToDelete(null)
+      setSnackbar({ open: true, message: 'Résultat supprimé', severity: 'success' })
+    } catch {
+      setSnackbar({ open: true, message: 'Erreur lors de la suppression', severity: 'error' })
+    }
+  }
+
+  useEffect(() => {
+    client.get('/companies/doctors/?page_size=500').then((r) => {
+      const list = r.data.results ?? r.data
+      setDoctors(list)
+    }).catch(() => {})
+  }, [])
 
   const [formData, setFormData] = useState({
     allergies: '',
@@ -360,7 +498,16 @@ export default function DMST() {
            education_therapy: dmstData.education_therapy || false,
            education_other: dmstData.education_other || '',
            observer_name: dmstData.observer_name || '',
-           observation_form_data: dmstData.observation_form_data || {},
+           observation_form_data: {
+             ...(dmstData.observation_form_data || {}),
+             telephone: (dmstData.observation_form_data as Record<string, unknown>)?.telephone || dmstData.agent_phone || '',
+             sex_m: (dmstData.observation_form_data as Record<string, unknown>)?.sex_m !== undefined
+               ? (dmstData.observation_form_data as Record<string, unknown>).sex_m
+               : dmstData.agent_gender === 'M',
+             sex_f: (dmstData.observation_form_data as Record<string, unknown>)?.sex_f !== undefined
+               ? (dmstData.observation_form_data as Record<string, unknown>).sex_f
+               : dmstData.agent_gender === 'F',
+           },
          })
        } else {
          setError('Aucun DMST trouvé pour cet agent. Créez-le ci-dessous.')
@@ -1529,6 +1676,7 @@ const handleCreateDMST = async () => {
           <Tab label="Demande d'examen" icon={<ScienceIcon />} iconPosition="start" />
           <Tab label="Bulletin d'analyses" icon={<ScienceIcon />} iconPosition="start" />
           <Tab label="Certificat médical" icon={<DescriptionIcon />} iconPosition="start" />
+          <Tab label={`Résultats${results.length > 0 ? ` (${results.length})` : ''}`} icon={<ScienceIcon />} iconPosition="start" />
         </Tabs>
 
         <TabPanel value={tabValue} index={1}>
@@ -1544,7 +1692,15 @@ const handleCreateDMST = async () => {
                 <FormControlLabel control={<Checkbox checked={getObsBool('visit_type_embauche')} onChange={(e) => setObs('visit_type_embauche', e.target.checked)} disabled={!editMode} />} label="Embauche" />
                 <FormControlLabel control={<Checkbox checked={getObsBool('visit_type_periodique')} onChange={(e) => setObs('visit_type_periodique', e.target.checked)} disabled={!editMode} />} label="Périodique" />
                 <FormControlLabel control={<Checkbox checked={getObsBool('visit_type_reprise')} onChange={(e) => setObs('visit_type_reprise', e.target.checked)} disabled={!editMode} />} label="Reprise" />
-                <TextField size="small" label="Médecin du travail" value={formData.observer_name} onChange={(e) => setFormData({ ...formData, observer_name: e.target.value })} disabled={!editMode} sx={{ minWidth: 220, ml: 2 }} />
+                <Autocomplete
+                  freeSolo
+                  options={doctors.map((d) => d.full_name)}
+                  value={formData.observer_name}
+                  onInputChange={(_, val) => setFormData({ ...formData, observer_name: val })}
+                  disabled={!editMode}
+                  sx={{ minWidth: 220, ml: 2 }}
+                  renderInput={(params) => <TextField {...params} size="small" label="Médecin du travail" />}
+                />
               </Box>
               <Divider sx={{ mb: 3 }} />
             </Grid>
@@ -1616,6 +1772,21 @@ const handleCreateDMST = async () => {
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth label="Entreprises / Postes antérieurs (expositions particulières)" multiline rows={3} value={formData.previous_companies} onChange={(e) => setFormData({ ...formData, previous_companies: e.target.value })} disabled={!editMode} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Autocomplete
+                freeSolo
+                options={doctors.map((d) => d.full_name ?? `Dr. ${d.last_name ?? ''} ${d.first_name ?? ''}`)}
+                value={formData.treating_doctors}
+                onInputChange={(_, val) => setFormData({ ...formData, treating_doctors: val })}
+                disabled={!editMode}
+                renderInput={(params) => (
+                  <TextField {...params} fullWidth label="Médecin(s) traitant(s)" placeholder="Saisir ou sélectionner un médecin" />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Traitements en cours" multiline rows={2} value={formData.current_treatments} onChange={(e) => setFormData({ ...formData, current_treatments: e.target.value })} disabled={!editMode} />
             </Grid>
 
             {/* III. EXPOSITIONS PROFESSIONNELLES */}
@@ -2042,7 +2213,14 @@ const handleCreateDMST = async () => {
             {/* Signatures */}
             <Grid item xs={12}><Divider sx={{ my: 2 }} /></Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="LE MÉDECIN DU TRAVAIL — Signature et cachet" value={formData.observer_name} onChange={(e) => setFormData({ ...formData, observer_name: e.target.value })} disabled={!editMode} />
+              <Autocomplete
+                freeSolo
+                options={doctors.map((d) => d.full_name)}
+                value={formData.observer_name}
+                onInputChange={(_, val) => setFormData({ ...formData, observer_name: val })}
+                disabled={!editMode}
+                renderInput={(params) => <TextField {...params} fullWidth label="LE MÉDECIN DU TRAVAIL — Signature et cachet" />}
+              />
             </Grid>
             <Grid item xs={12}>
               <Typography variant="caption" color="text.secondary">Document confidentiel — Secret médical — Article L. 4624-1 du Code du Travail</Typography>
@@ -2071,12 +2249,13 @@ const handleCreateDMST = async () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Médecin"
-                value={getObs('ordonnance_medecin') || formData.observer_name || ''}
-                onChange={(e) => setObs('ordonnance_medecin', e.target.value)}
+              <Autocomplete
+                freeSolo
+                options={doctors.map((d) => d.full_name ?? `Dr. ${d.last_name ?? ''} ${d.first_name ?? ''}`)}
+                value={(getObs('ordonnance_medecin') as string) || formData.observer_name || ''}
+                onInputChange={(_, val) => setObs('ordonnance_medecin', val)}
                 disabled={!editMode}
+                renderInput={(params) => <TextField {...params} fullWidth label="Médecin" />}
               />
             </Grid>
             <Grid item xs={12}>
@@ -2275,7 +2454,14 @@ const handleCreateDMST = async () => {
               </Grid>
               {/* Médecin */}
               <Grid item xs={12}>
-                <TextField fullWidth size="small" label="Je soussigné (nom du médecin)" value={getObs('cert_medecin') as string || formData.observer_name || ''} onChange={(e) => setObs('cert_medecin', e.target.value)} disabled={!editMode} />
+                <Autocomplete
+                  freeSolo
+                  options={doctors.map((d) => d.full_name)}
+                  value={(getObs('cert_medecin') as string) || formData.observer_name || ''}
+                  onInputChange={(_, val) => setObs('cert_medecin', val)}
+                  disabled={!editMode}
+                  renderInput={(params) => <TextField {...params} fullWidth size="small" label="Je soussigné (nom du médecin)" />}
+                />
               </Grid>
               {/* Patient */}
               <Grid item xs={12}>
@@ -2869,7 +3055,175 @@ const handleCreateDMST = async () => {
         </table>
        </Box>
      </TabPanel>
+
+        {/* ── Onglet Résultats ── */}
+        <TabPanel value={tabValue} index={6}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">Résultats d'examens médicaux</Typography>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenResultDialog()}>
+              Ajouter un résultat
+            </Button>
+          </Box>
+          {resultsLoading ? (
+            <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+          ) : results.length === 0 ? (
+            <Alert severity="info">Aucun résultat enregistré pour cet agent.</Alert>
+          ) : (
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Intitulé</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Résultat</TableCell>
+                    <TableCell>Réalisé par</TableCell>
+                    <TableCell>État</TableCell>
+                    <TableCell>PDF</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {results.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell><Chip label={r.result_type_display} size="small" variant="outlined" /></TableCell>
+                      <TableCell>{r.title}</TableCell>
+                      <TableCell>{new Date(r.exam_date).toLocaleDateString('fr-FR')}</TableCell>
+                      <TableCell sx={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.result_value}</TableCell>
+                      <TableCell>{r.performed_by || '–'}</TableCell>
+                      <TableCell>
+                        {r.is_abnormal ? (
+                          <Chip label="Anormal" size="small" color="error" icon={<AbnormalIcon />} />
+                        ) : (
+                          <Chip label="Normal" size="small" color="success" />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {r.pdf_file_url ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<PdfIcon />}
+                            href={r.pdf_file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ fontSize: '11px', px: 1 }}
+                          >
+                            Voir
+                          </Button>
+                        ) : '–'}
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" color="primary" onClick={() => handleOpenResultDialog(r)} title="Modifier">
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => setResultToDelete(r)} title="Supprimer">
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </TabPanel>
    </Paper>
+
+      {/* Dialog : Résultat médical */}
+      <Dialog open={openResultDialog} onClose={() => setOpenResultDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>{editingResult ? 'Modifier le résultat' : 'Ajouter un résultat'}</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth required>
+                <InputLabel>Type d'examen *</InputLabel>
+                <Select value={resultForm.result_type} onChange={(e) => setResultForm({ ...resultForm, result_type: e.target.value })} label="Type d'examen *">
+                  {RESULT_TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Date de l'examen *" type="date" value={resultForm.exam_date} onChange={(e) => setResultForm({ ...resultForm, exam_date: e.target.value })} InputLabelProps={{ shrink: true }} required />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Intitulé de l'examen *" value={resultForm.title} onChange={(e) => setResultForm({ ...resultForm, title: e.target.value })} placeholder="Ex : NFS, Glycémie, Radio thorax..." required />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Résultat *" multiline rows={3} value={resultForm.result_value} onChange={(e) => setResultForm({ ...resultForm, result_value: e.target.value })} placeholder="Valeurs obtenues..." required />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Valeurs de référence" value={resultForm.normal_range} onChange={(e) => setResultForm({ ...resultForm, normal_range: e.target.value })} placeholder="Ex : 70–110 mg/dL" />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Réalisé par (labo / technicien)" value={resultForm.performed_by} onChange={(e) => setResultForm({ ...resultForm, performed_by: e.target.value })} />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Interprétation / Conclusion" multiline rows={2} value={resultForm.interpretation} onChange={(e) => setResultForm({ ...resultForm, interpretation: e.target.value })} />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={<Switch checked={resultForm.is_abnormal} onChange={(e) => setResultForm({ ...resultForm, is_abnormal: e.target.checked })} color="error" />}
+                label="Résultat anormal"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2" gutterBottom>Document PDF (optionnel)</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <Button variant="outlined" component="label" startIcon={<PdfIcon />} size="small">
+                  {selectedFile ? selectedFile.name : 'Importer un PDF'}
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null
+                      setSelectedFile(f)
+                      if (f) setRemovePdf(false)
+                    }}
+                  />
+                </Button>
+                {selectedFile && (
+                  <Button size="small" color="error" onClick={() => setSelectedFile(null)}>
+                    Annuler le fichier
+                  </Button>
+                )}
+                {editingResult?.pdf_file_url && !selectedFile && (
+                  <>
+                    <Button size="small" variant="text" startIcon={<PdfIcon />} href={editingResult.pdf_file_url} target="_blank" rel="noopener noreferrer">
+                      Voir le PDF actuel
+                    </Button>
+                    {!removePdf ? (
+                      <Button size="small" color="error" onClick={() => setRemovePdf(true)}>Supprimer le PDF</Button>
+                    ) : (
+                      <Chip label="PDF sera supprimé" color="warning" size="small" onDelete={() => setRemovePdf(false)} />
+                    )}
+                  </>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenResultDialog(false)}>Annuler</Button>
+          <Button variant="contained" onClick={handleSaveResult} disabled={!resultForm.title.trim() || !resultForm.result_value.trim() || !resultForm.exam_date}>
+            {editingResult ? 'Enregistrer' : 'Ajouter'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Confirmation suppression résultat */}
+      <Dialog open={!!resultToDelete} onClose={() => setResultToDelete(null)}>
+        <DialogTitle>Supprimer le résultat</DialogTitle>
+        <DialogContent>
+          <Typography>Supprimer le résultat &quot;{resultToDelete?.title}&quot; du {resultToDelete?.exam_date ? new Date(resultToDelete.exam_date).toLocaleDateString('fr-FR') : ''} ?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResultToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleDeleteResult}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

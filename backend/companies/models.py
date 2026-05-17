@@ -89,6 +89,33 @@ class CompanyMembership(models.Model):
         return f"{self.user.username} - {self.company.name}"
 
 
+class Doctor(models.Model):
+    """
+    Modèle pour les médecins (médecins du travail, traitants, spécialistes)
+    """
+    last_name = models.CharField(max_length=100, verbose_name="Nom")
+    first_name = models.CharField(max_length=100, verbose_name="Prénom")
+    specialty = models.CharField(max_length=200, blank=True, null=True, verbose_name="Spécialité")
+    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name="Téléphone")
+    email = models.EmailField(blank=True, null=True, verbose_name="Email")
+    company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name='doctors', verbose_name="Entreprise")
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Médecin"
+        verbose_name_plural = "Médecins"
+        ordering = ['last_name', 'first_name']
+
+    def __str__(self):
+        return f"Dr. {self.last_name} {self.first_name}"
+
+    @property
+    def full_name(self):
+        return f"Dr. {self.last_name} {self.first_name}"
+
+
 class JobPosition(models.Model):
     """
     Modèle pour les postes de travail

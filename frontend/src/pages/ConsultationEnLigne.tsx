@@ -25,6 +25,11 @@ import {
   InputAdornment,
   Card,
   CardContent,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material'
 import {
   VideoCall as VideoCallIcon,
@@ -32,6 +37,8 @@ import {
   ContentCopy as CopyIcon,
   OpenInNew as OpenInNewIcon,
   Videocam as VideocamIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -53,6 +60,10 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 interface ConsultationRecord {
   id: number
   subject: string
+  message?: string
+  preferred_date?: string
+  preferred_time?: string
+  agent?: number | null
   status: string
   status_display: string
   meeting_id: string
@@ -61,6 +72,21 @@ interface ConsultationRecord {
   scheduled_at?: string
   agent_name?: string
   agent_matricule?: string
+}
+
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'En attente' },
+  { value: 'scheduled', label: 'Planifiée' },
+  { value: 'in_progress', label: 'En cours' },
+  { value: 'completed', label: 'Terminée' },
+  { value: 'cancelled', label: 'Annulée' },
+]
+
+const statusColor = (status: string): 'success' | 'default' | 'primary' | 'warning' | 'error' => {
+  if (status === 'completed') return 'success'
+  if (status === 'cancelled') return 'default'
+  if (status === 'in_progress') return 'primary'
+  return 'warning'
 }
 
 export default function ConsultationEnLigne() {
@@ -79,6 +105,23 @@ export default function ConsultationEnLigne() {
   const [consultations, setConsultations] = useState<ConsultationRecord[]>([])
   const [createdLink, setCreatedLink] = useState<string | null>(null)
   const { hasMedicalAccess } = useAuth()
+
+  // Edit dialog state
+  const [editingConsultation, setEditingConsultation] = useState<ConsultationRecord | null>(null)
+  const [editForm, setEditForm] = useState({
+    subject: '',
+    message: '',
+    preferred_date: '',
+    preferred_time: '',
+    agent_id: '',
+    status: '',
+  })
+
+  // Delete dialog state
+  const [consultationToDelete, setConsultationToDelete] = useState<ConsultationRecord | null>(null)
+
+  const showSnackbar = (message: string, severity: 'success' | 'error') =>
+    setSnackbar({ open: true, message, severity })
 
   const loadAgents = async () => {
     try {
@@ -114,7 +157,7 @@ export default function ConsultationEnLigne() {
   const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.subject.trim()) {
-      setSnackbar({ open: true, message: 'Veuillez indiquer un sujet.', severity: 'error' })
+      showSnackbar('Veuillez indiquer un sujet.', 'error')
       return
     }
     setLoading(true)
@@ -131,26 +174,69 @@ export default function ConsultationEnLigne() {
       const link = r.data?.meeting_link
       setCreatedLink(link || null)
       setForm({ subject: '', message: '', preferred_date: '', preferred_time: '', agent_id: '' })
-      setSnackbar({
-        open: true,
-        message: link
+      showSnackbar(
+        link
           ? 'Consultation créée. Envoyez le lien ci-dessous à la personne pour qu\'elle rejoigne avec sa webcam.'
           : 'Consultation créée.',
-        severity: 'success',
-      })
+        'success',
+      )
       loadConsultations()
     } catch (err: any) {
       const msg = err?.response?.data?.detail || err?.response?.data?.subject?.[0] || 'Erreur lors de l\'envoi.'
-      setSnackbar({ open: true, message: String(msg), severity: 'error' })
+      showSnackbar(String(msg), 'error')
     } finally {
       setLoading(false)
     }
   }
 
+  const openEditDialog = (c: ConsultationRecord) => {
+    setEditingConsultation(c)
+    setEditForm({
+      subject: c.subject,
+      message: c.message ?? '',
+      preferred_date: c.preferred_date ?? '',
+      preferred_time: c.preferred_time ?? '',
+      agent_id: c.agent ? String(c.agent) : '',
+      status: c.status,
+    })
+  }
+
+  const handleUpdate = async () => {
+    if (!editingConsultation) return
+    try {
+      const payload: Record<string, unknown> = {
+        subject: editForm.subject.trim(),
+        message: editForm.message.trim() || null,
+        preferred_date: editForm.preferred_date || null,
+        preferred_time: editForm.preferred_time.trim() || null,
+        status: editForm.status,
+        agent: editForm.agent_id ? parseInt(editForm.agent_id, 10) : null,
+      }
+      await client.put(`/consultations/${editingConsultation.id}/`, payload)
+      showSnackbar('Consultation mise à jour', 'success')
+      setEditingConsultation(null)
+      loadConsultations()
+    } catch (err: any) {
+      showSnackbar(err?.response?.data?.detail || 'Erreur lors de la mise à jour', 'error')
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!consultationToDelete) return
+    try {
+      await client.delete(`/consultations/${consultationToDelete.id}/`)
+      setConsultations((prev) => prev.filter((c) => c.id !== consultationToDelete.id))
+      setConsultationToDelete(null)
+      showSnackbar('Consultation supprimée', 'success')
+    } catch (err: any) {
+      showSnackbar(err?.response?.data?.detail || 'Erreur lors de la suppression', 'error')
+    }
+  }
+
   const copyLink = (link: string) => {
     navigator.clipboard.writeText(link).then(
-      () => setSnackbar({ open: true, message: 'Lien copié dans le presse-papier.', severity: 'success' }),
-      () => setSnackbar({ open: true, message: 'Impossible de copier le lien.', severity: 'error' }),
+      () => showSnackbar('Lien copié dans le presse-papier.', 'success'),
+      () => showSnackbar('Impossible de copier le lien.', 'error'),
     )
   }
 
@@ -214,7 +300,7 @@ export default function ConsultationEnLigne() {
                 onClick={() => openRoom(createdLink, true)}
                 sx={{ bgcolor: 'white', color: 'success.dark' }}
               >
-                Rejoindre la visio (dans l’app)
+                Rejoindre la visio (dans l'app)
               </Button>
               <Button
                 variant="outlined"
@@ -313,7 +399,7 @@ export default function ConsultationEnLigne() {
           <TabPanel value={tabValue} index={1}>
             {consultations.length === 0 ? (
               <Typography color="text.secondary" sx={{ py: 4 }}>
-                Aucune consultation. Créez-en une dans l’onglet « Créer une consultation » pour obtenir un lien à envoyer.
+                Aucune consultation. Créez-en une dans l'onglet « Créer une consultation » pour obtenir un lien à envoyer.
               </Typography>
             ) : (
               <TableContainer>
@@ -322,9 +408,10 @@ export default function ConsultationEnLigne() {
                     <TableRow>
                       <TableCell>Sujet</TableCell>
                       <TableCell>Agent</TableCell>
+                      <TableCell>Date souhaitée</TableCell>
                       <TableCell>Statut</TableCell>
                       <TableCell>Créée le</TableCell>
-                      <TableCell align="right">Action</TableCell>
+                      <TableCell align="right">Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -333,34 +420,37 @@ export default function ConsultationEnLigne() {
                         <TableCell>{c.subject}</TableCell>
                         <TableCell>{c.agent_name ? `${c.agent_name} (${c.agent_matricule || ''})` : '–'}</TableCell>
                         <TableCell>
+                          {c.preferred_date ? new Date(c.preferred_date).toLocaleDateString('fr-FR') : '–'}
+                          {c.preferred_time ? ` — ${c.preferred_time}` : ''}
+                        </TableCell>
+                        <TableCell>
                           <Chip
                             label={c.status_display || c.status}
                             size="small"
-                            color={
-                              c.status === 'completed' ? 'success' :
-                              c.status === 'cancelled' ? 'default' :
-                              c.status === 'in_progress' ? 'primary' : 'warning'
-                            }
+                            color={statusColor(c.status)}
                           />
                         </TableCell>
                         <TableCell>{new Date(c.created_at).toLocaleDateString('fr-FR')}</TableCell>
                         <TableCell align="right">
-                          <Button
-                            size="small"
-                            variant="contained"
-                            startIcon={<VideocamIcon />}
-                            onClick={() => openRoom(c.meeting_link, true)}
-                            sx={{ mr: 0.5 }}
-                          >
-                            Rejoindre (visio)
-                          </Button>
-                          <Button
-                            size="small"
-                            startIcon={<CopyIcon />}
-                            onClick={() => copyLink(c.meeting_link)}
-                          >
-                            Copier le lien
-                          </Button>
+                          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              startIcon={<VideocamIcon />}
+                              onClick={() => openRoom(c.meeting_link, true)}
+                            >
+                              Rejoindre
+                            </Button>
+                            <IconButton size="small" onClick={() => copyLink(c.meeting_link)} title="Copier le lien">
+                              <CopyIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="primary" onClick={() => openEditDialog(c)} title="Modifier">
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="error" onClick={() => setConsultationToDelete(c)} title="Supprimer">
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -371,6 +461,104 @@ export default function ConsultationEnLigne() {
           </TabPanel>
         </Box>
       </Paper>
+
+      {/* Dialog : Modifier consultation */}
+      <Dialog open={!!editingConsultation} onClose={() => setEditingConsultation(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Modifier la consultation</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Sujet *"
+                value={editForm.subject}
+                onChange={(e) => setEditForm({ ...editForm, subject: e.target.value })}
+                required
+              />
+            </Grid>
+            {hasMedicalAccess && agents.length > 0 && (
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Agent concerné</InputLabel>
+                  <Select
+                    value={editForm.agent_id}
+                    onChange={(e) => setEditForm({ ...editForm, agent_id: e.target.value })}
+                    label="Agent concerné"
+                  >
+                    <MenuItem value="">— Aucun —</MenuItem>
+                    {agents.map((a) => (
+                      <MenuItem key={a.id} value={String(a.id)}>{a.full_name} ({a.matricule})</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Message / précisions"
+                multiline
+                rows={3}
+                value={editForm.message}
+                onChange={(e) => setEditForm({ ...editForm, message: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date souhaitée"
+                type="date"
+                value={editForm.preferred_date}
+                onChange={(e) => setEditForm({ ...editForm, preferred_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Créneau horaire"
+                value={editForm.preferred_time}
+                onChange={(e) => setEditForm({ ...editForm, preferred_time: e.target.value })}
+                placeholder="Ex : matin, 14h-16h..."
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Statut</InputLabel>
+                <Select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                  label="Statut"
+                >
+                  {STATUS_OPTIONS.map((s) => (
+                    <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditingConsultation(null)}>Annuler</Button>
+          <Button variant="contained" onClick={handleUpdate} disabled={!editForm.subject.trim()}>
+            Enregistrer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Confirmation suppression */}
+      <Dialog open={!!consultationToDelete} onClose={() => setConsultationToDelete(null)}>
+        <DialogTitle>Supprimer la consultation</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Supprimer la consultation &quot;{consultationToDelete?.subject}&quot; ? Cette action est irréversible.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConsultationToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleDelete}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}

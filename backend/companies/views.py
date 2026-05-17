@@ -1,9 +1,9 @@
 from rest_framework import viewsets, permissions
 from rest_framework.pagination import PageNumberPagination
-from .models import Company, Site, Service, CompanyMembership, JobPosition
+from .models import Company, Site, Service, CompanyMembership, JobPosition, Doctor
 from .serializers import (
     CompanySerializer, SiteSerializer, ServiceSerializer,
-    CompanyMembershipSerializer, JobPositionSerializer
+    CompanyMembershipSerializer, JobPositionSerializer, DoctorSerializer
 )
 from accounts.permissions import IsSuperAdminOrAdmin, CanManageCompanies
 
@@ -70,6 +70,24 @@ class JobPositionViewSet(viewsets.ModelViewSet):
         company_id = self.request.query_params.get('company', None)
         if company_id:
             queryset = queryset.filter(company_id=company_id)
+        return queryset
+
+
+class DoctorViewSet(viewsets.ModelViewSet):
+    queryset = Doctor.objects.all()
+    serializer_class = DoctorSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Doctor.objects.filter(is_active=True)
+        company_id = self.request.query_params.get('company', None)
+        search = self.request.query_params.get('search', None)
+        if company_id:
+            queryset = queryset.filter(company_id=company_id)
+        if search:
+            queryset = queryset.filter(
+                last_name__icontains=search
+            ) | queryset.filter(first_name__icontains=search)
         return queryset
 
 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Company, Site, Service, CompanyMembership, JobPosition
+from .models import Company, Site, Service, CompanyMembership, JobPosition, Doctor
 
 
 class CompanySerializer(serializers.ModelSerializer):
@@ -33,6 +33,15 @@ class JobPositionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = JobPosition
+        fields = '__all__'
+
+
+class DoctorSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source='company.name', read_only=True, allow_null=True)
+    full_name = serializers.ReadOnlyField()
+
+    class Meta:
+        model = Doctor
         fields = '__all__'
 
 

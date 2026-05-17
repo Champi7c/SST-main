@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import Agent, DMST, Pathology, AgentPathology, DMSTHistory
+from .models import Agent, DMST, Pathology, AgentPathology, DMSTHistory, MedicalResult
 from companies.models import Company, Site, Service, JobPosition
 from companies.serializers import CompanySerializer, SiteSerializer, ServiceSerializer, JobPositionSerializer
 from companies.models import Company
@@ -253,6 +253,8 @@ class DMSTSerializer(serializers.ModelSerializer):
     agent_direction = serializers.CharField(source='agent.company.name', read_only=True)
     agent_function = serializers.CharField(source='agent.function', read_only=True, allow_null=True)
     agent_site_name = serializers.CharField(source='agent.site.name', read_only=True, allow_null=True)
+    agent_phone = serializers.CharField(source='agent.phone', read_only=True, allow_null=True)
+    agent_gender = serializers.CharField(source='agent.gender', read_only=True, allow_null=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, allow_null=True)
     updated_by_name = serializers.CharField(source='updated_by.get_full_name', read_only=True, allow_null=True)
     visits_count = serializers.SerializerMethodField()
@@ -291,10 +293,29 @@ class AgentPathologySerializer(serializers.ModelSerializer):
     agent_name = serializers.SerializerMethodField()
     pathology_name = serializers.CharField(source='pathology.name', read_only=True)
     pathology_code = serializers.CharField(source='pathology.code', read_only=True)
-    
+
     def get_agent_name(self, obj):
         return f"{obj.agent.last_name} {obj.agent.first_name}"
-    
+
     class Meta:
         model = AgentPathology
         fields = '__all__'
+
+
+class MedicalResultSerializer(serializers.ModelSerializer):
+    result_type_display = serializers.CharField(source='get_result_type_display', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, allow_null=True)
+    pdf_file_url = serializers.SerializerMethodField()
+
+    def get_pdf_file_url(self, obj):
+        if obj.pdf_file:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.pdf_file.url)
+            return obj.pdf_file.url
+        return None
+
+    class Meta:
+        model = MedicalResult
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at', 'created_by']

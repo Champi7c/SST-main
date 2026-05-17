@@ -104,6 +104,17 @@ interface JobPosition {
   company_name?: string
   code?: string
 }
+interface Doctor {
+  id: number
+  last_name: string
+  first_name: string
+  full_name?: string
+  specialty?: string
+  phone?: string
+  email?: string
+  company?: number | null
+  company_name?: string
+}
 
 function TabPanel({ children, value, index }: { children: React.ReactNode; value: number; index: number }) {
   return (
@@ -125,9 +136,12 @@ export default function Settings() {
   const [sites, setSites] = useState<Site[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [jobPositions, setJobPositions] = useState<JobPosition[]>([])
+  const [doctors, setDoctors] = useState<Doctor[]>([])
 
   // Dialogues
   const [openVaccineDialog, setOpenVaccineDialog] = useState(false)
+  const [editingVaccine, setEditingVaccine] = useState<Vaccine | null>(null)
+  const [vaccineToDelete, setVaccineToDelete] = useState<Vaccine | null>(null)
   const [openTypeDialog, setOpenTypeDialog] = useState(false)
   const [openCategoryDialog, setOpenCategoryDialog] = useState(false)
   const [openVisitTypeDialog, setOpenVisitTypeDialog] = useState(false)
@@ -135,6 +149,12 @@ export default function Settings() {
   const [openCompanyDialog, setOpenCompanyDialog] = useState(false)
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null)
+  const [openSiteDialog, setOpenSiteDialog] = useState(false)
+  const [editingSite, setEditingSite] = useState<Site | null>(null)
+  const [siteToDelete, setSiteToDelete] = useState<Site | null>(null)
+  const [openDoctorDialog, setOpenDoctorDialog] = useState(false)
+  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null)
+  const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null)
 
   // Formulaires
   const [vaccineForm, setVaccineForm] = useState({ name: '', code: '', validity_period_months: '', description: '' })
@@ -145,6 +165,8 @@ export default function Settings() {
     vaccine: '', job_position: '', risk_category: '', mandatory: true,
   })
   const [companyForm, setCompanyForm] = useState({ name: '', siret: '', address: '', phone: '', email: '' })
+  const [siteForm, setSiteForm] = useState({ name: '', company: '' })
+  const [doctorForm, setDoctorForm] = useState({ last_name: '', first_name: '', specialty: '', phone: '', email: '', company: '' })
 
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const { user, canManageUsers } = useAuth()
@@ -163,12 +185,24 @@ export default function Settings() {
     client.get('/companies/sites/').then((r) => setSites(r.data.results ?? r.data)).catch(() => {})
     client.get('/companies/services/').then((r) => setServices(r.data.results ?? r.data)).catch(() => {})
     client.get('/companies/job-positions/').then((r) => setJobPositions(r.data.results ?? r.data)).catch(() => {})
+    client.get('/companies/doctors/?page_size=500').then((r) => setDoctors(r.data.results ?? r.data)).catch(() => {})
   }, [])
 
   const showSuccess = (message: string) => setSnackbar({ open: true, message, severity: 'success' })
   const showError = (message: string) => setSnackbar({ open: true, message, severity: 'error' })
 
   // Handlers vaccin
+  const openEditVaccine = (vaccine: Vaccine) => {
+    setEditingVaccine(vaccine)
+    setVaccineForm({
+      name: vaccine.name,
+      code: vaccine.code ?? '',
+      validity_period_months: vaccine.validity_period_months?.toString() ?? '',
+      description: '',
+    })
+    setOpenVaccineDialog(true)
+  }
+
   const handleCreateVaccine = async () => {
     try {
       const payload = {
@@ -180,9 +214,39 @@ export default function Settings() {
       setVaccines((prev) => [...prev, data])
       setOpenVaccineDialog(false)
       setVaccineForm({ name: '', code: '', validity_period_months: '', description: '' })
-      showSuccess('Vaccin cree avec succes')
+      showSuccess('Vaccin créé avec succès')
     } catch {
-      showError('Erreur lors de la creation du vaccin')
+      showError('Erreur lors de la création du vaccin')
+    }
+  }
+
+  const handleUpdateVaccine = async () => {
+    if (!editingVaccine) return
+    try {
+      const payload = {
+        name: vaccineForm.name,
+        code: vaccineForm.code || undefined,
+        validity_period_months: vaccineForm.validity_period_months ? Number(vaccineForm.validity_period_months) : undefined,
+      }
+      const { data } = await client.put(`/vaccination/vaccines/${editingVaccine.id}/`, payload)
+      setVaccines((prev) => prev.map((v) => (v.id === editingVaccine.id ? data : v)))
+      setOpenVaccineDialog(false)
+      setEditingVaccine(null)
+      showSuccess('Vaccin mis à jour avec succès')
+    } catch {
+      showError('Erreur lors de la mise à jour du vaccin')
+    }
+  }
+
+  const handleConfirmDeleteVaccine = async () => {
+    if (!vaccineToDelete) return
+    try {
+      await client.delete(`/vaccination/vaccines/${vaccineToDelete.id}/`)
+      setVaccines((prev) => prev.filter((v) => v.id !== vaccineToDelete.id))
+      setVaccineToDelete(null)
+      showSuccess('Vaccin supprimé')
+    } catch {
+      showError('Erreur lors de la suppression du vaccin')
     }
   }
 
@@ -310,6 +374,117 @@ export default function Settings() {
     }
   }
 
+  // Handlers site
+  const openEditSite = (site: Site) => {
+    setEditingSite(site)
+    setSiteForm({ name: site.name, company: site.company.toString() })
+    setOpenSiteDialog(true)
+  }
+
+  const handleCreateSite = async () => {
+    try {
+      const { data } = await client.post('/companies/sites/', { name: siteForm.name, company: parseInt(siteForm.company) })
+      setSites((prev) => [...prev, data])
+      setOpenSiteDialog(false)
+      setSiteForm({ name: '', company: '' })
+      showSuccess('Site créé avec succès')
+    } catch {
+      showError('Erreur lors de la création du site')
+    }
+  }
+
+  const handleUpdateSite = async () => {
+    if (!editingSite) return
+    try {
+      const { data } = await client.put(`/companies/sites/${editingSite.id}/`, { name: siteForm.name, company: parseInt(siteForm.company) })
+      setSites((prev) => prev.map((s) => (s.id === editingSite.id ? data : s)))
+      setOpenSiteDialog(false)
+      setEditingSite(null)
+      showSuccess('Site mis à jour avec succès')
+    } catch {
+      showError('Erreur lors de la mise à jour du site')
+    }
+  }
+
+  const handleConfirmDeleteSite = async () => {
+    if (!siteToDelete) return
+    try {
+      await client.delete(`/companies/sites/${siteToDelete.id}/`)
+      setSites((prev) => prev.filter((s) => s.id !== siteToDelete.id))
+      setSiteToDelete(null)
+      showSuccess('Site supprimé')
+    } catch {
+      showError('Erreur lors de la suppression du site')
+    }
+  }
+
+  // Handlers médecin
+  const openEditDoctor = (doctor: Doctor) => {
+    setEditingDoctor(doctor)
+    setDoctorForm({
+      last_name: doctor.last_name,
+      first_name: doctor.first_name,
+      specialty: doctor.specialty ?? '',
+      phone: doctor.phone ?? '',
+      email: doctor.email ?? '',
+      company: doctor.company ? String(doctor.company) : '',
+    })
+    setOpenDoctorDialog(true)
+  }
+
+  const handleCreateDoctor = async () => {
+    try {
+      const payload = {
+        last_name: doctorForm.last_name.trim(),
+        first_name: doctorForm.first_name.trim(),
+        specialty: doctorForm.specialty.trim() || null,
+        phone: doctorForm.phone.trim() || null,
+        email: doctorForm.email.trim() || null,
+        company: doctorForm.company ? parseInt(doctorForm.company) : null,
+      }
+      const { data } = await client.post('/companies/doctors/', payload)
+      setDoctors((prev) => [...prev, data])
+      setOpenDoctorDialog(false)
+      setDoctorForm({ last_name: '', first_name: '', specialty: '', phone: '', email: '', company: '' })
+      showSuccess('Médecin créé avec succès')
+    } catch {
+      showError('Erreur lors de la création du médecin')
+    }
+  }
+
+  const handleUpdateDoctor = async () => {
+    if (!editingDoctor) return
+    try {
+      const payload = {
+        last_name: doctorForm.last_name.trim(),
+        first_name: doctorForm.first_name.trim(),
+        specialty: doctorForm.specialty.trim() || null,
+        phone: doctorForm.phone.trim() || null,
+        email: doctorForm.email.trim() || null,
+        company: doctorForm.company ? parseInt(doctorForm.company) : null,
+      }
+      const { data } = await client.put(`/companies/doctors/${editingDoctor.id}/`, payload)
+      setDoctors((prev) => prev.map((d) => (d.id === editingDoctor.id ? data : d)))
+      setOpenDoctorDialog(false)
+      setEditingDoctor(null)
+      showSuccess('Médecin mis à jour avec succès')
+    } catch {
+      showError('Erreur lors de la mise à jour du médecin')
+    }
+  }
+
+  const handleConfirmDeleteDoctor = async () => {
+    if (!doctorToDelete) return
+    try {
+      await client.delete(`/companies/doctors/${doctorToDelete.id}/`)
+      setDoctors((prev) => prev.filter((d) => d.id !== doctorToDelete.id))
+      setDoctorToDelete(null)
+      showSuccess('Médecin supprimé')
+    } catch {
+      showError('Erreur lors de la suppression du médecin')
+    }
+  }
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
@@ -361,14 +536,23 @@ export default function Settings() {
               Gestion des referentiels utilises dans les modules Vaccination, Prevention et Formation.
             </Typography>
 
-            <Typography variant="subtitle1" sx={{ mt: 3, mb: 1 }}>
-              Vaccins
-            </Typography>
-            {canManageRefs && (
-              <Button startIcon={<AddIcon />} size="small" variant="outlined" sx={{ mb: 1 }} onClick={() => setOpenVaccineDialog(true)}>
-                Ajouter un vaccin
-              </Button>
-            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 3, mb: 1 }}>
+              <Typography variant="subtitle1">Vaccins</Typography>
+              {canManageRefs && (
+                <Button
+                  startIcon={<AddIcon />}
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    setEditingVaccine(null)
+                    setVaccineForm({ name: '', code: '', validity_period_months: '', description: '' })
+                    setOpenVaccineDialog(true)
+                  }}
+                >
+                  Ajouter un vaccin
+                </Button>
+              )}
+            </Box>
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
               <Table size="small">
                 <TableHead>
@@ -376,6 +560,7 @@ export default function Settings() {
                     <TableCell>Nom</TableCell>
                     <TableCell>Code</TableCell>
                     <TableCell>Validite (mois)</TableCell>
+                    {canManageRefs && <TableCell align="right">Actions</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -384,6 +569,16 @@ export default function Settings() {
                       <TableCell>{v.name}</TableCell>
                       <TableCell>{v.code || '-'}</TableCell>
                       <TableCell>{v.validity_period_months ?? '-'}</TableCell>
+                      {canManageRefs && (
+                        <TableCell align="right">
+                          <IconButton size="small" color="primary" onClick={() => openEditVaccine(v)} title="Modifier">
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => setVaccineToDelete(v)} title="Supprimer">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -602,15 +797,48 @@ export default function Settings() {
                 </TableBody>
               </Table>
             </TableContainer>
-            <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>Sites</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2, mb: 1 }}>
+              <Typography variant="subtitle1">Sites</Typography>
+              {canManageCompanies && (
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  size="small"
+                  onClick={() => {
+                    setEditingSite(null)
+                    setSiteForm({ name: '', company: '' })
+                    setOpenSiteDialog(true)
+                  }}
+                >
+                  Ajouter un site
+                </Button>
+              )}
+            </Box>
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
               <Table size="small">
                 <TableHead>
-                  <TableRow><TableCell>Nom</TableCell><TableCell>Entreprise</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell>Nom</TableCell>
+                    <TableCell>Entreprise</TableCell>
+                    {canManageCompanies && <TableCell align="right">Actions</TableCell>}
+                  </TableRow>
                 </TableHead>
                 <TableBody>
                   {sites.map((s) => (
-                    <TableRow key={s.id}><TableCell>{s.name}</TableCell><TableCell>{s.company_name ?? s.company}</TableCell></TableRow>
+                    <TableRow key={s.id}>
+                      <TableCell>{s.name}</TableCell>
+                      <TableCell>{s.company_name ?? s.company}</TableCell>
+                      {canManageCompanies && (
+                        <TableCell align="right">
+                          <IconButton size="small" color="primary" onClick={() => openEditSite(s)} title="Modifier">
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => setSiteToDelete(s)} title="Supprimer">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      )}
+                    </TableRow>
                   ))}
                 </TableBody>
               </Table>
@@ -629,7 +857,7 @@ export default function Settings() {
               </Table>
             </TableContainer>
             <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>Postes de travail</Typography>
-            <TableContainer component={Paper} variant="outlined">
+            <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
               <Table size="small">
                 <TableHead>
                   <TableRow><TableCell>Nom</TableCell><TableCell>Code</TableCell><TableCell>Entreprise</TableCell></TableRow>
@@ -641,13 +869,56 @@ export default function Settings() {
                 </TableBody>
               </Table>
             </TableContainer>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2, mb: 1 }}>
+              <Typography variant="subtitle1">Médecins</Typography>
+              {canManageCompanies && (
+                <Button variant="outlined" startIcon={<AddIcon />} size="small" onClick={() => { setEditingDoctor(null); setDoctorForm({ last_name: '', first_name: '', specialty: '', phone: '', email: '', company: '' }); setOpenDoctorDialog(true) }}>
+                  Ajouter un médecin
+                </Button>
+              )}
+            </Box>
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Nom</TableCell>
+                    <TableCell>Prénom</TableCell>
+                    <TableCell>Spécialité</TableCell>
+                    <TableCell>Téléphone</TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell>Entreprise</TableCell>
+                    {canManageCompanies && <TableCell align="right">Actions</TableCell>}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {doctors.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} align="center"><Typography variant="body2" color="text.secondary">Aucun médecin enregistré</Typography></TableCell></TableRow>
+                  ) : doctors.map((d) => (
+                    <TableRow key={d.id}>
+                      <TableCell>{d.last_name}</TableCell>
+                      <TableCell>{d.first_name}</TableCell>
+                      <TableCell>{d.specialty || '-'}</TableCell>
+                      <TableCell>{d.phone || '-'}</TableCell>
+                      <TableCell>{d.email || '-'}</TableCell>
+                      <TableCell>{d.company_name || '-'}</TableCell>
+                      {canManageCompanies && (
+                        <TableCell align="right">
+                          <IconButton size="small" color="primary" onClick={() => openEditDoctor(d)} title="Modifier"><EditIcon fontSize="small" /></IconButton>
+                          <IconButton size="small" color="error" onClick={() => setDoctorToDelete(d)} title="Supprimer"><DeleteIcon fontSize="small" /></IconButton>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </TabPanel>
         </Box>
       </Paper>
 
-      {/* Dialog : Vaccin */}
-      <Dialog open={openVaccineDialog} onClose={() => setOpenVaccineDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Nouveau vaccin</DialogTitle>
+      {/* Dialog : Vaccin (création / édition) */}
+      <Dialog open={openVaccineDialog} onClose={() => { setOpenVaccineDialog(false); setEditingVaccine(null) }} maxWidth="xs" fullWidth>
+        <DialogTitle>{editingVaccine ? 'Modifier le vaccin' : 'Nouveau vaccin'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
@@ -665,8 +936,26 @@ export default function Settings() {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenVaccineDialog(false)}>Annuler</Button>
-          <Button variant="contained" onClick={handleCreateVaccine} disabled={!vaccineForm.name}>Creer</Button>
+          <Button onClick={() => { setOpenVaccineDialog(false); setEditingVaccine(null) }}>Annuler</Button>
+          {editingVaccine ? (
+            <Button variant="contained" onClick={handleUpdateVaccine} disabled={!vaccineForm.name}>Enregistrer</Button>
+          ) : (
+            <Button variant="contained" onClick={handleCreateVaccine} disabled={!vaccineForm.name}>Créer</Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Confirmation suppression vaccin */}
+      <Dialog open={!!vaccineToDelete} onClose={() => setVaccineToDelete(null)}>
+        <DialogTitle>Supprimer le vaccin</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Supprimer le vaccin &quot;{vaccineToDelete?.name}&quot; ? Les enregistrements de vaccination liés ne seront pas supprimés.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVaccineToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleConfirmDeleteVaccine}>Supprimer</Button>
         </DialogActions>
       </Dialog>
 
@@ -903,6 +1192,117 @@ export default function Settings() {
               Supprimer
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Site (création / édition) */}
+      <Dialog open={openSiteDialog} onClose={() => { setOpenSiteDialog(false); setEditingSite(null) }} maxWidth="xs" fullWidth>
+        <DialogTitle>{editingSite ? 'Modifier le site' : 'Nouveau site'}</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Nom du site *"
+                value={siteForm.name}
+                onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Entreprise *</InputLabel>
+                <Select
+                  value={siteForm.company}
+                  onChange={(e) => setSiteForm({ ...siteForm, company: e.target.value })}
+                  label="Entreprise *"
+                >
+                  {companies.map((c) => (
+                    <MenuItem key={c.id} value={String(c.id)}>{c.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setOpenSiteDialog(false); setEditingSite(null) }}>Annuler</Button>
+          {editingSite ? (
+            <Button variant="contained" onClick={handleUpdateSite} disabled={!siteForm.name.trim() || !siteForm.company}>
+              Enregistrer
+            </Button>
+          ) : (
+            <Button variant="contained" onClick={handleCreateSite} disabled={!siteForm.name.trim() || !siteForm.company}>
+              Créer
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Confirmation suppression site */}
+      <Dialog open={!!siteToDelete} onClose={() => setSiteToDelete(null)}>
+        <DialogTitle>Supprimer le site</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Supprimer le site &quot;{siteToDelete?.name}&quot; ? Les agents rattachés à ce site ne seront pas supprimés.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSiteToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleConfirmDeleteSite}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Médecin (création / édition) */}
+      <Dialog open={openDoctorDialog} onClose={() => { setOpenDoctorDialog(false); setEditingDoctor(null) }} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingDoctor ? 'Modifier le médecin' : 'Nouveau médecin'}</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Nom *" value={doctorForm.last_name} onChange={(e) => setDoctorForm({ ...doctorForm, last_name: e.target.value })} required />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Prénom *" value={doctorForm.first_name} onChange={(e) => setDoctorForm({ ...doctorForm, first_name: e.target.value })} required />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Spécialité" value={doctorForm.specialty} onChange={(e) => setDoctorForm({ ...doctorForm, specialty: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Téléphone" value={doctorForm.phone} onChange={(e) => setDoctorForm({ ...doctorForm, phone: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Email" type="email" value={doctorForm.email} onChange={(e) => setDoctorForm({ ...doctorForm, email: e.target.value })} />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Entreprise</InputLabel>
+                <Select value={doctorForm.company} onChange={(e) => setDoctorForm({ ...doctorForm, company: e.target.value })} label="Entreprise">
+                  <MenuItem value="">-</MenuItem>
+                  {companies.map((c) => (<MenuItem key={c.id} value={String(c.id)}>{c.name}</MenuItem>))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setOpenDoctorDialog(false); setEditingDoctor(null) }}>Annuler</Button>
+          {editingDoctor ? (
+            <Button variant="contained" onClick={handleUpdateDoctor} disabled={!doctorForm.last_name.trim() || !doctorForm.first_name.trim()}>Enregistrer</Button>
+          ) : (
+            <Button variant="contained" onClick={handleCreateDoctor} disabled={!doctorForm.last_name.trim() || !doctorForm.first_name.trim()}>Créer</Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Confirmation suppression médecin */}
+      <Dialog open={!!doctorToDelete} onClose={() => setDoctorToDelete(null)}>
+        <DialogTitle>Supprimer le médecin</DialogTitle>
+        <DialogContent>
+          <Typography>Supprimer le médecin &quot;Dr. {doctorToDelete?.last_name} {doctorToDelete?.first_name}&quot; ?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDoctorToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleConfirmDeleteDoctor}>Supprimer</Button>
         </DialogActions>
       </Dialog>
 

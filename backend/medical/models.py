@@ -283,6 +283,47 @@ class Pathology(models.Model):
         return f"{self.code} - {self.name}"
 
 
+class MedicalResult(models.Model):
+    """
+    Résultats d'examens médicaux d'un agent
+    """
+    RESULT_TYPE_CHOICES = [
+        ('biologique', 'Analyses biologiques'),
+        ('radiologie', 'Radiologie / Imagerie'),
+        ('ecg', 'ECG / Cardiologie'),
+        ('audiometrie', 'Audiométrie'),
+        ('spirometrie', 'Spirométrie / EFR'),
+        ('visuel', 'Acuité visuelle'),
+        ('toxicologie', 'Toxicologie'),
+        ('autre', 'Autre'),
+    ]
+
+    agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='medical_results', verbose_name="Agent")
+    result_type = models.CharField(max_length=50, choices=RESULT_TYPE_CHOICES, default='biologique', verbose_name="Type d'examen")
+    title = models.CharField(max_length=255, verbose_name="Intitulé de l'examen")
+    exam_date = models.DateField(verbose_name="Date de l'examen")
+    result_value = models.TextField(verbose_name="Résultat")
+    normal_range = models.CharField(max_length=255, blank=True, null=True, verbose_name="Valeurs de référence")
+    interpretation = models.TextField(blank=True, null=True, verbose_name="Interprétation / Conclusion")
+    performed_by = models.CharField(max_length=255, blank=True, null=True, verbose_name="Réalisé par (labo / technicien)")
+    is_abnormal = models.BooleanField(default=False, verbose_name="Résultat anormal")
+    pdf_file = models.FileField(upload_to='medical_results/', blank=True, null=True, verbose_name="Fichier PDF")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='medical_results_created', verbose_name="Créé par"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Résultat médical"
+        verbose_name_plural = "Résultats médicaux"
+        ordering = ['-exam_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.agent} — {self.title} ({self.exam_date})"
+
+
 class AgentPathology(models.Model):
     """
     Lien entre agent et pathologie

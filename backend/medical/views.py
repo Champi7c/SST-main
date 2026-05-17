@@ -4,9 +4,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
-from .models import Agent, DMST, Pathology, AgentPathology, DMSTHistory
+from .models import Agent, DMST, Pathology, AgentPathology, DMSTHistory, MedicalResult
 from .serializers import (
-    AgentSerializer, DMSTSerializer, PathologySerializer, AgentPathologySerializer, DMSTHistorySerializer
+    AgentSerializer, DMSTSerializer, PathologySerializer, AgentPathologySerializer, DMSTHistorySerializer,
+    MedicalResultSerializer
 )
 from accounts.permissions import CanViewMedicalData, IsMedicalStaff, CanManageAgents
 from audit.models import MedicalDataAccess
@@ -320,3 +321,20 @@ class DMSTHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ['dmst', 'modified_by', 'modification_type']
     ordering_fields = ['modification_date']
     ordering = ['-modification_date']
+
+
+class MedicalResultViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet pour les résultats d'examens médicaux des agents
+    """
+    queryset = MedicalResult.objects.select_related('agent', 'created_by').all()
+    serializer_class = MedicalResultSerializer
+    permission_classes = [permissions.IsAuthenticated, CanViewMedicalData]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['agent', 'result_type', 'is_abnormal']
+    search_fields = ['title', 'result_value', 'performed_by']
+    ordering_fields = ['exam_date', 'created_at']
+    ordering = ['-exam_date']
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)

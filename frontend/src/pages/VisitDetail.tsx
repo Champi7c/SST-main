@@ -10,8 +10,14 @@ import {
   Chip,
   Alert,
   Divider,
+  Snackbar,
 } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import {
+  ArrowBack as ArrowBackIcon,
+  CheckCircle as CheckCircleIcon,
+  PersonOff as PersonOffIcon,
+  Cancel as CancelIcon,
+} from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -66,8 +72,30 @@ export default function VisitDetail() {
   const navigate = useNavigate()
   const [visit, setVisit] = useState<VisitDetailData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const { hasMedicalAccess } = useAuth()
+
+  const handleAction = async (action: 'complete' | 'mark_absent' | 'cancel') => {
+    if (!id) return
+    setActionLoading(true)
+    try {
+      const response = await client.post(`/visits/visits/${id}/${action}/`)
+      setVisit(response.data)
+      const messages = {
+        complete: 'Visite marquée comme réalisée',
+        mark_absent: 'Agent marqué comme absent',
+        cancel: 'Visite annulée',
+      }
+      setSnackbar({ open: true, message: messages[action], severity: 'success' })
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || 'Erreur lors de l\'action'
+      setSnackbar({ open: true, message: msg, severity: 'error' })
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -174,12 +202,60 @@ export default function VisitDetail() {
           <Field label="Modifiée le" value={visit.updated_at ? new Date(visit.updated_at).toLocaleString('fr-FR') : null} />
         </Grid>
 
+        {visit.status !== 'completed' && visit.status !== 'cancelled' && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Box display="flex" flexWrap="wrap" gap={1} sx={{ mt: 2 }}>
+              {visit.status !== 'absent' && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleIcon />}
+                  onClick={() => handleAction('complete')}
+                  disabled={actionLoading}
+                >
+                  Marquer comme réalisée
+                </Button>
+              )}
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<PersonOffIcon />}
+                onClick={() => handleAction('mark_absent')}
+                disabled={actionLoading}
+              >
+                Marquer absent
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<CancelIcon />}
+                onClick={() => handleAction('cancel')}
+                disabled={actionLoading}
+              >
+                Annuler la visite
+              </Button>
+            </Box>
+          </>
+        )}
+
         <Box sx={{ mt: 3 }}>
           <Button variant="outlined" onClick={() => navigate(`/dmst/${visit.agent}`)}>
             Voir le dossier médical de l'agent
           </Button>
         </Box>
       </Paper>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

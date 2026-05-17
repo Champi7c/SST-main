@@ -37,17 +37,12 @@ class Vaccination(models.Model):
         (3, '3ème dose'),
     ]
     
-    INTERVAL_CHOICES = [
-        (1, '1 mois'),
-        (6, '6 mois'),
-    ]
-    
     agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='vaccinations', verbose_name="Agent")
     vaccine = models.ForeignKey(Vaccine, on_delete=models.PROTECT, related_name='vaccinations', verbose_name="Vaccin")
-    
+
     vaccination_date = models.DateField(verbose_name="Date de vaccination")
     dose_number = models.IntegerField(choices=DOSE_CHOICES, default=1, verbose_name="Numéro de dose")
-    dose_interval_months = models.IntegerField(choices=INTERVAL_CHOICES, default=1, verbose_name="Intervalle entre doses (mois)")
+    dose_interval_months = models.IntegerField(default=1, verbose_name="Intervalle entre doses (mois)")
     batch_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="Numéro de lot")
     next_due_date = models.DateField(blank=True, null=True, verbose_name="Date de rappel")
     
@@ -66,7 +61,14 @@ class Vaccination(models.Model):
     
     # Observation
     observation = models.TextField(blank=True, null=True, verbose_name="Observation")
-    
+
+    # Statut de validation
+    STATUS_CHOICES = [
+        ('pending', 'En attente'),
+        ('validated', 'Validé'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Statut")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
