@@ -1050,7 +1050,7 @@ export default function DMST() {
     setSnackbar({ ...snackbar, open: false })
   }
 
-  const canEdit = user?.role ? ['super_admin', 'medecin', 'infirmier'].includes(user.role) : false
+  const canEdit = user?.role ? ['super_admin', 'medecin', 'infirmier', 'rh'].includes(user.role) : false
   const canEditObservation = hasMedicalAccess
 
   const obs = (formData.observation_form_data || {}) as Record<string, unknown>

@@ -1547,7 +1547,7 @@ const handleCreateDMST = async () => {
     setSnackbar({ ...snackbar, open: false })
   }
 
-  const canEdit = user?.role ? ['super_admin', 'medecin', 'infirmier'].includes(user.role) : false
+  const canEdit = user?.role ? ['super_admin', 'medecin', 'infirmier', 'rh'].includes(user.role) : false
   // Pour la fiche d'observation, permettre l'édition si l'utilisateur a l'accès médical
   const canEditObservation = hasMedicalAccess
 
