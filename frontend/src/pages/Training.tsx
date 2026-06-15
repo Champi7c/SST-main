@@ -30,7 +30,7 @@ import {
   CardContent,
   Divider,
 } from '@mui/material'
-import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon, Download as DownloadIcon, Upload as UploadIcon, Print as PrintIcon, WorkspacePremium as CertIcon } from '@mui/icons-material'
+import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon, Download as DownloadIcon, Upload as UploadIcon, Print as PrintIcon, WorkspacePremium as CertIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -777,8 +777,42 @@ const handlePrintCustomCertificate = (
 
      const win = window.open('', '_blank', 'width=820,height=950')
      if (win) {
-      win.document.write(html)
+win.document.write(html)
       win.document.close()
+    }
+  }
+
+  const handleUpdateAgentCertification = async () => {
+    if (!agentCertDialog.cert) return
+    try {
+      await client.patch(`/training/agent-certifications/${agentCertDialog.cert.id}/`, {
+        agent: agentCertForm.agent ? parseInt(agentCertForm.agent) : undefined,
+        training_requirement: agentCertForm.training_requirement ? parseInt(agentCertForm.training_requirement) : undefined,
+        start_date: agentCertForm.start_date || undefined,
+        end_date: agentCertForm.end_date || null,
+        next_due_date: agentCertForm.next_due_date || null,
+        training_organization: agentCertForm.training_organization || null,
+        trainer_name: agentCertForm.trainer_name || null,
+        result: agentCertForm.result || null,
+        certificate_number: agentCertForm.certificate_number || null,
+        notes: agentCertForm.notes || null,
+      })
+      showSnackbar('Certification modifiée', 'success')
+      setOpenAgentCertDialog(false)
+      fetchCertifications()
+    } catch (err: any) {
+      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
+    }
+  }
+
+  const handleDeleteAgentCertification = async (id: number) => {
+    if (!confirm('Supprimer cette certification ?')) return
+    try {
+      await client.delete(`/training/agent-certifications/${id}/`)
+      showSnackbar('Certification supprimée', 'success')
+      fetchCertifications()
+    } catch (err: any) {
+      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
     }
   }
 
@@ -1279,58 +1313,93 @@ const handlePrintCustomCertificate = (
              <TableContainer>
                <Table size="small">
                  <TableHead>
-                   <TableRow>
-                     <TableCell>Agent</TableCell>
-                     <TableCell>Formation</TableCell>
-                     <TableCell>Entreprise</TableCell>
-                     <TableCell>Date</TableCell>
-                     <TableCell>N° Attestation</TableCell>
-                     <TableCell>À jour</TableCell>
-                     <TableCell>Imprimer</TableCell>
-                   </TableRow>
-                 </TableHead>
-                 <TableBody>
-                   {certLoading ? (
-                     <TableRow>
-                       <TableCell colSpan={7} align="center">
-                         <CircularProgress size={20} />
-                       </TableCell>
-                     </TableRow>
-                   ) : certifications.length === 0 ? (
-                     <TableRow>
-                       <TableCell colSpan={7} align="center">
-                         <Typography variant="body2" color="text.secondary">Aucune certification</Typography>
-                       </TableCell>
-                     </TableRow>
-                   ) : (
-                     certifications.map((c) => (
-                       <TableRow key={c.id}>
-                         <TableCell>{c.agent_name} ({c.agent_matricule})</TableCell>
-                         <TableCell>{c.training_type_name}</TableCell>
-                         <TableCell>{c.company_name || '–'}</TableCell>
-                         <TableCell>{new Date(c.start_date).toLocaleDateString('fr-FR')}{c.end_date ? ` → ${new Date(c.end_date).toLocaleDateString('fr-FR')}` : ''}</TableCell>
-                         <TableCell>{c.certificate_number || '–'}</TableCell>
-                         <TableCell>
-                           {c.is_due ? (
-                             <Chip label="Rappel à faire" size="small" color="error" />
-                           ) : (
-                             <Chip label="À jour" size="small" color="success" />
-                           )}
-                         </TableCell>
-                         <TableCell>
-                           <Button
-                             size="small"
-                             variant="contained"
-                             startIcon={<PrintIcon />}
-                             onClick={() => setAgentCertDialog({ open: true, cert: c })}
-                           >
-                             Imprimer
-                           </Button>
-                         </TableCell>
-                       </TableRow>
-                     ))
-                   )}
-                 </TableBody>
+<TableRow>
+                      <TableCell>Agent</TableCell>
+                      <TableCell>Formation</TableCell>
+                      <TableCell>Entreprise</TableCell>
+                      <TableCell>Date</TableCell>
+                      <TableCell>N° Certificat</TableCell>
+                      <TableCell>À jour</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {certLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          <CircularProgress size={20} />
+                        </TableCell>
+                      </TableRow>
+                    ) : certifications.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          <Typography variant="body2" color="text.secondary">Aucune certification</Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      certifications.map((c) => (
+                        <TableRow key={c.id}>
+                          <TableCell>{c.agent_name} ({c.agent_matricule})</TableCell>
+                          <TableCell>{c.training_type_name}</TableCell>
+                          <TableCell>{c.company_name || '–'}</TableCell>
+                          <TableCell>{new Date(c.start_date).toLocaleDateString('fr-FR')}{c.end_date ? ` → ${new Date(c.end_date).toLocaleDateString('fr-FR')}` : ''}</TableCell>
+                          <TableCell>{c.certificate_number || '–'}</TableCell>
+                          <TableCell>
+                            {c.is_due ? (
+                              <Chip label="Rappel à faire" size="small" color="error" />
+                            ) : (
+                              <Chip label="À jour" size="small" color="success" />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                startIcon={<PrintIcon />}
+                                onClick={() => setAgentCertDialog({ open: true, cert: c })}
+                              >
+                                Imprimer
+                              </Button>
+                              {canManageUsers && (
+                                <Button
+                                  size="small"
+                                  startIcon={<EditIcon />}
+                                  onClick={() => {
+                                    setAgentCertForm({
+                                      agent: String(c.agent),
+                                      training_requirement: String(c.training_requirement),
+                                      start_date: c.start_date,
+                                      end_date: c.end_date || '',
+                                      next_due_date: c.next_due_date || '',
+                                      training_organization: c.training_organization || '',
+                                      trainer_name: c.trainer_name || '',
+                                      result: c.result || '',
+                                      certificate_number: c.certificate_number || '',
+                                      notes: c.notes || '',
+                                    })
+                                    setAgentCertDialog({ open: true, cert: c })
+                                  }}
+                                >
+                                  Modifier
+                                </Button>
+                              )}
+                              {canManageUsers && (
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  startIcon={<DeleteIcon />}
+                                  onClick={() => handleDeleteAgentCertification(c.id)}
+                                >
+                                  Supprimer
+                                </Button>
+                              )}
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
                </Table>
              </TableContainer>
            </TabPanel>

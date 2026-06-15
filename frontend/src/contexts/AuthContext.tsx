@@ -105,8 +105,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     navigate('/login')
   }
 
-  const hasMedicalAccess = user?.role ? ['super_admin', 'medecin', 'infirmier'].includes(user.role) : false
-  const canManageUsers = user?.role ? ['super_admin', 'admin', 'infirmier'].includes(user.role) : false
+  const hasMedicalAccess = user?.role ? ['super_admin', 'medecin', 'infirmier', 'rh'].includes(user.role) : false
+  const canManageUsers = user?.role ? ['super_admin', 'admin', 'infirmier', 'rh'].includes(user.role) : false
   const canManageCompanies = user?.role ? ['super_admin', 'admin', 'rh', 'infirmier'].includes(user.role) : false
 
   return (
