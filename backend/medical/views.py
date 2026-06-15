@@ -69,8 +69,8 @@ class AgentViewSet(viewsets.ModelViewSet):
         if not show_archived:
             queryset = queryset.filter(is_archived=False)
 
-        # Filtrage par entreprise : super_admin, médecin et infirmier voient tous les agents
-        unrestricted_roles = ['super_admin', 'medecin', 'infirmier']
+        # Filtrage par entreprise : super_admin, médecin, infirmier et rh voient tous les agents
+        unrestricted_roles = ['super_admin', 'medecin', 'infirmier', 'rh']
         if hasattr(self.request, 'user') and self.request.user.role not in unrestricted_roles:
             user_companies = list(
                 self.request.user.company_memberships.values_list('company_id', flat=True)
@@ -88,7 +88,7 @@ class AgentViewSet(viewsets.ModelViewSet):
     def _user_can_access_company(self, company_id):
         """Vérifie si l'utilisateur (non super_admin) a accès à cette entreprise."""
         # Le personnel médical (médecin, infirmier) et super_admin ont accès à toutes les entreprises
-        if self.request.user.role in ['super_admin', 'medecin', 'infirmier']:
+        if self.request.user.role in ['super_admin', 'medecin', 'infirmier', 'rh']:
             return True
         user_companies = list(
             self.request.user.company_memberships.values_list('company_id', flat=True)
