@@ -64,6 +64,28 @@ interface TrainingRecord {
   notes?: string
 }
 
+interface AgentCertificationRecord {
+  id: number
+  agent: number
+  training_requirement: number
+  training_type_name: string
+  training_type_code?: string
+  job_position_name?: string
+  job_position_code?: string
+  company_name?: string
+  agent_name?: string
+  agent_matricule?: string
+  start_date: string
+  end_date?: string
+  next_due_date?: string
+  training_organization?: string
+  trainer_name?: string
+  result?: string
+  certificate_number?: string
+  notes?: string
+  is_due: boolean
+}
+
 interface EducationalArticle {
   id: number
   title: string
@@ -83,7 +105,9 @@ interface Company {
 interface Agent {
   id: number
   matricule: string
-  full_name: string
+  last_name?: string
+  first_name?: string
+  full_name?: string
 }
 interface JobPosition {
   id: number
@@ -131,18 +155,36 @@ export default function Training() {
   const [recipientsArticle, setRecipientsArticle] = useState<EducationalArticle | null>(null)
   const [recipients, setRecipients] = useState<ArticleRecipientRecord[]>([])
   const [requirements, setRequirements] = useState<TrainingRequirementRecord[]>([])
-  const [jobPositions, setJobPositions] = useState<JobPosition[]>([])
+const [jobPositions, setJobPositions] = useState<JobPosition[]>([])
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
   const [companyFilter, setCompanyFilter] = useState<string>('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [importLoading, setImportLoading] = useState(false)
   const importFileInputRef = useRef<HTMLInputElement>(null)
   const [certDialog, setCertDialog] = useState<{ open: boolean; training: TrainingRecord | null; participantName: string }>({ open: false, training: null, participantName: '' })
+  const [agentCertDialog, setAgentCertDialog] = useState<{ open: boolean; cert: AgentCertificationRecord | null }>({ open: false, cert: null })
   const emptyCertForm = { formationName: '', dateDebut: '', dateFin: '', organisation: '', formateur: '', certificatNo: '', resultat: '', validiteDate: '' }
   const [newCertDialog, setNewCertDialog] = useState(false)
   const [newCertForm, setNewCertForm] = useState(emptyCertForm)
   const [newCertParticipant, setNewCertParticipant] = useState('')
   const { user, canManageUsers } = useAuth()
+const [certifications, setCertifications] = useState<AgentCertificationRecord[]>([])
+   const [certCompanyFilter, setCertCompanyFilter] = useState<string>('')
+   const [certLoading, setCertLoading] = useState(false)
+   const [agentCertForm, setAgentCertForm] = useState({
+    agent: '',
+    training_requirement: '',
+    start_date: '',
+    end_date: '',
+    next_due_date: '',
+    training_organization: '',
+    trainer_name: '',
+    result: '',
+    certificate_number: '',
+    notes: '',
+  })
+  const [openAgentCertDialog, setOpenAgentCertDialog] = useState(false)
+
   const [requirementForm, setRequirementForm] = useState({
     company: '',
     training_type: '',
@@ -172,30 +214,49 @@ export default function Training() {
     is_published: false,
   })
 
-  const canManage = user?.role ? ['super_admin', 'admin', 'consultant', 'hse', 'direction', 'medecin', 'rh', 'infirmier'].includes(user.role) : false
+const canManage = user?.role ? ['super_admin', 'admin', 'consultant', 'hse', 'direction', 'medecin', 'rh', 'infirmier'].includes(user.role) : false
 
-  useEffect(() => {
-    fetchTrainingTypes()
-    fetchTrainings()
-    fetchArticles()
-    fetchAgents()
-    fetchCompanies()
-    fetchRequirements()
-  }, [companyFilter, statusFilter])
+   useEffect(() => {
+     fetchTrainingTypes()
+     fetchTrainings()
+     fetchArticles()
+     fetchAgents()
+     fetchCompanies()
+     fetchRequirements()
+   }, [companyFilter, statusFilter])
 
-  useEffect(() => {
-    if (requirementForm.company) fetchJobPositions(requirementForm.company)
-    else setJobPositions([])
-  }, [requirementForm.company])
+   useEffect(() => {
+     if (tabValue === 3) fetchCertifications()
+   }, [tabValue, certCompanyFilter])
 
-  const fetchCompanies = async () => {
-    try {
-      const r = await client.get('/companies/companies/')
-      setCompanies(r.data.results || r.data)
-    } catch {
-      /**/
-    }
-  }
+   useEffect(() => {
+     if (requirementForm.company) fetchJobPositions(requirementForm.company)
+     else setJobPositions([])
+   }, [requirementForm.company])
+
+   const fetchCompanies = async () => {
+     try {
+       const r = await client.get('/companies/companies/')
+       setCompanies(r.data.results || r.data)
+     } catch {
+       /**/
+     }
+   }
+
+   const fetchCertifications = async () => {
+     setCertLoading(true)
+     try {
+       const params: Record<string, string> = {}
+       if (certCompanyFilter) params['training_requirement__job_position__company'] = certCompanyFilter
+       const r = await client.get('/training/agent-certifications/', { params })
+       setCertifications(r.data.results || r.data)
+     } catch (e) {
+       console.error(e)
+       showSnackbar('Erreur chargement certifications', 'error')
+     } finally {
+       setCertLoading(false)
+     }
+   }
 
   const fetchTrainingTypes = async () => {
     try {
@@ -357,7 +418,7 @@ export default function Training() {
     }
   }
 
-  const handleCreateRequirement = async () => {
+const handleCreateRequirement = async () => {
     try {
       await client.post('/training/requirements/', {
         training_type: parseInt(requirementForm.training_type),
@@ -368,6 +429,28 @@ export default function Training() {
       setOpenRequirementsDialog(false)
       setRequirementForm({ company: '', training_type: '', job_position: '', mandatory: true })
       fetchRequirements()
+    } catch (err: any) {
+      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
+    }
+  }
+
+  const handleCreateAgentCertification = async () => {
+    try {
+      await client.post('/training/agent-certifications/', {
+        agent: parseInt(agentCertForm.agent),
+        training_requirement: parseInt(agentCertForm.training_requirement),
+        start_date: agentCertForm.start_date,
+        end_date: agentCertForm.end_date || null,
+        next_due_date: agentCertForm.next_due_date || null,
+        training_organization: agentCertForm.training_organization || null,
+        trainer_name: agentCertForm.trainer_name || null,
+        result: agentCertForm.result || null,
+        certificate_number: agentCertForm.certificate_number || null,
+        notes: agentCertForm.notes || null,
+      })
+      showSnackbar('Certification enregistrée', 'success')
+      setOpenAgentCertDialog(false)
+      fetchCertifications()
     } catch (err: any) {
       showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
     }
@@ -446,7 +529,7 @@ export default function Training() {
 
     const proHeader = isPro ? `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <img src="${logoOrigin}/coly.png" alt="Logo" style="height:80px;object-fit:contain;" />
+        <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
         <div style="text-align:right;font-size:12px;color:#555;">
           <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
           <div>Département Hygiène, Sécurité et Environnement</div>
@@ -526,7 +609,7 @@ export default function Training() {
     }
   }
 
-  const handlePrintCustomCertificate = (
+const handlePrintCustomCertificate = (
     participantName: string,
     form: typeof emptyCertForm
   ) => {
@@ -536,7 +619,7 @@ export default function Training() {
     const borderStyle = '3px double #1976d2'
     const proHeader = isPro ? `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <img src="${logoOrigin}/coly.png" alt="Logo" style="height:80px;object-fit:contain;" />
+        <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
         <div style="text-align:right;font-size:12px;color:#555;">
           <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
           <div>Département Hygiène, Sécurité et Environnement</div>
@@ -609,6 +692,91 @@ export default function Training() {
 
     const win = window.open('', '_blank', 'width=820,height=950')
     if (win) {
+      win.document.write(html)
+      win.document.close()
+    }
+  }
+
+  const handlePrintAgentCertification = (cert: AgentCertificationRecord) => {
+     const isPro = true
+     const logoOrigin = window.location.origin
+     const accentColor = '#1976d2'
+     const borderStyle = '3px double #1976d2'
+     const proHeader = isPro ? `
+       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+         <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
+         <div style="text-align:right;font-size:12px;color:#555;">
+           <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
+           <div>Département Hygiène, Sécurité et Environnement</div>
+         </div>
+       </div>
+       <hr style="border:none;border-top:2px solid #1976d2;margin-bottom:28px;" />
+     ` : ''
+     const innerBorder = isPro ? `<div style="position:absolute;top:10px;left:10px;right:10px;bottom:10px;border:1px solid #90caf9;pointer-events:none;"></div>` : ''
+
+     const detailRow = (label: string, value: string) =>
+       value ? `<div class="detail-item"><div class="detail-label">${label}</div><div>${value}</div></div>` : ''
+
+     const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('fr-FR') : '–'
+     const details = [
+       detailRow('Date de début', fmtDate(cert.start_date)),
+       cert.end_date ? detailRow('Date de fin', fmtDate(cert.end_date)) : '',
+       cert.training_organization ? detailRow('Organisme formateur', cert.training_organization) : '',
+       cert.trainer_name ? detailRow('Formateur', cert.trainer_name) : '',
+       cert.result ? detailRow('Résultat', cert.result) : '',
+       cert.next_due_date ? detailRow("Valide jusqu'au", fmtDate(cert.next_due_date)) : '',
+     ].filter(Boolean).join('')
+
+     const html = `<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8" />
+  <title>Certificat – ${cert.training_type_name}</title>
+  <style>
+    @page { size: A4; margin: 20mm; }
+    body { font-family: Georgia, serif; margin: 0; background: #fff; color: #222; }
+    .cert-container { max-width: 680px; margin: 20px auto; border: ${borderStyle}; padding: 48px; position: relative; }
+    h1 { text-align:center; text-transform:uppercase; letter-spacing:3px; font-size:${isPro ? '26px' : '22px'}; color:${accentColor}; margin:0 0 6px; }
+    .subtitle { text-align:center; font-size:13px; color:#888; margin-bottom:32px; }
+    .certify-text { text-align:center; font-size:16px; margin-bottom:12px; }
+    .name-wrap { text-align:center; margin-bottom:20px; }
+    .name { font-size:26px; font-weight:bold; border-bottom:2px solid ${accentColor}; padding:0 24px 6px; }
+    .training-name { text-align:center; font-size:19px; font-style:italic; color:${accentColor}; margin:16px 0 28px; }
+    .details { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 32px; }
+    .detail-item { background:#f7f7f7; padding:10px 14px; border-radius:4px; border-left:3px solid ${accentColor}; font-size:14px; }
+    .detail-label { font-weight:bold; color:#666; font-size:11px; text-transform:uppercase; margin-bottom:2px; }
+    .signature-area { display:flex; justify-content:space-between; margin-top:48px; }
+    .signature-box { text-align:center; width:40%; }
+    .signature-line { border-top:1px solid #555; padding-top:8px; font-size:12px; color:#555; }
+    .cert-number { text-align:center; font-size:11px; color:#aaa; margin-top:24px; }
+    @media print { body { margin:0; } }
+  </style>
+</head>
+<body>
+  <div class="cert-container">
+    ${innerBorder}
+    ${proHeader}
+    <h1>Certificat de Formation</h1>
+    <div class="subtitle">Service de Santé au Travail</div>
+    <div class="certify-text">Le présent certificat atteste que</div>
+    <div class="name-wrap"><span class="name">${cert.agent_name || 'Participant'}</span></div>
+    <div class="certify-text">a suivi avec succès la formation</div>
+    <div class="training-name">${cert.training_type_name}</div>
+    <div class="details">${details}</div>
+    <div class="signature-area">
+      <div class="signature-box">
+        <div class="signature-line">Le Formateur<br/>${cert.trainer_name || '..............................'}</div>
+      </div>
+      <div class="signature-box">
+        <div class="signature-line">Le Responsable SST</div>
+      </div>
+    </div>
+    ${cert.certificate_number ? `<div class="cert-number">N° Certificat : ${cert.certificate_number}</div>` : ''}
+  </div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`
+
+     const win = window.open('', '_blank', 'width=820,height=950')
+     if (win) {
       win.document.write(html)
       win.document.close()
     }
@@ -1094,49 +1262,78 @@ export default function Training() {
             </TableContainer>
           </TabPanel>
 
-          <TabPanel value={tabValue} index={3}>
-            {canManageUsers && (
-              <Button
-                startIcon={<AddIcon />}
-                variant="outlined"
-                sx={{ mb: 2 }}
-                onClick={() => {
-                  setRequirementForm({ company: companyFilter || '', training_type: '', job_position: '', mandatory: true })
-                  setOpenRequirementsDialog(true)
-                }}
-              >
-                Ajouter une certification
-              </Button>
-            )}
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Type de formation</TableCell>
-                    <TableCell>Poste de travail</TableCell>
-                    <TableCell>Obligatoire</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {requirements.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} align="center">
-                        <Typography variant="body2" color="text.secondary">Aucune certification</Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    requirements.map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell>{r.training_type_name}</TableCell>
-                        <TableCell>{r.job_position_name}</TableCell>
-                        <TableCell>{r.mandatory ? <Chip label="Oui" size="small" color="primary" /> : 'Non'}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </TabPanel>
+<TabPanel value={tabValue} index={3}>
+             {canManageUsers && (
+               <Button
+                 startIcon={<AddIcon />}
+                 variant="outlined"
+                 sx={{ mb: 2 }}
+                 onClick={() => {
+                   setAgentCertForm({ agent: '', training_requirement: '', start_date: '', end_date: '', next_due_date: '', training_organization: '', trainer_name: '', result: '', certificate_number: '', notes: '' })
+                   setOpenAgentCertDialog(true)
+                 }}
+               >
+                 Ajouter une certification
+               </Button>
+             )}
+             <TableContainer>
+               <Table size="small">
+                 <TableHead>
+                   <TableRow>
+                     <TableCell>Agent</TableCell>
+                     <TableCell>Formation</TableCell>
+                     <TableCell>Entreprise</TableCell>
+                     <TableCell>Date</TableCell>
+                     <TableCell>N° Attestation</TableCell>
+                     <TableCell>À jour</TableCell>
+                     <TableCell>Imprimer</TableCell>
+                   </TableRow>
+                 </TableHead>
+                 <TableBody>
+                   {certLoading ? (
+                     <TableRow>
+                       <TableCell colSpan={7} align="center">
+                         <CircularProgress size={20} />
+                       </TableCell>
+                     </TableRow>
+                   ) : certifications.length === 0 ? (
+                     <TableRow>
+                       <TableCell colSpan={7} align="center">
+                         <Typography variant="body2" color="text.secondary">Aucune certification</Typography>
+                       </TableCell>
+                     </TableRow>
+                   ) : (
+                     certifications.map((c) => (
+                       <TableRow key={c.id}>
+                         <TableCell>{c.agent_name} ({c.agent_matricule})</TableCell>
+                         <TableCell>{c.training_type_name}</TableCell>
+                         <TableCell>{c.company_name || '–'}</TableCell>
+                         <TableCell>{new Date(c.start_date).toLocaleDateString('fr-FR')}{c.end_date ? ` → ${new Date(c.end_date).toLocaleDateString('fr-FR')}` : ''}</TableCell>
+                         <TableCell>{c.certificate_number || '–'}</TableCell>
+                         <TableCell>
+                           {c.is_due ? (
+                             <Chip label="Rappel à faire" size="small" color="error" />
+                           ) : (
+                             <Chip label="À jour" size="small" color="success" />
+                           )}
+                         </TableCell>
+                         <TableCell>
+                           <Button
+                             size="small"
+                             variant="contained"
+                             startIcon={<PrintIcon />}
+                             onClick={() => setAgentCertDialog({ open: true, cert: c })}
+                           >
+                             Imprimer
+                           </Button>
+                         </TableCell>
+                       </TableRow>
+                     ))
+                   )}
+                 </TableBody>
+               </Table>
+             </TableContainer>
+           </TabPanel>
 
           <TabPanel value={tabValue} index={4}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
@@ -1581,7 +1778,7 @@ export default function Training() {
                   <Box sx={{ position: 'absolute', top: 10, left: 10, right: 10, bottom: 10, border: '1px solid #90caf9', pointerEvents: 'none' }} />
 
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                    <Box component="img" src="/coly.png" alt="Logo" sx={{ height: 72, objectFit: 'contain' }} />
+                    <Box component="img" src="/logo%20sst.jpeg" alt="Logo SST" sx={{ height: 72, objectFit: 'contain' }} />
                     <Box sx={{ textAlign: 'right' }}>
                       <Typography sx={{ fontWeight: 'bold', fontSize: 15, color: '#1976d2' }}>SERVICE DE SANTÉ AU TRAVAIL</Typography>
                       <Typography sx={{ fontSize: 12, color: '#555' }}>Département Hygiène, Sécurité et Environnement</Typography>
@@ -1714,7 +1911,7 @@ export default function Training() {
                 }}>
                   <Box sx={{ position: 'absolute', top: 10, left: 10, right: 10, bottom: 10, border: '1px solid #90caf9', pointerEvents: 'none' }} />
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                    <Box component="img" src="/coly.png" alt="Logo" sx={{ height: 68, objectFit: 'contain' }} />
+                    <Box component="img" src="/logo%20sst.jpeg" alt="Logo SST" sx={{ height: 68, objectFit: 'contain' }} />
                     <Box sx={{ textAlign: 'right' }}>
                       <Typography sx={{ fontWeight: 'bold', fontSize: 14, color: '#1976d2' }}>SERVICE DE SANTÉ AU TRAVAIL</Typography>
                       <Typography sx={{ fontSize: 11, color: '#555' }}>Département Hygiène, Sécurité et Environnement</Typography>
@@ -1786,6 +1983,224 @@ export default function Training() {
         </DialogActions>
       </Dialog>
 
+      <Dialog open={openAgentCertDialog} onClose={() => setOpenAgentCertDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Nouvelle certification d'agent</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Agent *</InputLabel>
+                <Select
+                  value={agentCertForm.agent}
+                  onChange={(e) => setAgentCertForm({ ...agentCertForm, agent: e.target.value })}
+                  label="Agent *"
+                >
+                  {_agents.map((a) => (
+                    <MenuItem key={a.id} value={String(a.id)}>{a.full_name} ({a.matricule})</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Formation requise *</InputLabel>
+                <Select
+                  value={agentCertForm.training_requirement}
+                  onChange={(e) => setAgentCertForm({ ...agentCertForm, training_requirement: e.target.value })}
+                  label="Formation requise *"
+                >
+                  {requirements.map((r) => (
+                    <MenuItem key={r.id} value={String(r.id)}>{r.training_type_name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date de début *"
+                type="date"
+                value={agentCertForm.start_date}
+                onChange={(e) => setAgentCertForm({ ...agentCertForm, start_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date de fin"
+                type="date"
+                value={agentCertForm.end_date}
+                onChange={(e) => setAgentCertForm({ ...agentCertForm, end_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Prochain rappel"
+                type="date"
+                value={agentCertForm.next_due_date}
+                onChange={(e) => setAgentCertForm({ ...agentCertForm, next_due_date: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Organisme formateur"
+                value={agentCertForm.training_organization}
+                onChange={(e) => setAgentCertForm({ ...agentCertForm, training_organization: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Formateur"
+                value={agentCertForm.trainer_name}
+                onChange={(e) => setAgentCertForm({ ...agentCertForm, trainer_name: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Résultat"
+                value={agentCertForm.result}
+                onChange={(e) => setAgentCertForm({ ...agentCertForm, result: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="N° certificat"
+                value={agentCertForm.certificate_number}
+                onChange={(e) => setAgentCertForm({ ...agentCertForm, certificate_number: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Notes"
+                multiline
+                rows={2}
+                value={agentCertForm.notes}
+                onChange={(e) => setAgentCertForm({ ...agentCertForm, notes: e.target.value })}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenAgentCertDialog(false)}>Annuler</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateAgentCertification}
+            disabled={!agentCertForm.agent || !agentCertForm.training_requirement || !agentCertForm.start_date}
+          >
+            Enregistrer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={agentCertDialog.open} onClose={() => setAgentCertDialog({ ...agentCertDialog, open: false })} maxWidth="lg" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <CertIcon color="primary" />
+          Certificat
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Grid container sx={{ minHeight: 560 }}>
+            <Grid item xs={12} md={7} sx={{ p: 3, bgcolor: '#e8e8e8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto' }}>
+              <Box sx={{ transform: 'scale(0.75)', transformOrigin: 'top center', width: '680px', flexShrink: 0 }}>
+                <Box sx={{
+                  bgcolor: '#fff',
+                  border: '3px double #1976d2',
+                  p: '48px',
+                  fontFamily: 'Georgia, serif',
+                  position: 'relative',
+                }}>
+                  <Box sx={{ position: 'absolute', top: 10, left: 10, right: 10, bottom: 10, border: '1px solid #90caf9', pointerEvents: 'none' }} />
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                    <Box component="img" src="/logo%20sst.jpeg" alt="Logo SST" sx={{ height: 72, objectFit: 'contain' }} />
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography sx={{ fontWeight: 'bold', fontSize: 15, color: '#1976d2' }}>SERVICE DE SANTÉ AU TRAVAIL</Typography>
+                      <Typography sx={{ fontSize: 12, color: '#555' }}>Département Hygiène, Sécurité et Environnement</Typography>
+                    </Box>
+                  </Box>
+                  <Divider sx={{ borderColor: '#1976d2', borderWidth: 2, mb: 3 }} />
+
+                  <Typography sx={{ textAlign: 'center', textTransform: 'uppercase', letterSpacing: 3, fontSize: 26, fontWeight: 'bold', color: '#1976d2', mb: 0.5 }}>
+                    Certificat de Formation
+                  </Typography>
+                  <Typography sx={{ textAlign: 'center', fontSize: 13, color: '#888', mb: 4 }}>Service de Santé au Travail</Typography>
+
+                  <Typography sx={{ textAlign: 'center', fontSize: 16, mb: 1.5 }}>Le présent certificat atteste que</Typography>
+
+                  <Box sx={{ textAlign: 'center', mb: 3 }}>
+                    <Typography component="span" sx={{ fontSize: 26, fontWeight: 'bold', borderBottom: '2px solid #1976d2', px: 3, pb: 0.5, display: 'inline-block' }}>
+                      {agentCertDialog.cert?.agent_name || 'Agent'}
+                    </Typography>
+                  </Box>
+
+                  <Typography sx={{ textAlign: 'center', fontSize: 16, mb: 1 }}>a suivi avec succès la formation</Typography>
+                  <Typography sx={{ textAlign: 'center', fontSize: 19, fontStyle: 'italic', color: '#1976d2', mb: 3 }}>
+                    {agentCertDialog.cert?.training_type_name || 'Formation'}
+                  </Typography>
+
+                  <Grid container spacing={1.5} sx={{ mb: 4 }}>
+                    {[
+                      { label: 'Date de début', val: agentCertDialog.cert?.start_date ? new Date(agentCertDialog.cert.start_date).toLocaleDateString('fr-FR') : '–' },
+                      { label: 'Date de fin', val: agentCertDialog.cert?.end_date ? new Date(agentCertDialog.cert.end_date).toLocaleDateString('fr-FR') : '–' },
+                      ...(agentCertDialog.cert?.training_organization ? [{ label: 'Organisme formateur', val: agentCertDialog.cert.training_organization }] : []),
+                      ...(agentCertDialog.cert?.trainer_name ? [{ label: 'Formateur', val: agentCertDialog.cert.trainer_name }] : []),
+                      ...(agentCertDialog.cert?.result ? [{ label: 'Résultat', val: agentCertDialog.cert.result }] : []),
+                      ...(agentCertDialog.cert?.next_due_date ? [{ label: "Valide jusqu'au", val: new Date(agentCertDialog.cert.next_due_date).toLocaleDateString('fr-FR') }] : []),
+                    ].map((item) => (
+                      <Grid item xs={6} key={item.label}>
+                        <Box sx={{ bgcolor: '#f7f7f7', p: 1.5, borderRadius: 1, borderLeft: '3px solid #1976d2' }}>
+                          <Typography sx={{ fontSize: 11, fontWeight: 'bold', color: '#666', textTransform: 'uppercase', mb: 0.3 }}>{item.label}</Typography>
+                          <Typography sx={{ fontSize: 14 }}>{item.val}</Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 6 }}>
+                    <Box sx={{ width: '40%', textAlign: 'center' }}>
+                      <Divider sx={{ borderColor: '#555', mb: 1 }} />
+                      <Typography sx={{ fontSize: 12, color: '#555' }}>Le Formateur<br />{agentCertDialog.cert?.trainer_name || '..............................'}</Typography>
+                    </Box>
+                    <Box sx={{ width: '40%', textAlign: 'center' }}>
+                      <Divider sx={{ borderColor: '#555', mb: 1 }} />
+                      <Typography sx={{ fontSize: 12, color: '#555' }}>Le Responsable SST</Typography>
+                    </Box>
+                  </Box>
+
+{agentCertDialog.cert?.certificate_number && (
+                     <Typography sx={{ textAlign: 'center', fontSize: 11, color: '#aaa', mt: 3 }}>
+                       N° Certificat : {agentCertDialog.cert.certificate_number}
+                     </Typography>
+                   )}
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid', borderColor: 'divider', p: 2 }}>
+          <Button onClick={() => setAgentCertDialog({ ...agentCertDialog, open: false })}>Annuler</Button>
+          <Button
+            variant="contained"
+            startIcon={<PrintIcon />}
+            onClick={() => {
+              if (agentCertDialog.cert) handlePrintAgentCertification(agentCertDialog.cert)
+              setAgentCertDialog({ ...agentCertDialog, open: false })
+            }}
+          >
+            Imprimer cette attestation
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
@@ -1797,3 +2212,4 @@ export default function Training() {
     </Box>
   )
 }
+

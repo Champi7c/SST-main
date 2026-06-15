@@ -1,11 +1,8 @@
-"""
-Modèles pour la gestion de la formation et de l'éducation sanitaire.
-SST, incendie, EPI, hygiène & sécurité ; certifications par poste ; diffusion ciblée.
-"""
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from medical.models import Agent
+from companies.models import JobPosition
 
 
 class TrainingType(models.Model):
@@ -43,23 +40,18 @@ class Training(models.Model):
     agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='trainings', null=True, blank=True, verbose_name="Agent")
     participants_count = models.PositiveIntegerField(default=1, verbose_name="Effectif (nombre de participants)")
     
-    # Dates
     start_date = models.DateField(verbose_name="Date de début")
     end_date = models.DateField(blank=True, null=True, verbose_name="Date de fin")
     next_due_date = models.DateField(blank=True, null=True, verbose_name="Date de prochain rappel")
     
-    # Statut
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planned', verbose_name="Statut")
     
-    # Organisme formateur
     training_organization = models.CharField(max_length=200, blank=True, null=True, verbose_name="Organisme formateur")
     trainer_name = models.CharField(max_length=200, blank=True, null=True, verbose_name="Formateur")
     
-    # Résultats
-    result = models.CharField(max_length=50, blank=True, null=True, verbose_name="Résultat")  # Réussi, Échoué, etc.
+    result = models.CharField(max_length=50, blank=True, null=True, verbose_name="Résultat")
     certificate_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="Numéro de certificat")
     
-    # Notes
     notes = models.TextField(blank=True, null=True, verbose_name="Notes")
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -99,12 +91,10 @@ class EducationalArticle(models.Model):
     theme = models.CharField(max_length=200, blank=True, null=True, verbose_name="Thématique")
     links = models.TextField(blank=True, null=True, verbose_name="Liens")
     
-    # Diffusion
     target_audience = models.CharField(max_length=20, choices=TARGET_AUDIENCE_CHOICES, default='all', verbose_name="Public cible")
     is_published = models.BooleanField(default=False, verbose_name="Publié")
     published_date = models.DateTimeField(blank=True, null=True, verbose_name="Date de publication")
     
-    # Auteur
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='articles_authored', verbose_name="Auteur")
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -163,3 +153,53 @@ class TrainingRequirement(models.Model):
     
     def __str__(self):
         return f"{self.training_type} — {self.job_position} ({'obligatoire' if self.mandatory else 'recommandé'})"
+
+
+class AgentCertification(models.Model):
+    """
+    Certification d'un agent pour une formation obligatoire.
+    Chaque agent peut avoir une certification validée pour une formation requise.
+    """
+    agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='certifications', verbose_name="Agent")
+    training_requirement = models.ForeignKey(
+        TrainingRequirement,
+        on_delete=models.CASCADE,
+        related_name='agent_certifications',
+        verbose_name="Formation requise",
+    )
+    
+    start_date = models.DateField(verbose_name="Date de début")
+    end_date = models.DateField(blank=True, null=True, verbose_name="Date de fin")
+    next_due_date = models.DateField(blank=True, null=True, verbose_name="Date de prochain rappel")
+    
+    training_organization = models.CharField(max_length=200, blank=True, null=True, verbose_name="Organisme formateur")
+    trainer_name = models.CharField(max_length=200, blank=True, null=True, verbose_name="Formateur")
+    
+    result = models.CharField(max_length=50, blank=True, null=True, verbose_name="Résultat")
+    certificate_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="Numéro de certificat")
+    
+    notes = models.TextField(blank=True, null=True, verbose_name="Notes")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='certifications_created')
+    
+    class Meta:
+        verbose_name = "Certification agent"
+        verbose_name_plural = "Certifications agents"
+        unique_together = ['agent', 'training_requirement']
+        ordering = ['-start_date']
+    
+    def __str__(self):
+        return f"{self.agent} - {self.training_requirement.training_type}"
+    
+    @property
+    def training_type(self):
+        return self.training_requirement.training_type
+    
+    @property
+    def is_due(self):
+        from django.utils import timezone
+        if not self.next_due_date:
+            return False
+        return timezone.now().date() >= self.next_due_date

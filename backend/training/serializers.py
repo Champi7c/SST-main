@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import TrainingType, Training, EducationalArticle, ArticleRecipient, TrainingRequirement
+from .models import TrainingType, Training, EducationalArticle, ArticleRecipient, TrainingRequirement, AgentCertification
 from medical.serializers import AgentSerializer
 
 
@@ -68,3 +68,31 @@ class TrainingRequirementSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrainingRequirement
         fields = '__all__'
+
+
+class AgentCertificationSerializer(serializers.ModelSerializer):
+    agent_name = serializers.SerializerMethodField()
+    agent_matricule = serializers.SerializerMethodField()
+    training_type_name = serializers.CharField(source='training_requirement.training_type.name', read_only=True)
+    training_type_code = serializers.CharField(source='training_requirement.training_type.code', read_only=True)
+    job_position_name = serializers.CharField(source='training_requirement.job_position.name', read_only=True)
+    job_position_code = serializers.CharField(source='training_requirement.job_position.code', read_only=True)
+    company_name = serializers.CharField(source='training_requirement.job_position.company.name', read_only=True)
+    is_due = serializers.SerializerMethodField()
+    
+    def get_agent_name(self, obj):
+        return f"{obj.agent.last_name} {obj.agent.first_name}" if obj.agent else None
+    
+    def get_agent_matricule(self, obj):
+        return obj.agent.matricule if obj.agent else None
+    
+    def get_is_due(self, obj):
+        if obj.next_due_date:
+            from django.utils import timezone
+            return timezone.now().date() >= obj.next_due_date
+        return False
+    
+    class Meta:
+        model = AgentCertification
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at', 'created_by']

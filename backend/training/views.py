@@ -3,10 +3,10 @@ from rest_framework import viewsets, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import TrainingType, Training, EducationalArticle, ArticleRecipient, TrainingRequirement
+from .models import TrainingType, Training, EducationalArticle, ArticleRecipient, TrainingRequirement, AgentCertification
 from .serializers import (
     TrainingTypeSerializer, TrainingSerializer, EducationalArticleSerializer,
-    ArticleRecipientSerializer, TrainingRequirementSerializer,
+    ArticleRecipientSerializer, TrainingRequirementSerializer, AgentCertificationSerializer,
 )
 from medical.models import Agent
 from accounts.permissions import IsSuperAdminOrAdmin
@@ -43,7 +43,7 @@ class EducationalArticleViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'content', 'theme']
     ordering_fields = ['created_at', 'published_date']
     ordering = ['-created_at']
-
+    
     @action(detail=True, methods=['post'])
     def publish(self, request, pk=None):
         """Publie l'article et crée les destinataires selon target_audience (all, surveillance)."""
@@ -71,6 +71,25 @@ class TrainingRequirementViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['training_type', 'job_position', 'mandatory']
 
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [permissions.IsAuthenticated(), IsSuperAdminOrAdmin()]
+        return [permissions.IsAuthenticated()]
+
+
+class AgentCertificationViewSet(viewsets.ModelViewSet):
+    queryset = AgentCertification.objects.all()
+    serializer_class = AgentCertificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['agent', 'training_requirement', 'training_requirement__training_type', 'training_requirement__job_position__company']
+    search_fields = ['agent__matricule', 'agent__last_name', 'agent__first_name', 'training_requirement__training_type__name', 'certificate_number']
+    ordering_fields = ['start_date', 'end_date', 'next_due_date', 'agent__last_name']
+    ordering = ['-start_date']
+    
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+    
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
             return [permissions.IsAuthenticated(), IsSuperAdminOrAdmin()]
