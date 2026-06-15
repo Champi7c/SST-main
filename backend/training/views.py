@@ -9,7 +9,7 @@ from .serializers import (
     ArticleRecipientSerializer, TrainingRequirementSerializer, AgentCertificationSerializer,
 )
 from medical.models import Agent
-from accounts.permissions import IsSuperAdminOrAdmin
+from accounts.permissions import CanManageAgents, IsSuperAdminOrAdmin
 
 
 class TrainingTypeViewSet(viewsets.ModelViewSet):
@@ -73,7 +73,7 @@ class TrainingRequirementViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
-            return [permissions.IsAuthenticated(), IsSuperAdminOrAdmin()]
+            return [permissions.IsAuthenticated(), CanManageAgents()]
         return [permissions.IsAuthenticated()]
 
 
@@ -92,7 +92,7 @@ class AgentCertificationViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
-            return [permissions.IsAuthenticated(), IsSuperAdminOrAdmin()]
+            return [permissions.IsAuthenticated(), CanManageAgents()]
         return [permissions.IsAuthenticated()]
 
 
