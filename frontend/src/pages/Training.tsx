@@ -527,16 +527,19 @@ const handleCreateRequirement = async () => {
     const dateFin = training.end_date ? new Date(training.end_date).toLocaleDateString('fr-FR') : dateDebut
     const logoOrigin = window.location.origin
 
-    const proHeader = isPro ? `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
-        <div style="text-align:right;font-size:12px;color:#555;">
-          <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
-          <div>Département Hygiène, Sécurité et Environnement</div>
+const proHeader = isPro ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:20px;">
+            <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
+            <img src="${logoOrigin}/coly.png" alt="Logo COLY" style="height:60px;object-fit:contain;" />
+          </div>
+          <div style="text-align:right;font-size:12px;color:#555;">
+            <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
+            <div>Département Hygiène, Sécurité et Environnement</div>
+          </div>
         </div>
-      </div>
-      <hr style="border:none;border-top:2px solid #1976d2;margin-bottom:28px;" />
-    ` : ''
+        <hr style="border:none;border-top:2px solid #1976d2;margin-bottom:28px;" />
+      ` : ''
 
     const accentColor = isPro ? '#1976d2' : '#333'
     const borderStyle = isPro ? '3px double #1976d2' : '2px solid #333'
@@ -619,7 +622,10 @@ const handlePrintCustomCertificate = (
     const borderStyle = '3px double #1976d2'
     const proHeader = isPro ? `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
+        <div style="display:flex;align-items:center;gap:20px;">
+          <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
+          <img src="${logoOrigin}/coly.png" alt="Logo COLY" style="height:60px;object-fit:contain;" />
+        </div>
         <div style="text-align:right;font-size:12px;color:#555;">
           <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
           <div>Département Hygiène, Sécurité et Environnement</div>
