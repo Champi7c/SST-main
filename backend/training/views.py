@@ -94,6 +94,41 @@ class AgentCertificationViewSet(viewsets.ModelViewSet):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
             return [permissions.IsAuthenticated(), CanManageAgents()]
         return [permissions.IsAuthenticated()]
+    
+    @action(detail=False, methods=['post'])
+    def create_from_training_type(self, request):
+        """Création avec nom de formation libre (création auto du TrainingRequirement si besoin)"""
+        training_type_name = request.data.get('training_type_name')
+        job_position_id = request.data.get('job_position')
+        agent_id = request.data.get('agent')
+        
+        if not training_type_name or not agent_id:
+            return Response({'detail': 'training_type_name et agent sont requis'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Trouver ou créer le TrainingType
+        training_type, _ = TrainingType.objects.get_or_create(name=training_type_name)
+        
+        # Trouver ou créer le TrainingRequirement
+        if job_position_id:
+            job_position = JobPosition.objects.get(id=job_position_id)
+            training_requirement, _ = TrainingRequirement.objects.get_or_create(
+                training_type=training_type,
+                job_position=job_position
+            )
+        else:
+            # Prendre le premier poste disponible ou créer un requirement sans job_position
+            training_requirement, _ = TrainingRequirement.objects.get_or_create(
+                training_type=training_type,
+                defaults={'job_position_id': JobPosition.objects.first().id if JobPosition.objects.exists() else None}
+            )
+        
+        # Créer la certification
+        data = request.data.copy()
+        data['training_requirement'] = training_requirement.id
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(created_by=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 def _create_recipients_for_article(article):

@@ -173,9 +173,9 @@ const [jobPositions, setJobPositions] = useState<JobPosition[]>([])
 const [certifications, setCertifications] = useState<AgentCertificationRecord[]>([])
    const [certCompanyFilter, setCertCompanyFilter] = useState<string>('')
    const [certLoading, setCertLoading] = useState(false)
-   const [agentCertForm, setAgentCertForm] = useState({
+const [agentCertForm, setAgentCertForm] = useState({
     agent: '',
-    training_requirement: '',
+    training_type_input: '',
     start_date: '',
     end_date: '',
     next_due_date: '',
@@ -475,9 +475,9 @@ const handleCreateRequirement = async () => {
 
   const handleCreateAgentCertification = async () => {
     try {
-      await client.post('/training/agent-certifications/', {
+      await client.post('/training/agent-certifications/create-from-training-type/', {
         agent: parseInt(agentCertForm.agent),
-        training_requirement: parseInt(agentCertForm.training_requirement),
+        training_type_name: agentCertForm.training_type_input,
         start_date: agentCertForm.start_date,
         end_date: agentCertForm.end_date || null,
         next_due_date: agentCertForm.next_due_date || null,
@@ -2172,18 +2172,14 @@ win.document.write(html)
               </FormControl>
             </Grid>
             <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel>Formation requise *</InputLabel>
-                <Select
-                  value={agentCertForm.training_requirement}
-                  onChange={(e) => setAgentCertForm({ ...agentCertForm, training_requirement: e.target.value })}
-                  label="Formation requise *"
-                >
-                  {requirements.map((r) => (
-                    <MenuItem key={r.id} value={String(r.id)}>{r.training_type_name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <TextField
+                fullWidth
+                label="Formation requise (nom) *"
+                value={agentCertForm.training_type_input || ''}
+                onChange={(e) => setAgentCertForm({ ...agentCertForm, training_type_input: e.target.value })}
+                placeholder="Ex: Secourisme, Hygiène et sécurité, etc."
+                required
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
