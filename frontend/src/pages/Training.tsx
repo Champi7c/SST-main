@@ -529,14 +529,12 @@ const handleCreateRequirement = async () => {
 
 const proHeader = isPro ? `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-          <div style="display:flex;align-items:center;gap:20px;">
-            <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
-            <img src="${logoOrigin}/coly.png" alt="Logo COLY" style="height:60px;object-fit:contain;" />
-          </div>
-          <div style="text-align:right;font-size:12px;color:#555;">
+          <img src="${logoOrigin}/coly.png" alt="Logo COLY" style="height:60px;object-fit:contain;" />
+          <div style="text-align:center;font-size:12px;color:#555;">
             <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
             <div>Département Hygiène, Sécurité et Environnement</div>
           </div>
+          <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
         </div>
         <hr style="border:none;border-top:2px solid #1976d2;margin-bottom:28px;" />
       ` : ''
@@ -708,16 +706,17 @@ const handlePrintCustomCertificate = (
      const logoOrigin = window.location.origin
      const accentColor = '#1976d2'
      const borderStyle = '3px double #1976d2'
-     const proHeader = isPro ? `
-       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-         <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
-         <div style="text-align:right;font-size:12px;color:#555;">
-           <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
-           <div>Département Hygiène, Sécurité et Environnement</div>
-         </div>
-       </div>
-       <hr style="border:none;border-top:2px solid #1976d2;margin-bottom:28px;" />
-     ` : ''
+const proHeader = isPro ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+          <img src="${logoOrigin}/coly.png" alt="Logo COLY" style="height:60px;object-fit:contain;" />
+          <div style="text-align:center;font-size:12px;color:#555;">
+            <div style="font-weight:bold;font-size:15px;color:#1976d2;">SERVICE DE SANTÉ AU TRAVAIL</div>
+            <div>Département Hygiène, Sécurité et Environnement</div>
+          </div>
+          <img src="${logoOrigin}/logo%20sst.jpeg" alt="Logo SST" style="height:80px;object-fit:contain;" />
+        </div>
+        <hr style="border:none;border-top:2px solid #1976d2;margin-bottom:28px;" />
+      ` : ''
      const innerBorder = isPro ? `<div style="position:absolute;top:10px;left:10px;right:10px;bottom:10px;border:1px solid #90caf9;pointer-events:none;"></div>` : ''
 
      const detailRow = (label: string, value: string) =>
