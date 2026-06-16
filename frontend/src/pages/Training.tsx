@@ -29,6 +29,7 @@ import {
   Card,
   CardContent,
   Divider,
+  IconButton,
 } from '@mui/material'
 import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon, Download as DownloadIcon, Upload as UploadIcon, Print as PrintIcon, WorkspacePremium as CertIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import client from '../api/client'
@@ -41,6 +42,7 @@ interface TrainingType {
   validity_period_months?: number
   drive_link?: string
   description?: string
+  is_active?: boolean
 }
 
 interface TrainingRecord {
@@ -206,13 +208,50 @@ const [certifications, setCertifications] = useState<AgentCertificationRecord[]>
     notes: '',
   })
 
-  const [articleForm, setArticleForm] = useState({
+const [articleForm, setArticleForm] = useState({
     title: '',
     content: '',
     theme: '',
     target_audience: 'all',
     is_published: false,
   })
+
+  const [openTrainingTypeDialog, setOpenTrainingTypeDialog] = useState(false)
+  const [editingTrainingType, setEditingTrainingType] = useState<TrainingType | null>(null)
+  const [trainingTypeForm, setTrainingTypeForm] = useState({
+    name: '',
+    code: '',
+    validity_period_months: '',
+    drive_link: '',
+    description: '',
+    is_active: true,
+  })
+
+  const handleCreateUpdateTrainingType = async () => {
+    try {
+      const data = {
+        name: trainingTypeForm.name,
+        code: trainingTypeForm.code || null,
+        validity_period_months: trainingTypeForm.validity_period_months ? parseInt(trainingTypeForm.validity_period_months) : null,
+        drive_link: trainingTypeForm.drive_link || null,
+        description: trainingTypeForm.description || null,
+        is_active: trainingTypeForm.is_active,
+      }
+      if (editingTrainingType) {
+        await client.put(`/training/training-types/${editingTrainingType.id}/`, data)
+        showSnackbar('Type de formation modifié', 'success')
+      } else {
+        await client.post('/training/training-types/', data)
+        showSnackbar('Type de formation créé', 'success')
+      }
+      setOpenTrainingTypeDialog(false)
+      setEditingTrainingType(null)
+      setTrainingTypeForm({ name: '', code: '', validity_period_months: '', drive_link: '', description: '', is_active: true })
+      fetchTrainingTypes()
+    } catch (err: any) {
+      showSnackbar(err.response?.data?.detail || 'Erreur', 'error')
+    }
+  }
 
 const canManage = user?.role ? ['super_admin', 'admin', 'consultant', 'hse', 'direction', 'medecin', 'rh', 'infirmier'].includes(user.role) : false
 
@@ -1127,7 +1166,7 @@ win.document.write(html)
           )}
           {tabValue === 1 && (
             <>
-              {canManage && (
+{canManage && (
                 <Box sx={{ mt: 2, mb: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1, border: '1px dashed', borderColor: 'divider' }}>
                   <Typography variant="subtitle2" gutterBottom>Importer des cours (fichier CSV)</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -1153,6 +1192,20 @@ win.document.write(html)
                     Exporter les cours
                   </Button>
                 </Box>
+              )}
+              {canManage && (
+                <Button
+                  startIcon={<AddIcon />}
+                  variant="outlined"
+                  sx={{ mb: 2 }}
+                  onClick={() => {
+                    setEditingTrainingType(null)
+                    setTrainingTypeForm({ name: '', code: '', validity_period_months: '', drive_link: '', description: '', is_active: true })
+                    setOpenTrainingTypeDialog(true)
+                  }}
+                >
+                  Ajouter type de formation
+                </Button>
               )}
               {!canManage && (
                 <Button variant="outlined" startIcon={<DownloadIcon />} sx={{ mt: 2, mb: 2 }} onClick={exportCoursCsv} disabled={trainingTypes.length === 0}>
@@ -1211,7 +1264,7 @@ win.document.write(html)
             </TableContainer>
           </TabPanel>
 
-          <TabPanel value={tabValue} index={1}>
+<TabPanel value={tabValue} index={1}>
             <TableContainer sx={{ mt: 2 }}>
               <Table size="small">
                 <TableHead>
@@ -1220,21 +1273,62 @@ win.document.write(html)
                     <TableCell>Code</TableCell>
                     <TableCell>Validité (mois)</TableCell>
                     <TableCell>Lien Drive (cours)</TableCell>
+                    <TableCell>Description</TableCell>
+                    <TableCell>Actif</TableCell>
+                    {canManage && <TableCell>Actions</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {trainingTypes.map((tp) => (
-                    <TableRow key={tp.id}>
-                      <TableCell>{tp.name}</TableCell>
-                      <TableCell>{tp.code || '–'}</TableCell>
-                      <TableCell>{tp.validity_period_months ?? '–'}</TableCell>
-                      <TableCell>
-                        {tp.drive_link ? (
-                          <a href={tp.drive_link} target="_blank" rel="noopener noreferrer">Ouvrir le cours</a>
-                        ) : '–'}
+                  {trainingTypes.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={canManage ? 7 : 6} align="center">
+                        <Typography variant="body2" color="text.secondary">Aucun type de formation</Typography>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    trainingTypes.map((tp) => (
+                      <TableRow key={tp.id}>
+                        <TableCell>{tp.name}</TableCell>
+                        <TableCell>{tp.code || '–'}</TableCell>
+                        <TableCell>{tp.validity_period_months ?? '–'}</TableCell>
+                        <TableCell>
+                          {tp.drive_link ? (
+                            <a href={tp.drive_link} target="_blank" rel="noopener noreferrer">Ouvrir le cours</a>
+                          ) : '–'}
+                        </TableCell>
+                        <TableCell>{tp.description || '–'}</TableCell>
+                        <TableCell>
+                          <Chip label={tp.is_active ? 'Oui' : 'Non'} size="small" color={tp.is_active ? 'success' : 'default'} />
+                        </TableCell>
+                        {canManage && (
+                          <TableCell>
+                            <IconButton size="small" onClick={() => {
+                              setEditingTrainingType(tp)
+                              setTrainingTypeForm({
+                                name: tp.name,
+                                code: tp.code || '',
+                                validity_period_months: tp.validity_period_months ? String(tp.validity_period_months) : '',
+                                drive_link: tp.drive_link || '',
+                                description: tp.description || '',
+                                is_active: tp.is_active ?? true,
+                              })
+                              setOpenTrainingTypeDialog(true)
+                            }}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="error" onClick={() => {
+                              client.delete(`/training/training-types/${tp.id}/`).then(() => {
+                                showSnackbar('Type de formation supprimé', 'success')
+                                fetchTrainingTypes()
+                              }).catch(() => showSnackbar('Erreur suppression', 'error'))
+                            }}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -1851,13 +1945,14 @@ win.document.write(html)
                 }}>
                   <Box sx={{ position: 'absolute', top: 10, left: 10, right: 10, bottom: 10, border: '1px solid #90caf9', pointerEvents: 'none' }} />
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                    <Box component="img" src="/logo%20sst.jpeg" alt="Logo SST" sx={{ height: 72, objectFit: 'contain' }} />
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography sx={{ fontWeight: 'bold', fontSize: 15, color: '#1976d2' }}>SERVICE DE SANTÉ AU TRAVAIL</Typography>
-                      <Typography sx={{ fontSize: 12, color: '#555' }}>Département Hygiène, Sécurité et Environnement</Typography>
-                    </Box>
-                  </Box>
+<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                     <Box component="img" src="/coly.png" alt="Logo COLY" sx={{ height: 72, objectFit: 'contain' }} />
+                     <Box sx={{ textAlign: 'center' }}>
+                       <Typography sx={{ fontWeight: 'bold', fontSize: 15, color: '#1976d2' }}>SERVICE DE SANTÉ AU TRAVAIL</Typography>
+                       <Typography sx={{ fontSize: 12, color: '#555' }}>Département Hygiène, Sécurité et Environnement</Typography>
+                     </Box>
+                     <Box component="img" src="/logo%20sst.jpeg" alt="Logo SST" sx={{ height: 72, objectFit: 'contain' }} />
+                   </Box>
                   <Divider sx={{ borderColor: '#1976d2', borderWidth: 2, mb: 3 }} />
 
                   <Typography sx={{ textAlign: 'center', textTransform: 'uppercase', letterSpacing: 3, fontSize: 26, fontWeight: 'bold', color: '#1976d2', mb: 0.5 }}>
@@ -1984,13 +2079,14 @@ win.document.write(html)
                   position: 'relative',
                 }}>
                   <Box sx={{ position: 'absolute', top: 10, left: 10, right: 10, bottom: 10, border: '1px solid #90caf9', pointerEvents: 'none' }} />
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                    <Box component="img" src="/logo%20sst.jpeg" alt="Logo SST" sx={{ height: 68, objectFit: 'contain' }} />
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography sx={{ fontWeight: 'bold', fontSize: 14, color: '#1976d2' }}>SERVICE DE SANTÉ AU TRAVAIL</Typography>
-                      <Typography sx={{ fontSize: 11, color: '#555' }}>Département Hygiène, Sécurité et Environnement</Typography>
-                    </Box>
-                  </Box>
+<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                     <Box component="img" src="/coly.png" alt="Logo COLY" sx={{ height: 60, objectFit: 'contain' }} />
+                     <Box sx={{ textAlign: 'center' }}>
+                       <Typography sx={{ fontWeight: 'bold', fontSize: 14, color: '#1976d2' }}>SERVICE DE SANTÉ AU TRAVAIL</Typography>
+                       <Typography sx={{ fontSize: 11, color: '#555' }}>Département Hygiène, Sécurité et Environnement</Typography>
+                     </Box>
+                     <Box component="img" src="/logo%20sst.jpeg" alt="Logo SST" sx={{ height: 68, objectFit: 'contain' }} />
+                   </Box>
                   <Divider sx={{ borderColor: '#1976d2', borderWidth: 2, mb: 3 }} />
                   <Typography sx={{ textAlign: 'center', textTransform: 'uppercase', letterSpacing: 3, fontSize: 24, fontWeight: 'bold', color: '#1976d2', mb: 0.5 }}>
                     Attestation de Formation
@@ -2273,9 +2369,84 @@ win.document.write(html)
             Imprimer cette attestation
           </Button>
         </DialogActions>
-      </Dialog>
+</Dialog>
 
-      <Snackbar
+       <Dialog open={openTrainingTypeDialog} onClose={() => { setOpenTrainingTypeDialog(false); setEditingTrainingType(null) }} maxWidth="sm" fullWidth>
+         <DialogTitle>{editingTrainingType ? 'Modifier le type de formation' : 'Nouveau type de formation'}</DialogTitle>
+         <DialogContent>
+           <Grid container spacing={2} sx={{ mt: 1 }}>
+             <Grid item xs={12}>
+               <TextField
+                 fullWidth
+                 label="Nom *"
+                 value={trainingTypeForm.name}
+                 onChange={(e) => setTrainingTypeForm({ ...trainingTypeForm, name: e.target.value })}
+                 required
+               />
+             </Grid>
+             <Grid item xs={12}>
+               <TextField
+                 fullWidth
+                 label="Code"
+                 value={trainingTypeForm.code}
+                 onChange={(e) => setTrainingTypeForm({ ...trainingTypeForm, code: e.target.value })}
+               />
+             </Grid>
+             <Grid item xs={6}>
+               <TextField
+                 fullWidth
+                 label="Validité (mois)"
+                 type="number"
+                 value={trainingTypeForm.validity_period_months}
+                 onChange={(e) => setTrainingTypeForm({ ...trainingTypeForm, validity_period_months: e.target.value })}
+               />
+             </Grid>
+             <Grid item xs={6}>
+               <TextField
+                 fullWidth
+                 label="Lien Drive"
+                 value={trainingTypeForm.drive_link}
+                 onChange={(e) => setTrainingTypeForm({ ...trainingTypeForm, drive_link: e.target.value })}
+               />
+             </Grid>
+             <Grid item xs={12}>
+               <TextField
+                 fullWidth
+                 label="Description"
+                 multiline
+                 rows={2}
+                 value={trainingTypeForm.description}
+                 onChange={(e) => setTrainingTypeForm({ ...trainingTypeForm, description: e.target.value })}
+               />
+             </Grid>
+             <Grid item xs={12}>
+               <FormControl fullWidth>
+                 <InputLabel>Actif</InputLabel>
+                 <Select
+                   value={trainingTypeForm.is_active ? 'yes' : 'no'}
+                   onChange={(e) => setTrainingTypeForm({ ...trainingTypeForm, is_active: e.target.value === 'yes' })}
+                   label="Actif"
+                 >
+                   <MenuItem value="yes">Oui</MenuItem>
+                   <MenuItem value="no">Non</MenuItem>
+                 </Select>
+               </FormControl>
+             </Grid>
+           </Grid>
+         </DialogContent>
+         <DialogActions>
+           <Button onClick={() => { setOpenTrainingTypeDialog(false); setEditingTrainingType(null) }}>Annuler</Button>
+           <Button
+             variant="contained"
+             onClick={handleCreateUpdateTrainingType}
+             disabled={!trainingTypeForm.name}
+           >
+             {editingTrainingType ? 'Modifier' : 'Créer'}
+           </Button>
+         </DialogActions>
+       </Dialog>
+
+       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
