@@ -31,9 +31,11 @@ import {
   Divider,
   IconButton,
 } from '@mui/material'
-import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon, Download as DownloadIcon, Upload as UploadIcon, Print as PrintIcon, WorkspacePremium as CertIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon, Download as DownloadIcon, Upload as UploadIcon, Print as PrintIcon, WorkspacePremium as CertIcon, Edit as EditIcon, Delete as DeleteIcon, PictureAsPdf as PdfIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 
 interface TrainingType {
   id: number
@@ -860,6 +862,122 @@ win.document.write(html)
     }
   }
 
+  const makeLandscapePDF = async (title: string, sectionId: string) => {
+    const section = document.getElementById(sectionId)
+    if (!section) { showSnackbar('Section introuvable', 'error'); return }
+    const mmToPx = 3.779527559
+    const wPx = 297 * mmToPx
+    const pad = 15 * mmToPx
+    const orig = { display: section.style.display, position: section.style.position, left: section.style.left, top: section.style.top, width: section.style.width, zIndex: section.style.zIndex, margin: section.style.margin }
+    section.style.display = 'block'
+    section.style.position = 'fixed'
+    section.style.left = '0'
+    section.style.top = '0'
+    section.style.width = `${wPx}px`
+    section.style.minWidth = `${wPx}px`
+    section.style.maxWidth = `${wPx}px`
+    section.style.padding = `${pad}px`
+    section.style.margin = '0'
+    section.style.zIndex = '9999'
+    section.style.backgroundColor = '#ffffff'
+    section.style.boxSizing = 'border-box'
+    await new Promise((r) => setTimeout(r, 100))
+    const images = section.querySelectorAll('img')
+    if (images.length > 0) {
+      await Promise.all(Array.from(images).map((img: Element) => {
+        const i = img as HTMLImageElement
+        if (i.complete && i.naturalHeight !== 0) return Promise.resolve()
+        return new Promise((resolve) => { i.onload = () => resolve(null); i.onerror = () => resolve(null); setTimeout(() => resolve(null), 3000) })
+      }))
+    }
+    await new Promise((r) => setTimeout(r, 300))
+    const canvas = await html2canvas(section, {
+      scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff',
+      width: section.offsetWidth, height: section.scrollHeight, allowTaint: false,
+      onclone: (doc) => {
+        const c = doc.getElementById(sectionId)
+        if (c) { c.style.display = 'block'; c.style.visibility = 'visible'; c.style.width = `${wPx}px`; c.style.padding = `${pad}px`; c.style.backgroundColor = '#ffffff' }
+      },
+    })
+    Object.assign(section.style, orig)
+    const img = canvas.toDataURL('image/png', 1.0)
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+    const pw = pdf.internal.pageSize.getWidth()
+    const ph = pdf.internal.pageSize.getHeight()
+    const pxToMm = pw / (wPx * 2)
+    const hMm = canvas.height * pxToMm
+    if (hMm <= ph) {
+      pdf.addImage(img, 'PNG', 0, 0, pw, hMm, undefined, 'FAST')
+    } else {
+      let remaining = hMm; let sourceY = 0
+      while (remaining > 0) {
+        const pageH = Math.min(ph, remaining)
+        const sourceH = (pageH / hMm) * canvas.height
+        const c = document.createElement('canvas')
+        c.width = canvas.width; c.height = Math.ceil(sourceH)
+        const ctx = c.getContext('2d')
+        if (ctx) { ctx.drawImage(canvas, 0, sourceY, canvas.width, sourceH, 0, 0, canvas.width, sourceH); pdf.addImage(c.toDataURL('image/png', 1.0), 'PNG', 0, 0, pw, pageH, undefined, 'FAST') }
+        sourceY += sourceH; remaining -= pageH
+        if (remaining > 0) pdf.addPage()
+      }
+    }
+    pdf.save(title)
+    showSnackbar('PDF exporté avec succès', 'success')
+  }
+
+  const makeLandscapePDFFromHTML = async (htmlContent: string, fileName: string) => {
+    const container = document.createElement('div')
+    container.innerHTML = htmlContent
+    container.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;'
+    document.body.appendChild(container)
+    const mmToPx = 3.779527559
+    const wPx = 297 * mmToPx
+    container.style.width = `${wPx}px`
+    container.style.minWidth = `${wPx}px`
+    container.style.maxWidth = `${wPx}px`
+    container.style.padding = '15mm'
+    container.style.boxSizing = 'border-box'
+    container.style.backgroundColor = '#ffffff'
+    await new Promise((r) => setTimeout(r, 100))
+    const images = container.querySelectorAll('img')
+    if (images.length > 0) {
+      await Promise.all(Array.from(images).map((img: Element) => {
+        const i = img as HTMLImageElement
+        if (i.complete && i.naturalHeight !== 0) return Promise.resolve()
+        return new Promise((resolve) => { i.onload = () => resolve(null); i.onerror = () => resolve(null); setTimeout(() => resolve(null), 3000) })
+      }))
+    }
+    await new Promise((r) => setTimeout(r, 300))
+    const canvas = await html2canvas(container, {
+      scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff',
+      width: container.offsetWidth, height: container.scrollHeight, allowTaint: false,
+    })
+    document.body.removeChild(container)
+    const img = canvas.toDataURL('image/png', 1.0)
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+    const pw = pdf.internal.pageSize.getWidth()
+    const ph = pdf.internal.pageSize.getHeight()
+    const pxToMm = pw / (wPx * 2)
+    const hMm = canvas.height * pxToMm
+    if (hMm <= ph) {
+      pdf.addImage(img, 'PNG', 0, 0, pw, hMm, undefined, 'FAST')
+    } else {
+      let remaining = hMm; let sourceY = 0
+      while (remaining > 0) {
+        const pageH = Math.min(ph, remaining)
+        const sourceH = (pageH / hMm) * canvas.height
+        const c = document.createElement('canvas')
+        c.width = canvas.width; c.height = Math.ceil(sourceH)
+        const ctx = c.getContext('2d')
+        if (ctx) { ctx.drawImage(canvas, 0, sourceY, canvas.width, sourceH, 0, 0, canvas.width, sourceH); pdf.addImage(c.toDataURL('image/png', 1.0), 'PNG', 0, 0, pw, pageH, undefined, 'FAST') }
+        sourceY += sourceH; remaining -= pageH
+        if (remaining > 0) pdf.addPage()
+      }
+    }
+    pdf.save(fileName)
+    showSnackbar('PDF exporté avec succès', 'success')
+  }
+
   const parseCsvLine = (line: string): string[] => {
     const result: string[] = []
     let current = ''
@@ -1402,7 +1520,7 @@ win.document.write(html)
                  variant="outlined"
                  sx={{ mb: 2 }}
                  onClick={() => {
-                   setAgentCertForm({ agent: '', training_requirement: '', start_date: '', end_date: '', next_due_date: '', training_organization: '', trainer_name: '', result: '', certificate_number: '', notes: '' })
+                   setAgentCertForm({ agent: '', training_type_input: '', start_date: '', end_date: '', next_due_date: '', training_organization: '', trainer_name: '', result: '', certificate_number: '', notes: '' })
                    setOpenAgentCertDialog(true)
                  }}
                >
@@ -2261,7 +2379,7 @@ win.document.write(html)
           <Button
             variant="contained"
             onClick={handleCreateAgentCertification}
-            disabled={!agentCertForm.agent || !agentCertForm.training_requirement || !agentCertForm.start_date}
+            disabled={!agentCertForm.agent || !agentCertForm.training_type_input || !agentCertForm.start_date}
           >
             Enregistrer
           </Button>
