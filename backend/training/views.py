@@ -1,5 +1,5 @@
 from django.utils import timezone
-from rest_framework import viewsets, permissions, filters
+from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
@@ -9,6 +9,7 @@ from .serializers import (
     ArticleRecipientSerializer, TrainingRequirementSerializer, AgentCertificationSerializer,
 )
 from medical.models import Agent
+from companies.models import JobPosition
 from accounts.permissions import CanManageAgents, IsSuperAdminOrAdmin
 
 
@@ -122,13 +123,21 @@ class AgentCertificationViewSet(viewsets.ModelViewSet):
                 defaults={'job_position_id': JobPosition.objects.first().id if JobPosition.objects.exists() else None}
             )
         
-        # Créer la certification
+        # Créer ou mettre à jour la certification
         data = request.data.copy()
         data['training_requirement'] = training_requirement.id
-        serializer = self.get_serializer(data=data)
+        existing = AgentCertification.objects.filter(
+            agent_id=data.get('agent'),
+            training_requirement=training_requirement
+        ).first()
+        if existing:
+            serializer = self.get_serializer(existing, data=data, partial=True)
+        else:
+            serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         serializer.save(created_by=request.user)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        status_code = status.HTTP_200_OK if existing else status.HTTP_201_CREATED
+        return Response(serializer.data, status=status_code)
 
 
 def _create_recipients_for_article(article):

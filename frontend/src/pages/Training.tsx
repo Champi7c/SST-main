@@ -477,7 +477,7 @@ const handleCreateRequirement = async () => {
 
   const handleCreateAgentCertification = async () => {
     try {
-      await client.post('/training/agent-certifications/create-from-training-type/', {
+      await client.post('/training/agent-certifications/create_from_training_type/', {
         agent: parseInt(agentCertForm.agent),
         training_type_name: agentCertForm.training_type_input,
         start_date: agentCertForm.start_date,
