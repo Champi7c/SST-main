@@ -96,7 +96,7 @@ class AgentCertificationViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated(), CanManageAgents()]
         return [permissions.IsAuthenticated()]
     
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], url_path='create_from_training_type')
     def create_from_training_type(self, request):
         """Création avec nom de formation libre (création auto du TrainingRequirement si besoin)"""
         training_type_name = request.data.get('training_type_name')
