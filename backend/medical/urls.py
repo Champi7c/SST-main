@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     AgentViewSet, DMSTViewSet, PathologyViewSet, AgentPathologyViewSet, DMSTHistoryViewSet,
-    MedicalResultViewSet
+    MedicalResultViewSet, MedicalConsultationViewSet
 )
 
 router = DefaultRouter()
@@ -12,6 +12,7 @@ router.register(r'pathologies', PathologyViewSet)
 router.register(r'agent-pathologies', AgentPathologyViewSet)
 router.register(r'dmst-history', DMSTHistoryViewSet)
 router.register(r'results', MedicalResultViewSet)
+router.register(r'consultations', MedicalConsultationViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

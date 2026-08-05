@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Avatar,
 } from '@mui/material'
 import {
   VideoCall as VideoCallIcon,
@@ -253,9 +254,16 @@ export default function ConsultationEnLigne() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <VideoCallIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-        <Typography variant="h4">Consultation en ligne</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+        <Avatar sx={{ bgcolor: 'rgba(15,76,134,0.12)', color: '#0F4C86', width: 48, height: 48 }}>
+          <VideoCallIcon />
+        </Avatar>
+        <Box>
+          <Typography variant="h4" fontWeight={800}>Consultation en ligne</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Créez une visioconférence et suivez vos consultations
+          </Typography>
+        </Box>
       </Box>
 
       <Alert severity="info" sx={{ mb: 3 }}>

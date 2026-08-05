@@ -31,6 +31,7 @@ import {
   Card,
   CardContent,
   Divider,
+  Avatar,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -40,6 +41,7 @@ import {
   Delete as DeleteIcon,
   PictureAsPdf as PictureAsPdfIcon,
   Print as PrintIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material'
 import client, { getApiErrorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -588,8 +590,18 @@ export default function Accidents() {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-        <Typography variant="h4">ATMP (Accidents de travail & Maladies professionnelles)</Typography>
         <Box display="flex" alignItems="center" gap={2}>
+          <Avatar sx={{ bgcolor: 'rgba(215,38,61,0.12)', color: '#D7263D', width: 48, height: 48 }}>
+            <WarningIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h4" fontWeight={800}>ATMP</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Accidents de travail & maladies professionnelles
+            </Typography>
+          </Box>
+        </Box>
+        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
           <Button
             variant="outlined"
             startIcon={<PictureAsPdfIcon />}

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from .models import Agent, DMST, Pathology, AgentPathology, DMSTHistory, MedicalResult
+from .models import Agent, DMST, Pathology, AgentPathology, DMSTHistory, MedicalResult, MedicalConsultation
 from companies.models import Company, Site, Service, JobPosition
 from companies.serializers import CompanySerializer, SiteSerializer, ServiceSerializer, JobPositionSerializer
 from companies.models import Company
@@ -319,3 +319,22 @@ class MedicalResultSerializer(serializers.ModelSerializer):
         model = MedicalResult
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at', 'created_by']
+
+
+class MedicalConsultationSerializer(serializers.ModelSerializer):
+    agent_name = serializers.SerializerMethodField()
+    agent_matricule = serializers.CharField(source='agent.matricule', read_only=True, allow_null=True)
+    agent_age = serializers.IntegerField(source='agent.age', read_only=True)
+    agent_gender = serializers.CharField(source='agent.gender', read_only=True, allow_null=True)
+    doctor_name = serializers.CharField(source='doctor.get_full_name', read_only=True, allow_null=True)
+    visit_type_name = serializers.CharField(source='visit_type.name', read_only=True, allow_null=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, allow_null=True)
+    updated_by_name = serializers.CharField(source='updated_by.get_full_name', read_only=True, allow_null=True)
+
+    def get_agent_name(self, obj):
+        return f"{obj.agent.last_name} {obj.agent.first_name}"
+
+    class Meta:
+        model = MedicalConsultation
+        fields = '__all__'
+        read_only_fields = ['consultation_date', 'created_at', 'updated_at', 'created_by', 'updated_by']

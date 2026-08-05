@@ -21,6 +21,7 @@ import {
   Alert,
   Snackbar,
   TextField,
+  Avatar,
 } from '@mui/material'
 import {
   BarChart,
@@ -34,11 +35,11 @@ import {
   Pie,
   Cell,
 } from 'recharts'
-import { PictureAsPdf as PdfIcon, TableChart as ExcelIcon } from '@mui/icons-material'
+import { PictureAsPdf as PdfIcon, TableChart as ExcelIcon, Assessment as AssessmentIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
-const CHART_COLORS = ['#1976d2', '#2e7d32', '#ed6c02', '#d32f2f', '#7b1fa2', '#00796b']
+const CHART_COLORS = ['#0F4C86', '#1E8E5A', '#E08A00', '#D7263D', '#2E7DD1', '#1565C0']
 
 interface DashboardData {
   period: { start_date: string; end_date: string }
@@ -223,8 +224,18 @@ export default function Reporting() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={3}>
-        <Typography variant="h4">Reporting et tableaux de bord</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2} mb={3}>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <Avatar sx={{ bgcolor: 'rgba(15,76,134,0.12)', color: '#0F4C86', width: 48, height: 48 }}>
+            <AssessmentIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h4" fontWeight={800}>Reporting et tableaux de bord</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Indicateurs, statistiques et exports SST
+            </Typography>
+          </Box>
+        </Box>
         <Box display="flex" gap={1} flexWrap="wrap">
           <Button
             variant="outlined"
@@ -390,7 +401,7 @@ export default function Reporting() {
                 labelLine={false}
                 label={({ name, value }) => `${name}: ${value}`}
                 outerRadius={80}
-                fill="#8884d8"
+                fill="#0F4C86"
               >
                 {data.distribution.by_site.map((_, idx) => (
                   <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />

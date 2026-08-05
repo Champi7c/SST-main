@@ -6,10 +6,11 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .views import UserViewSet, CustomTokenObtainPairView
+from .views import UserViewSet, PermissionViewSet, CustomTokenObtainPairView
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
+router.register(r'permissions', PermissionViewSet, basename='permission')
 
 @api_view(['GET'])
 def health_check(request):

@@ -8,12 +8,32 @@ from rest_framework.exceptions import APIException
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import Permission
 from .models import User
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer,
-    ChangePasswordSerializer
+    ChangePasswordSerializer, AdminResetPasswordSerializer, PermissionSerializer
 )
 from .permissions import IsSuperAdminOrAdmin, CanManageUsers
+
+# Modules applicatifs dont les permissions sont proposées dans le panneau admin
+ADMIN_MANAGEABLE_APPS = [
+    'accounts', 'companies', 'medical', 'visits', 'accidents',
+    'vaccination', 'prevention', 'training', 'reporting', 'audit', 'consultations',
+]
+
+
+class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet en lecture seule listant les permissions Django disponibles,
+    groupées par module applicatif, pour l'attribution granulaire aux utilisateurs.
+    """
+    queryset = Permission.objects.filter(
+        content_type__app_label__in=ADMIN_MANAGEABLE_APPS
+    ).select_related('content_type').order_by('content_type__app_label', 'codename')
+    serializer_class = PermissionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsSuperAdminOrAdmin]
+    pagination_class = None
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -22,14 +42,14 @@ class UserViewSet(viewsets.ModelViewSet):
     """
     queryset = User.objects.all()
     permission_classes = [permissions.IsAuthenticated, CanManageUsers]
-    
+
     def get_serializer_class(self):
         if self.action == 'create':
             return UserCreateSerializer
         elif self.action in ['update', 'partial_update']:
             return UserUpdateSerializer
         return UserSerializer
-    
+
     def get_queryset(self):
         user = self.request.user
         # Les super admins voient tous les utilisateurs
@@ -40,29 +60,40 @@ class UserViewSet(viewsets.ModelViewSet):
             # TODO: Filtrer par entreprises associées
             return User.objects.all()
         return User.objects.none()
-    
+
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def me(self, request):
         """Retourne les informations de l'utilisateur connecté"""
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
-    
+
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def change_password(self, request):
         """Change le mot de passe de l'utilisateur connecté"""
         serializer = ChangePasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         user = request.user
         if not user.check_password(serializer.validated_data['old_password']):
             return Response(
                 {"old_password": "Mot de passe incorrect."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         user.set_password(serializer.validated_data['new_password'])
         user.save()
         return Response({"message": "Mot de passe modifié avec succès."})
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated, IsSuperAdminOrAdmin])
+    def reset_password(self, request, pk=None):
+        """Permet à un admin de réinitialiser le mot de passe d'un autre utilisateur"""
+        serializer = AdminResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        target_user = self.get_object()
+        target_user.set_password(serializer.validated_data['new_password'])
+        target_user.save()
+        return Response({"message": "Mot de passe réinitialisé avec succès."})
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):

@@ -15,15 +15,21 @@ import Reporting from './pages/Reporting'
 import ConsultationEnLigne from './pages/ConsultationEnLigne'
 import ConsultationRoom from './pages/ConsultationRoom'
 import Settings from './pages/Settings'
+import Admin from './pages/Admin'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
-  
+
   if (loading) {
     return <div>Chargement...</div>
   }
-  
+
   return user ? <>{children}</> : <Navigate to="/login" />
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAdmin } = useAuth()
+  return isAdmin ? <>{children}</> : <Navigate to="/" />
 }
 
 function App() {
@@ -51,6 +57,14 @@ function App() {
         <Route path="consultation-en-ligne" element={<ConsultationEnLigne />} />
         <Route path="consultation-en-ligne/room/:meetingId" element={<ConsultationRoom />} />
         <Route path="settings" element={<Settings />} />
+        <Route
+          path="admin"
+          element={
+            <AdminRoute>
+              <Admin />
+            </AdminRoute>
+          }
+        />
       </Route>
     </Routes>
   )

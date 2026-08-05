@@ -29,8 +29,9 @@ import {
   Card,
   CardContent,
   IconButton,
+  Avatar,
 } from '@mui/material'
-import { Add as AddIcon, CheckCircle as CheckIcon, Print as PrintIcon, HourglassEmpty as PendingIcon, CheckCircleOutline as ValidateIcon } from '@mui/icons-material'
+import { Add as AddIcon, CheckCircle as CheckIcon, Print as PrintIcon, HourglassEmpty as PendingIcon, CheckCircleOutline as ValidateIcon, Vaccines as VaccinesIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -548,8 +549,18 @@ export default function Vaccination() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Vaccination</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Avatar sx={{ bgcolor: 'rgba(15,76,134,0.12)', color: '#0F4C86', width: 48, height: 48 }}>
+            <VaccinesIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h4" fontWeight={800}>Vaccination</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Suivi des vaccinations, surveillances médicales et alertes
+            </Typography>
+          </Box>
+        </Box>
         {hasMedicalAccess && (
           <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={handleOpenDialog}>
             Enregistrer une vaccination

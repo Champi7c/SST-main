@@ -11,6 +11,8 @@ interface User {
   role: string
   role_display: string
   full_name: string
+  is_superuser: boolean
+  permissions: string[]
 }
 
 interface AuthContextType {
@@ -18,9 +20,11 @@ interface AuthContextType {
   loading: boolean
   login: (username: string, password: string) => Promise<void>
   logout: () => void
+  refreshUser: () => Promise<void>
   hasMedicalAccess: boolean
   canManageUsers: boolean
   canManageCompanies: boolean
+  isAdmin: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -108,9 +112,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const hasMedicalAccess = user?.role ? ['super_admin', 'medecin', 'infirmier', 'rh'].includes(user.role) : false
   const canManageUsers = user?.role ? ['super_admin', 'admin', 'infirmier', 'rh'].includes(user.role) : false
   const canManageCompanies = user?.role ? ['super_admin', 'admin', 'rh', 'infirmier'].includes(user.role) : false
+  const isAdmin = user?.role ? ['super_admin', 'admin'].includes(user.role) : false
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, hasMedicalAccess, canManageUsers, canManageCompanies }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser: fetchUser, hasMedicalAccess, canManageUsers, canManageCompanies, isAdmin }}>
       {children}
     </AuthContext.Provider>
   )

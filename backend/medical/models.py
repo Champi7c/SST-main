@@ -324,6 +324,48 @@ class MedicalResult(models.Model):
         return f"{self.agent} — {self.title} ({self.exam_date})"
 
 
+class MedicalConsultation(models.Model):
+    """
+    Fiche de consultation médicale : enregistrement indépendant, daté et
+    horodaté automatiquement. Un agent peut avoir plusieurs consultations
+    (historique chronologique), contrairement au DMST qui est unique par agent.
+    """
+    agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='consultations', verbose_name="Agent")
+    doctor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='consultations_doctor', verbose_name="Médecin"
+    )
+    visit_type = models.ForeignKey(
+        'visits.VisitType', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='consultations', verbose_name="Type de visite"
+    )
+    consultation_date = models.DateTimeField(auto_now_add=True, verbose_name="Date et heure de la consultation")
+
+    motif = models.TextField(blank=True, null=True, verbose_name="Motif de consultation")
+    diagnostic_principal = models.TextField(blank=True, null=True, verbose_name="Diagnostic principal")
+
+    # Contenu clinique complet (plaintes, antécédents, habitudes, examen clinique
+    # par appareil, conduite à tenir, etc.) — schéma volontairement flexible,
+    # même principe que DMST.observation_form_data.
+    data = models.JSONField(blank=True, null=True, verbose_name="Contenu de la consultation")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='consultations_created')
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='consultations_updated')
+
+    class Meta:
+        verbose_name = "Consultation médicale"
+        verbose_name_plural = "Consultations médicales"
+        ordering = ['-consultation_date']
+        indexes = [
+            models.Index(fields=['agent', '-consultation_date']),
+        ]
+
+    def __str__(self):
+        return f"Consultation - {self.agent} - {self.consultation_date}"
+
+
 class AgentPathology(models.Model):
     """
     Lien entre agent et pathologie

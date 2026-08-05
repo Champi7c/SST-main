@@ -28,8 +28,11 @@ import {
   CardContent,
   Divider,
   IconButton,
+  Avatar,
+  Chip,
+  InputAdornment,
 } from '@mui/material'
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Person as PersonIcon, Settings as SettingsIcon } from '@mui/icons-material'
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Person as PersonIcon, Settings as SettingsIcon, LocationOn as LocationOnIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -143,9 +146,17 @@ export default function Settings() {
   const [editingVaccine, setEditingVaccine] = useState<Vaccine | null>(null)
   const [vaccineToDelete, setVaccineToDelete] = useState<Vaccine | null>(null)
   const [openTypeDialog, setOpenTypeDialog] = useState(false)
+  const [editingType, setEditingType] = useState<TrainingType | null>(null)
+  const [typeToDelete, setTypeToDelete] = useState<TrainingType | null>(null)
   const [openCategoryDialog, setOpenCategoryDialog] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<RiskCategory | null>(null)
+  const [categoryToDelete, setCategoryToDelete] = useState<RiskCategory | null>(null)
   const [openVisitTypeDialog, setOpenVisitTypeDialog] = useState(false)
+  const [editingVisitType, setEditingVisitType] = useState<VisitType | null>(null)
+  const [visitTypeToDelete, setVisitTypeToDelete] = useState<VisitType | null>(null)
   const [openVaccineReqDialog, setOpenVaccineReqDialog] = useState(false)
+  const [editingVaccineReq, setEditingVaccineReq] = useState<VaccineRequirement | null>(null)
+  const [vaccineReqToDelete, setVaccineReqToDelete] = useState<VaccineRequirement | null>(null)
   const [openCompanyDialog, setOpenCompanyDialog] = useState(false)
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null)
@@ -165,6 +176,8 @@ export default function Settings() {
     vaccine: '', job_position: '', risk_category: '', mandatory: true,
   })
   const [companyForm, setCompanyForm] = useState({ name: '', siret: '', address: '', phone: '', email: '' })
+  const [pendingSiteNames, setPendingSiteNames] = useState<string[]>([])
+  const [newSiteInput, setNewSiteInput] = useState('')
   const [siteForm, setSiteForm] = useState({ name: '', company: '' })
   const [doctorForm, setDoctorForm] = useState({ last_name: '', first_name: '', specialty: '', phone: '', email: '', company: '' })
 
@@ -251,6 +264,18 @@ export default function Settings() {
   }
 
   // Handlers type de formation
+  const openEditType = (t: TrainingType) => {
+    setEditingType(t)
+    setTypeForm({
+      name: t.name,
+      code: t.code ?? '',
+      validity_period_months: t.validity_period_months?.toString() ?? '',
+      description: '',
+      drive_link: t.drive_link ?? '',
+    })
+    setOpenTypeDialog(true)
+  }
+
   const handleCreateType = async () => {
     try {
       const payload = {
@@ -269,7 +294,49 @@ export default function Settings() {
     }
   }
 
+  const handleUpdateType = async () => {
+    if (!editingType) return
+    try {
+      const payload = {
+        name: typeForm.name,
+        code: typeForm.code || undefined,
+        validity_period_months: typeForm.validity_period_months ? Number(typeForm.validity_period_months) : undefined,
+        drive_link: typeForm.drive_link || undefined,
+      }
+      const { data } = await client.put(`/training/training-types/${editingType.id}/`, payload)
+      setTrainingTypes((prev) => prev.map((t) => (t.id === editingType.id ? data : t)))
+      setOpenTypeDialog(false)
+      setEditingType(null)
+      showSuccess('Type de formation mis à jour avec succès')
+    } catch {
+      showError('Erreur lors de la mise à jour du type de formation')
+    }
+  }
+
+  const handleConfirmDeleteType = async () => {
+    if (!typeToDelete) return
+    try {
+      await client.delete(`/training/training-types/${typeToDelete.id}/`)
+      setTrainingTypes((prev) => prev.filter((t) => t.id !== typeToDelete.id))
+      setTypeToDelete(null)
+      showSuccess('Type de formation supprimé')
+    } catch {
+      showError('Erreur lors de la suppression du type de formation')
+    }
+  }
+
   // Handlers categorie de risque
+  const openEditCategory = (c: RiskCategory) => {
+    setEditingCategory(c)
+    setCategoryForm({
+      name: c.name,
+      code: c.code ?? '',
+      category_type: c.category_type ?? '',
+      description: '',
+    })
+    setOpenCategoryDialog(true)
+  }
+
   const handleCreateCategory = async () => {
     try {
       const payload = {
@@ -287,7 +354,43 @@ export default function Settings() {
     }
   }
 
+  const handleUpdateCategory = async () => {
+    if (!editingCategory) return
+    try {
+      const payload = {
+        name: categoryForm.name,
+        code: categoryForm.code || undefined,
+        category_type: categoryForm.category_type || undefined,
+      }
+      const { data } = await client.put(`/prevention/risk-categories/${editingCategory.id}/`, payload)
+      setCategories((prev) => prev.map((c) => (c.id === editingCategory.id ? data : c)))
+      setOpenCategoryDialog(false)
+      setEditingCategory(null)
+      showSuccess('Categorie mise à jour avec succès')
+    } catch {
+      showError('Erreur lors de la mise à jour de la categorie')
+    }
+  }
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!categoryToDelete) return
+    try {
+      await client.delete(`/prevention/risk-categories/${categoryToDelete.id}/`)
+      setCategories((prev) => prev.filter((c) => c.id !== categoryToDelete.id))
+      setCategoryToDelete(null)
+      showSuccess('Categorie supprimée')
+    } catch {
+      showError('Erreur lors de la suppression de la categorie')
+    }
+  }
+
   // Handlers type de visite
+  const openEditVisitType = (vt: VisitType) => {
+    setEditingVisitType(vt)
+    setVisitTypeForm({ name: vt.name, code: vt.code, description: vt.description ?? '' })
+    setOpenVisitTypeDialog(true)
+  }
+
   const handleCreateVisitType = async () => {
     try {
       const payload = {
@@ -305,7 +408,48 @@ export default function Settings() {
     }
   }
 
+  const handleUpdateVisitType = async () => {
+    if (!editingVisitType) return
+    try {
+      const payload = {
+        name: visitTypeForm.name,
+        code: visitTypeForm.code,
+        description: visitTypeForm.description || undefined,
+      }
+      const { data } = await client.put(`/visits/types/${editingVisitType.id}/`, payload)
+      setVisitTypes((prev) => prev.map((vt) => (vt.id === editingVisitType.id ? data : vt)))
+      setOpenVisitTypeDialog(false)
+      setEditingVisitType(null)
+      showSuccess('Type de visite mis à jour avec succès')
+    } catch {
+      showError('Erreur lors de la mise à jour du type de visite')
+    }
+  }
+
+  const handleConfirmDeleteVisitType = async () => {
+    if (!visitTypeToDelete) return
+    try {
+      await client.delete(`/visits/types/${visitTypeToDelete.id}/`)
+      setVisitTypes((prev) => prev.filter((vt) => vt.id !== visitTypeToDelete.id))
+      setVisitTypeToDelete(null)
+      showSuccess('Type de visite supprimé')
+    } catch {
+      showError('Erreur lors de la suppression du type de visite')
+    }
+  }
+
   // Handlers.regle vaccination
+  const openEditVaccineReq = (vr: VaccineRequirement) => {
+    setEditingVaccineReq(vr)
+    setVaccineReqForm({
+      vaccine: String(vr.vaccine),
+      job_position: vr.job_position ? String(vr.job_position) : '',
+      risk_category: vr.risk_category ? String(vr.risk_category) : '',
+      mandatory: vr.mandatory,
+    })
+    setOpenVaccineReqDialog(true)
+  }
+
   const handleCreateVaccineReq = async () => {
     try {
       const payload = {
@@ -324,6 +468,37 @@ export default function Settings() {
     }
   }
 
+  const handleUpdateVaccineReq = async () => {
+    if (!editingVaccineReq) return
+    try {
+      const payload = {
+        vaccine: Number(vaccineReqForm.vaccine),
+        job_position: vaccineReqForm.job_position ? Number(vaccineReqForm.job_position) : undefined,
+        risk_category: vaccineReqForm.risk_category ? Number(vaccineReqForm.risk_category) : undefined,
+        mandatory: vaccineReqForm.mandatory,
+      }
+      const { data } = await client.put(`/vaccination/requirements/${editingVaccineReq.id}/`, payload)
+      setVaccineReqs((prev) => prev.map((vr) => (vr.id === editingVaccineReq.id ? data : vr)))
+      setOpenVaccineReqDialog(false)
+      setEditingVaccineReq(null)
+      showSuccess('Regle mise à jour avec succès')
+    } catch {
+      showError('Erreur lors de la mise à jour de la regle')
+    }
+  }
+
+  const handleConfirmDeleteVaccineReq = async () => {
+    if (!vaccineReqToDelete) return
+    try {
+      await client.delete(`/vaccination/requirements/${vaccineReqToDelete.id}/`)
+      setVaccineReqs((prev) => prev.filter((vr) => vr.id !== vaccineReqToDelete.id))
+      setVaccineReqToDelete(null)
+      showSuccess('Regle supprimée')
+    } catch {
+      showError('Erreur lors de la suppression de la regle')
+    }
+  }
+
   // Handlers entreprise
   const openEditCompany = (company: Company) => {
     setEditingCompany(company)
@@ -334,16 +509,41 @@ export default function Settings() {
       phone: company.phone ?? '',
       email: company.email ?? '',
     })
+    setPendingSiteNames([])
+    setNewSiteInput('')
     setOpenCompanyDialog(true)
+  }
+
+  const addPendingSite = () => {
+    const name = newSiteInput.trim()
+    if (!name || pendingSiteNames.some((s) => s.toLowerCase() === name.toLowerCase())) return
+    setPendingSiteNames((prev) => [...prev, name])
+    setNewSiteInput('')
+  }
+
+  const removePendingSite = (name: string) => {
+    setPendingSiteNames((prev) => prev.filter((s) => s !== name))
+  }
+
+  const createPendingSites = async (companyId: number) => {
+    if (pendingSiteNames.length === 0) return
+    const created = await Promise.all(
+      pendingSiteNames.map((name) => client.post('/companies/sites/', { name, company: companyId }))
+    )
+    setSites((prev) => [...prev, ...created.map((r) => r.data)])
   }
 
   const handleCreateCompany = async () => {
     try {
       const { data } = await client.post('/companies/companies/', companyForm)
       setCompanies((prev) => [...prev, data])
+      const siteCount = pendingSiteNames.length
+      await createPendingSites(data.id)
       setOpenCompanyDialog(false)
       setCompanyForm({ name: '', siret: '', address: '', phone: '', email: '' })
-      showSuccess('Entreprise creee avec succes')
+      setPendingSiteNames([])
+      setNewSiteInput('')
+      showSuccess(siteCount > 0 ? `Entreprise creee avec succes (${siteCount} site${siteCount > 1 ? 's' : ''})` : 'Entreprise creee avec succes')
     } catch {
       showError('Erreur lors de la creation de l\'entreprise')
     }
@@ -354,8 +554,11 @@ export default function Settings() {
     try {
       const { data } = await client.put(`/companies/companies/${editingCompany.id}/`, companyForm)
       setCompanies((prev) => prev.map((c) => (c.id === editingCompany.id ? data : c)))
+      await createPendingSites(editingCompany.id)
       setOpenCompanyDialog(false)
       setEditingCompany(null)
+      setPendingSiteNames([])
+      setNewSiteInput('')
       showSuccess('Entreprise mise a jour avec succes')
     } catch {
       showError('Erreur lors de la mise a jour de l\'entreprise')
@@ -379,18 +582,6 @@ export default function Settings() {
     setEditingSite(site)
     setSiteForm({ name: site.name, company: site.company.toString() })
     setOpenSiteDialog(true)
-  }
-
-  const handleCreateSite = async () => {
-    try {
-      const { data } = await client.post('/companies/sites/', { name: siteForm.name, company: parseInt(siteForm.company) })
-      setSites((prev) => [...prev, data])
-      setOpenSiteDialog(false)
-      setSiteForm({ name: '', company: '' })
-      showSuccess('Site créé avec succès')
-    } catch {
-      showError('Erreur lors de la création du site')
-    }
   }
 
   const handleUpdateSite = async () => {
@@ -487,9 +678,17 @@ export default function Settings() {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Parametres
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+        <Avatar sx={{ bgcolor: 'rgba(15,76,134,0.12)', color: '#0F4C86', width: 48, height: 48 }}>
+          <SettingsIcon />
+        </Avatar>
+        <Box>
+          <Typography variant="h4" fontWeight={800}>Parametres</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Compte, referentiels et structures de la plateforme
+          </Typography>
+        </Box>
+      </Box>
 
       <Paper>
         <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
@@ -589,7 +788,7 @@ export default function Settings() {
               Types de formation
             </Typography>
             {canManageRefs && (
-              <Button startIcon={<AddIcon />} size="small" variant="outlined" sx={{ mb: 1 }} onClick={() => setOpenTypeDialog(true)}>
+              <Button startIcon={<AddIcon />} size="small" variant="outlined" sx={{ mb: 1 }} onClick={() => { setEditingType(null); setTypeForm({ name: '', code: '', validity_period_months: '', description: '', drive_link: '' }); setOpenTypeDialog(true) }}>
                 Ajouter un type
               </Button>
             )}
@@ -601,6 +800,7 @@ export default function Settings() {
                     <TableCell>Code</TableCell>
                     <TableCell>Validite (mois)</TableCell>
                     <TableCell>Lien Drive (cours)</TableCell>
+                    {canManageRefs && <TableCell align="right">Actions</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -614,6 +814,16 @@ export default function Settings() {
                           <a href={t.drive_link} target="_blank" rel="noopener noreferrer">Ouvrir le cours</a>
                         ) : '-'}
                       </TableCell>
+                      {canManageRefs && (
+                        <TableCell align="right">
+                          <IconButton size="small" color="primary" onClick={() => openEditType(t)} title="Modifier">
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => setTypeToDelete(t)} title="Supprimer">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -624,7 +834,7 @@ export default function Settings() {
               Categories de risques
             </Typography>
             {canManageRefs && (
-              <Button startIcon={<AddIcon />} size="small" variant="outlined" sx={{ mb: 1 }} onClick={() => setOpenCategoryDialog(true)}>
+              <Button startIcon={<AddIcon />} size="small" variant="outlined" sx={{ mb: 1 }} onClick={() => { setEditingCategory(null); setCategoryForm({ name: '', code: '', category_type: '', description: '' }); setOpenCategoryDialog(true) }}>
                 Ajouter une categorie
               </Button>
             )}
@@ -635,6 +845,7 @@ export default function Settings() {
                     <TableCell>Nom</TableCell>
                     <TableCell>Code</TableCell>
                     <TableCell>Type</TableCell>
+                    {canManageRefs && <TableCell align="right">Actions</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -650,6 +861,16 @@ export default function Settings() {
                         {c.category_type === 'ergonomic' && 'Ergonomique'}
                         {!c.category_type && '-'}
                       </TableCell>
+                      {canManageRefs && (
+                        <TableCell align="right">
+                          <IconButton size="small" color="primary" onClick={() => openEditCategory(c)} title="Modifier">
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => setCategoryToDelete(c)} title="Supprimer">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -660,7 +881,7 @@ export default function Settings() {
               Types de visites
             </Typography>
             {canManageRefs && (
-              <Button startIcon={<AddIcon />} size="small" variant="outlined" sx={{ mb: 1 }} onClick={() => { setVisitTypeForm({ name: '', code: '', description: '' }); setOpenVisitTypeDialog(true) }}>
+              <Button startIcon={<AddIcon />} size="small" variant="outlined" sx={{ mb: 1 }} onClick={() => { setEditingVisitType(null); setVisitTypeForm({ name: '', code: '', description: '' }); setOpenVisitTypeDialog(true) }}>
                 Ajouter un type
               </Button>
             )}
@@ -671,6 +892,7 @@ export default function Settings() {
                     <TableCell>Nom</TableCell>
                     <TableCell>Code</TableCell>
                     <TableCell>Description</TableCell>
+                    {canManageRefs && <TableCell align="right">Actions</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -679,6 +901,16 @@ export default function Settings() {
                       <TableCell>{vt.name}</TableCell>
                       <TableCell>{vt.code}</TableCell>
                       <TableCell>{vt.description || '-'}</TableCell>
+                      {canManageRefs && (
+                        <TableCell align="right">
+                          <IconButton size="small" color="primary" onClick={() => openEditVisitType(vt)} title="Modifier">
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => setVisitTypeToDelete(vt)} title="Supprimer">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -714,7 +946,7 @@ export default function Settings() {
               Vaccinations obligatoires / recommandees
             </Typography>
             {canManageRefs && (
-              <Button startIcon={<AddIcon />} size="small" variant="outlined" sx={{ mb: 1 }} onClick={() => { setVaccineReqForm({ vaccine: '', job_position: '', risk_category: '', mandatory: true }); setOpenVaccineReqDialog(true) }}>
+              <Button startIcon={<AddIcon />} size="small" variant="outlined" sx={{ mb: 1 }} onClick={() => { setEditingVaccineReq(null); setVaccineReqForm({ vaccine: '', job_position: '', risk_category: '', mandatory: true }); setOpenVaccineReqDialog(true) }}>
                 Ajouter une regle
               </Button>
             )}
@@ -725,6 +957,7 @@ export default function Settings() {
                     <TableCell>Vaccin</TableCell>
                     <TableCell>Poste / Categorie risque</TableCell>
                     <TableCell>Obligatoire</TableCell>
+                    {canManageRefs && <TableCell align="right">Actions</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -733,6 +966,16 @@ export default function Settings() {
                       <TableCell>{vr.vaccine_name}</TableCell>
                       <TableCell>{vr.job_position_name || vr.risk_category_name || '-'}</TableCell>
                       <TableCell>{vr.mandatory ? 'Oui' : 'Recommande'}</TableCell>
+                      {canManageRefs && (
+                        <TableCell align="right">
+                          <IconButton size="small" color="primary" onClick={() => openEditVaccineReq(vr)} title="Modifier">
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => setVaccineReqToDelete(vr)} title="Supprimer">
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -753,6 +996,8 @@ export default function Settings() {
                   onClick={() => {
                     setEditingCompany(null)
                     setCompanyForm({ name: '', siret: '', address: '', phone: '', email: '' })
+                    setPendingSiteNames([])
+                    setNewSiteInput('')
                     setOpenCompanyDialog(true)
                   }}
                 >
@@ -797,23 +1042,10 @@ export default function Settings() {
                 </TableBody>
               </Table>
             </TableContainer>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2, mb: 1 }}>
-              <Typography variant="subtitle1">Sites</Typography>
-              {canManageCompanies && (
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  size="small"
-                  onClick={() => {
-                    setEditingSite(null)
-                    setSiteForm({ name: '', company: '' })
-                    setOpenSiteDialog(true)
-                  }}
-                >
-                  Ajouter un site
-                </Button>
-              )}
-            </Box>
+            <Typography variant="subtitle1" sx={{ mt: 2, mb: 1 }}>Sites</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Les sites s'ajoutent directement depuis le formulaire d'une entreprise (bouton "Ajouter une entreprise" ou "Modifier").
+            </Typography>
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
               <Table size="small">
                 <TableHead>
@@ -959,9 +1191,9 @@ export default function Settings() {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog : Type de formation */}
-      <Dialog open={openTypeDialog} onClose={() => setOpenTypeDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Nouveau type de formation</DialogTitle>
+      {/* Dialog : Type de formation (creation / edition) */}
+      <Dialog open={openTypeDialog} onClose={() => { setOpenTypeDialog(false); setEditingType(null) }} maxWidth="xs" fullWidth>
+        <DialogTitle>{editingType ? 'Modifier le type de formation' : 'Nouveau type de formation'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
@@ -982,14 +1214,30 @@ export default function Settings() {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenTypeDialog(false)}>Annuler</Button>
-          <Button variant="contained" onClick={handleCreateType} disabled={!typeForm.name}>Creer</Button>
+          <Button onClick={() => { setOpenTypeDialog(false); setEditingType(null) }}>Annuler</Button>
+          {editingType ? (
+            <Button variant="contained" onClick={handleUpdateType} disabled={!typeForm.name}>Enregistrer</Button>
+          ) : (
+            <Button variant="contained" onClick={handleCreateType} disabled={!typeForm.name}>Creer</Button>
+          )}
         </DialogActions>
       </Dialog>
 
-      {/* Dialog : Categorie de risque */}
-      <Dialog open={openCategoryDialog} onClose={() => setOpenCategoryDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Nouvelle categorie de risque</DialogTitle>
+      {/* Dialog : Confirmation suppression type de formation */}
+      <Dialog open={!!typeToDelete} onClose={() => setTypeToDelete(null)}>
+        <DialogTitle>Supprimer le type de formation</DialogTitle>
+        <DialogContent>
+          <Typography>Supprimer le type de formation &quot;{typeToDelete?.name}&quot; ?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTypeToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleConfirmDeleteType}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Categorie de risque (creation / edition) */}
+      <Dialog open={openCategoryDialog} onClose={() => { setOpenCategoryDialog(false); setEditingCategory(null) }} maxWidth="xs" fullWidth>
+        <DialogTitle>{editingCategory ? 'Modifier la categorie de risque' : 'Nouvelle categorie de risque'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
@@ -1017,14 +1265,30 @@ export default function Settings() {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenCategoryDialog(false)}>Annuler</Button>
-          <Button variant="contained" onClick={handleCreateCategory} disabled={!categoryForm.name}>Creer</Button>
+          <Button onClick={() => { setOpenCategoryDialog(false); setEditingCategory(null) }}>Annuler</Button>
+          {editingCategory ? (
+            <Button variant="contained" onClick={handleUpdateCategory} disabled={!categoryForm.name}>Enregistrer</Button>
+          ) : (
+            <Button variant="contained" onClick={handleCreateCategory} disabled={!categoryForm.name}>Creer</Button>
+          )}
         </DialogActions>
       </Dialog>
 
-      {/* Dialog : Type de visite */}
-      <Dialog open={openVisitTypeDialog} onClose={() => setOpenVisitTypeDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Nouveau type de visite</DialogTitle>
+      {/* Dialog : Confirmation suppression categorie de risque */}
+      <Dialog open={!!categoryToDelete} onClose={() => setCategoryToDelete(null)}>
+        <DialogTitle>Supprimer la categorie de risque</DialogTitle>
+        <DialogContent>
+          <Typography>Supprimer la categorie &quot;{categoryToDelete?.name}&quot; ?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCategoryToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleConfirmDeleteCategory}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Type de visite (creation / edition) */}
+      <Dialog open={openVisitTypeDialog} onClose={() => { setOpenVisitTypeDialog(false); setEditingVisitType(null) }} maxWidth="xs" fullWidth>
+        <DialogTitle>{editingVisitType ? 'Modifier le type de visite' : 'Nouveau type de visite'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
@@ -1039,14 +1303,30 @@ export default function Settings() {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenVisitTypeDialog(false)}>Annuler</Button>
-          <Button variant="contained" onClick={handleCreateVisitType} disabled={!visitTypeForm.name || !visitTypeForm.code}>Creer</Button>
+          <Button onClick={() => { setOpenVisitTypeDialog(false); setEditingVisitType(null) }}>Annuler</Button>
+          {editingVisitType ? (
+            <Button variant="contained" onClick={handleUpdateVisitType} disabled={!visitTypeForm.name || !visitTypeForm.code}>Enregistrer</Button>
+          ) : (
+            <Button variant="contained" onClick={handleCreateVisitType} disabled={!visitTypeForm.name || !visitTypeForm.code}>Creer</Button>
+          )}
         </DialogActions>
       </Dialog>
 
-      {/* Dialog : Regle vaccination */}
-      <Dialog open={openVaccineReqDialog} onClose={() => setOpenVaccineReqDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Nouvelle regle vaccination (obligatoire / recommandee)</DialogTitle>
+      {/* Dialog : Confirmation suppression type de visite */}
+      <Dialog open={!!visitTypeToDelete} onClose={() => setVisitTypeToDelete(null)}>
+        <DialogTitle>Supprimer le type de visite</DialogTitle>
+        <DialogContent>
+          <Typography>Supprimer le type de visite &quot;{visitTypeToDelete?.name}&quot; ?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVisitTypeToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleConfirmDeleteVisitType}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Regle vaccination (creation / edition) */}
+      <Dialog open={openVaccineReqDialog} onClose={() => { setOpenVaccineReqDialog(false); setEditingVaccineReq(null) }} maxWidth="xs" fullWidth>
+        <DialogTitle>{editingVaccineReq ? 'Modifier la regle de vaccination' : 'Nouvelle regle vaccination (obligatoire / recommandee)'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
@@ -1109,21 +1389,45 @@ export default function Settings() {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenVaccineReqDialog(false)}>Annuler</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreateVaccineReq}
-            disabled={!vaccineReqForm.vaccine || (!vaccineReqForm.job_position && !vaccineReqForm.risk_category)}
-          >
-            Creer
-          </Button>
+          <Button onClick={() => { setOpenVaccineReqDialog(false); setEditingVaccineReq(null) }}>Annuler</Button>
+          {editingVaccineReq ? (
+            <Button
+              variant="contained"
+              onClick={handleUpdateVaccineReq}
+              disabled={!vaccineReqForm.vaccine || (!vaccineReqForm.job_position && !vaccineReqForm.risk_category)}
+            >
+              Enregistrer
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={handleCreateVaccineReq}
+              disabled={!vaccineReqForm.vaccine || (!vaccineReqForm.job_position && !vaccineReqForm.risk_category)}
+            >
+              Creer
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog : Confirmation suppression regle vaccination */}
+      <Dialog open={!!vaccineReqToDelete} onClose={() => setVaccineReqToDelete(null)}>
+        <DialogTitle>Supprimer la regle</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Supprimer la regle pour &quot;{vaccineReqToDelete?.vaccine_name}&quot; ({vaccineReqToDelete?.job_position_name || vaccineReqToDelete?.risk_category_name || '-'}) ?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVaccineReqToDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleConfirmDeleteVaccineReq}>Supprimer</Button>
         </DialogActions>
       </Dialog>
 
       {/* Dialog : Entreprise (creation / edition) */}
       <Dialog
         open={openCompanyDialog}
-        onClose={() => { setOpenCompanyDialog(false); setEditingCompany(null) }}
+        onClose={() => { setOpenCompanyDialog(false); setEditingCompany(null); setPendingSiteNames([]); setNewSiteInput('') }}
         maxWidth="sm"
         fullWidth
       >
@@ -1153,10 +1457,59 @@ export default function Settings() {
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Email" type="email" value={companyForm.email} onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} />
             </Grid>
+
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <LocationOnIcon fontSize="small" color="action" />
+                Sites de l'entreprise
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Nom du site (ex. Site de Dakar)"
+                  value={newSiteInput}
+                  onChange={(e) => setNewSiteInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addPendingSite()
+                    }
+                  }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={addPendingSite} disabled={!newSiteInput.trim()} title="Ajouter le site">
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+              {pendingSiteNames.length > 0 ? (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {pendingSiteNames.map((name) => (
+                    <Chip
+                      key={name}
+                      label={name}
+                      icon={<LocationOnIcon />}
+                      onDelete={() => removePendingSite(name)}
+                      size="small"
+                    />
+                  ))}
+                </Box>
+              ) : (
+                <Typography variant="caption" color="text.secondary">
+                  Aucun site ajouté pour l'instant. Vous pourrez aussi en ajouter plus tard depuis l'onglet Sites.
+                </Typography>
+              )}
+            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setOpenCompanyDialog(false); setEditingCompany(null) }}>Annuler</Button>
+          <Button onClick={() => { setOpenCompanyDialog(false); setEditingCompany(null); setPendingSiteNames([]); setNewSiteInput('') }}>Annuler</Button>
           {editingCompany ? (
             <Button
               variant="contained"
@@ -1195,9 +1548,9 @@ export default function Settings() {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog : Site (création / édition) */}
+      {/* Dialog : Site (édition) */}
       <Dialog open={openSiteDialog} onClose={() => { setOpenSiteDialog(false); setEditingSite(null) }} maxWidth="xs" fullWidth>
-        <DialogTitle>{editingSite ? 'Modifier le site' : 'Nouveau site'}</DialogTitle>
+        <DialogTitle>Modifier le site</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
@@ -1227,15 +1580,9 @@ export default function Settings() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setOpenSiteDialog(false); setEditingSite(null) }}>Annuler</Button>
-          {editingSite ? (
-            <Button variant="contained" onClick={handleUpdateSite} disabled={!siteForm.name.trim() || !siteForm.company}>
-              Enregistrer
-            </Button>
-          ) : (
-            <Button variant="contained" onClick={handleCreateSite} disabled={!siteForm.name.trim() || !siteForm.company}>
-              Créer
-            </Button>
-          )}
+          <Button variant="contained" onClick={handleUpdateSite} disabled={!siteForm.name.trim() || !siteForm.company}>
+            Enregistrer
+          </Button>
         </DialogActions>
       </Dialog>
 

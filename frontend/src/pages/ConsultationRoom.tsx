@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Button, Typography } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import { Box, Button, Typography, Avatar } from '@mui/material'
+import { ArrowBack as ArrowBackIcon, Videocam as VideocamIcon } from '@mui/icons-material'
 
 const JITSI_DOMAIN = 'meet.jit.si'
 
@@ -13,7 +13,10 @@ export default function ConsultationRoom() {
   if (!decoded) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="error">Lien de consultation invalide.</Typography>
+        <Avatar sx={{ bgcolor: 'rgba(215,38,61,0.12)', color: '#D7263D', width: 56, height: 56, mx: 'auto', mb: 2 }}>
+          <VideocamIcon />
+        </Avatar>
+        <Typography color="error" fontWeight={600}>Lien de consultation invalide.</Typography>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/consultation-en-ligne')} sx={{ mt: 2 }}>
           Retour aux consultations
         </Button>
@@ -22,8 +25,8 @@ export default function ConsultationRoom() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)', borderRadius: 3, overflow: 'hidden', boxShadow: '0 1px 3px rgba(10,37,64,0.08)' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/consultation-en-ligne')} size="small">
           Quitter la visio
         </Button>

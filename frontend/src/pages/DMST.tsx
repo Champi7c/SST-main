@@ -33,12 +33,14 @@ import {
   MenuItem,
   Switch,
   IconButton,
+  Avatar,
 } from '@mui/material'
-import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon, Delete as DeleteIcon, Add as AddIcon, AssignmentLate as AbnormalIcon } from '@mui/icons-material'
+import { Edit as EditIcon, MedicalServices as MedicalServicesIcon, Print as PrintIcon, PictureAsPdf as PdfIcon, Description as DescriptionIcon, Science as ScienceIcon, Delete as DeleteIcon, Add as AddIcon, AssignmentLate as AbnormalIcon, Assignment as AssignmentIcon } from '@mui/icons-material'
 import client, { getApiErrorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
+import ConsultationTab from './dmst/ConsultationTab'
 
 interface DMST {
   id: number
@@ -160,9 +162,9 @@ function vitalOptions(min: number, max: number, step: number, normalMin: number,
   const opts: { label: string; color: string }[] = []
   for (let v = min; v <= max + step / 2; v = Math.round((v + step) * 1000) / 1000) {
     const val = Math.round(v * 1000) / 1000
-    let color = '#d32f2f' // rouge = hors limites critiques
-    if (val >= critMin && val <= critMax) color = '#ed6c02' // orange = critique mais humain
-    if (val >= normalMin && val <= normalMax) color = '#2e7d32' // vert = normal
+    let color = '#D7263D' // rouge = hors limites critiques
+    if (val >= critMin && val <= critMax) color = '#E08A00' // orange = critique mais humain
+    if (val >= normalMin && val <= normalMax) color = '#1E8E5A' // vert = normal
     opts.push({ label: String(val), color })
   }
   return opts
@@ -184,6 +186,7 @@ export default function DMST() {
   const { agentId } = useParams()
   const navigate = useNavigate()
   const [dmst, setDmst] = useState<DMST | null>(null)
+  const [agentMatricule, setAgentMatricule] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [tabValue, setTabValue] = useState(0)
@@ -262,7 +265,7 @@ export default function DMST() {
   }
 
   useEffect(() => {
-    if (tabValue === 6) fetchResults()
+    if (tabValue === 7) fetchResults()
   }, [tabValue, agentId])
 
   const handleOpenResultDialog = (result?: MedicalResult) => {
@@ -440,6 +443,7 @@ export default function DMST() {
        if (dmstList.length > 0) {
          const dmstData = dmstList[0]
          setDmst(dmstData)
+         setAgentMatricule(dmstData.agent_matricule || '')
          setFormData({
            allergies: dmstData.allergies || '',
            medical_history: dmstData.medical_history || '',
@@ -1136,6 +1140,162 @@ export default function DMST() {
     if (win) { win.document.write(html); win.document.close() }
   }
 
+  const handlePrintFicheVierge = () => {
+    const blankLines = (count: number) =>
+      Array.from({ length: count }).map(() => '<div class="blank-line"></div>').join('\n      ')
+    const checkbox = (label: string) => `<span class="cb"><span class="cb-box">&#9744;</span> ${label}</span>`
+
+    const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Fiche d'observation médicale vierge - Cabinet Médical Lionel</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #fff; width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sheet { width: 210mm; background: white; padding: 20mm; font-size: 11px; color: #222; }
+    .header-table { width: 100%; border-collapse: collapse; border-bottom: 2.5px solid #2E75B6; margin-bottom: 10px; }
+    .header-table td { vertical-align: middle; padding: 3px; }
+    .td-logo { width: 52px; text-align: center; }
+    .td-logo img { width: 50px; height: 50px; object-fit: contain; display: block; margin: auto; }
+    .td-info { padding-left: 7px; }
+    .cabinet-name { font-weight: bold; font-size: 11px; color: #1F4788; }
+    .cabinet-sub { font-size: 7px; color: #333; line-height: 1.6; }
+    .td-date { text-align: right; vertical-align: middle; padding-right: 3px; white-space: nowrap; font-size: 8.5px; }
+    .title-fiche { text-align: center; font-weight: bold; font-size: 13px; color: #1F4788; border: 2px solid #1F4788; background: #E8F0F8; padding: 4px 0 5px 0; margin: 20px 0 12px 0; letter-spacing: 0.5px; }
+    .section-title { font-weight: bold; font-size: 12px; color: #1F4788; margin: 14px 0 8px 0; }
+    hr { border: none; border-top: 1px solid #ccc; margin: 10px 0; }
+    .field-row { display: flex; flex-wrap: wrap; gap: 4px 24px; margin-bottom: 8px; }
+    .field { display: flex; align-items: baseline; gap: 4px; flex: 1 1 220px; }
+    .field-label { font-weight: bold; white-space: nowrap; font-size: 10px; }
+    .field-value { flex: 1; border-bottom: 1px dotted #999; min-height: 14px; }
+    .cb-group { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-bottom: 8px; font-size: 10px; }
+    .cb { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .cb-box { font-size: 13px; }
+    .blank-line { border-bottom: 1px dotted #999; height: 16px; margin-bottom: 5px; }
+    .footer-section { margin-top: 30px; padding-top: 14px; border-top: 1px solid #ccc; display: flex; justify-content: space-between; align-items: flex-end; }
+    .footer-sig { text-align: right; min-width: 220px; }
+    .footer-sig-box { margin-top: 30px; height: 40px; border-bottom: 1px solid #000; width: 200px; margin-left: auto; }
+  </style>
+</head>
+<body>
+<div class="sheet">
+  <table class="header-table">
+    <tbody><tr>
+      <td class="td-logo"><img src="${window.location.origin}/coly.png" alt="Logo" onerror="this.style.display='none'"></td>
+      <td class="td-info">
+        <div class="cabinet-name">CABINET MÉDICAL LIONEL</div>
+        <div class="cabinet-sub">Autorisation n° : 26JUIL2022*022346<br>RC : SN.THS.2024.A.266<br>NINEA : 010949412</div>
+      </td>
+      <td class="td-date"><em>Le </em>${'.'.repeat(20)}</td>
+    </tr></tbody>
+  </table>
+
+  <div class="title-fiche">FICHE D'OBSERVATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL</div>
+
+  <div class="section-title">I. IDENTIFICATION DE L'AGENT</div>
+  <div class="field-row">
+    <div class="field" style="flex-basis:100%"><span class="field-label">Nom et prénoms :</span><span class="field-value"></span></div>
+    <div class="field"><span class="field-label">Âge :</span><span class="field-value"></span></div>
+    <div class="field"><span class="field-label">Sexe :</span><span class="field-value"></span></div>
+    <div class="field"><span class="field-label">Matricule :</span><span class="field-value"></span></div>
+    <div class="field"><span class="field-label">Téléphone :</span><span class="field-value"></span></div>
+    <div class="field"><span class="field-label">Direction :</span><span class="field-value"></span></div>
+    <div class="field"><span class="field-label">Site :</span><span class="field-value"></span></div>
+    <div class="field"><span class="field-label">Fonction / Poste :</span><span class="field-value"></span></div>
+    <div class="field"><span class="field-label">Ancienneté au poste :</span><span class="field-value"></span></div>
+  </div>
+
+  <hr>
+  <div class="section-title">II. ANTÉCÉDENTS ET TERRAINS PARTICULIERS</div>
+  <div class="field-label" style="margin-bottom:3px">Antécédents médicaux :</div>
+  ${blankLines(2)}
+  <div class="field-label" style="margin:6px 0 3px 0">Antécédents chirurgicaux :</div>
+  ${blankLines(2)}
+  <div class="field-label" style="margin:6px 0 3px 0">Habitudes de vie :</div>
+  <div class="cb-group">${[checkbox('Activité sportive'), checkbox('Activité physique régulière'), checkbox('Tabac'), checkbox('Alcool'), checkbox('Café'), checkbox('Thé'), checkbox('Autre')].join('')}</div>
+  <div class="field-label" style="margin:6px 0 3px 0">AT/MP (12 derniers mois) :</div>
+  <div class="cb-group">${[checkbox('Non'), checkbox('Oui — Nature : ' + '.'.repeat(30))].join('')}</div>
+  <div class="field-label" style="margin:6px 0 3px 0">Entreprises / Postes antérieurs :</div>
+  ${blankLines(2)}
+
+  <hr>
+  <div class="section-title">III. EXPOSITIONS PROFESSIONNELLES</div>
+  <div class="field-label" style="margin-bottom:3px">Risques physiques :</div>
+  <div class="cb-group">${[checkbox('Bruit'), checkbox('Vibrations'), checkbox('Chaleur/Froid'), checkbox('Rayonnements'), checkbox('Écran &gt;4h/j')].join('')}</div>
+  <div class="field-label" style="margin:6px 0 3px 0">Chimiques/biologiques :</div>
+  <div class="cb-group">${[checkbox('Poussières'), checkbox('Solvants'), checkbox('CMR'), checkbox('Agents biologiques'), checkbox('Gaz/Fumées')].join('')}</div>
+  <div class="field-label" style="margin:6px 0 3px 0">Biomécaniques :</div>
+  <div class="cb-group">${[checkbox('Port charges'), checkbox('Gestes répétitifs'), checkbox('Postures'), checkbox('Station debout')].join('')}</div>
+  <div class="field-label" style="margin:6px 0 3px 0">Psychosociaux :</div>
+  <div class="cb-group">${[checkbox('Stress'), checkbox('Charge mentale'), checkbox('Travail isolé'), checkbox('Relations difficiles'), checkbox('Harcèlement')].join('')}</div>
+  <div class="field-label" style="margin:6px 0 3px 0">EPI :</div>
+  <div class="cb-group">${[checkbox('Gants'), checkbox('Masque'), checkbox('Lunettes'), checkbox('Casque'), checkbox('Protections auditives'), checkbox('Chaussures sécurité')].join('')}</div>
+
+  <hr>
+  <div class="section-title">IV. PLAINTES FONCTIONNELLES ACTUELLES</div>
+  <div class="cb-group">${[checkbox('Aucune plainte'), checkbox('Douleurs MS'), checkbox('Troubles respiratoires'), checkbox('Troubles cutanés'), checkbox('ORL/Oculaires'), checkbox('Céphalées'), checkbox('Vertiges'), checkbox('Fatigue chronique'), checkbox('Stress/Anxiété/Sommeil'), checkbox('Troubles digestifs')].join('')}</div>
+  ${blankLines(2)}
+
+  <hr>
+  <div class="section-title">V. ÉTAT GÉNÉRAL ET CONSTANTES</div>
+  <div class="field-row">
+    <div class="field"><span class="field-label">TA :</span><span class="field-value"></span><span class="field-label">mmHg</span></div>
+    <div class="field"><span class="field-label">T° :</span><span class="field-value"></span><span class="field-label">°C</span></div>
+    <div class="field"><span class="field-label">FC :</span><span class="field-value"></span><span class="field-label">/min</span></div>
+    <div class="field"><span class="field-label">Poids :</span><span class="field-value"></span><span class="field-label">kg</span></div>
+    <div class="field"><span class="field-label">Taille :</span><span class="field-value"></span><span class="field-label">cm</span></div>
+    <div class="field"><span class="field-label">IMC :</span><span class="field-value"></span><span class="field-label">kg/m²</span></div>
+    <div class="field"><span class="field-label">Tour de taille :</span><span class="field-value"></span><span class="field-label">cm</span></div>
+    <div class="field"><span class="field-label">SpO₂ :</span><span class="field-value"></span><span class="field-label">%</span></div>
+    <div class="field"><span class="field-label">Dextro (jn/pp) :</span><span class="field-value"></span><span class="field-label">g/L</span></div>
+  </div>
+  <div class="field-label" style="margin:6px 0 3px 0">Acuité visuelle : OD loin ___/10, près ___/10 — OG loin ___/10, près ___/10 — Binoculaire loin ___/10, près ___/10</div>
+  <div class="cb-group">${[checkbox('Vision couleurs normale'), checkbox('Daltonisme'), checkbox('Lunettes/lentilles')].join('')}</div>
+
+  <hr>
+  <div class="section-title">VI. EXAMEN CLINIQUE</div>
+  ${blankLines(4)}
+
+  <hr>
+  <div class="section-title">VII. EXAMENS COMPLÉMENTAIRES</div>
+  <div class="cb-group">${[checkbox('Audiométrie tonale'), checkbox('Spirométrie/EFR'), checkbox('ECG'), checkbox('Radiographie thoracique'), checkbox('Acuité visuelle'), checkbox('Vision des couleurs'), checkbox('Bilan biologique'), checkbox('Bilan hépatique'), checkbox('Autres')].join('')}</div>
+  <div class="field-label" style="margin:6px 0 3px 0">Résultats :</div>
+  ${blankLines(2)}
+
+  <hr>
+  <div class="section-title">VIII. CONCLUSION MÉDICALE — AVIS D'APTITUDE</div>
+  <div class="cb-group">${[checkbox('APTE'), checkbox('ASR'), checkbox('AAR'), checkbox('INT — durée : ' + '.'.repeat(15)), checkbox('IND')].join('')}</div>
+  <div class="field-label" style="margin:6px 0 3px 0">Restrictions / Aménagements :</div>
+  ${blankLines(1)}
+  <div class="field-label" style="margin:6px 0 3px 0">Recommandations :</div>
+  ${blankLines(1)}
+
+  <hr>
+  <div class="section-title">IX. ÉDUCATION THÉRAPEUTIQUE ET SENSIBILISATION</div>
+  <div class="field-label" style="margin-bottom:3px">Thèmes :</div>
+  <div class="cb-group">${[checkbox('MHD'), checkbox('MHV'), checkbox('FDR-CVx'), checkbox('Ergo'), checkbox('SPB&Psy'), checkbox('Thérapie'), checkbox('Port EPI'), checkbox('Prévention TMS'), checkbox('Gestion stress'), checkbox('Hygiène sommeil'), checkbox('Autre')].join('')}</div>
+  <div class="field-row" style="margin-top:8px">
+    <div class="field"><span class="field-label">Date prochaine visite :</span><span class="field-value"></span></div>
+  </div>
+  <div class="cb-group">${[checkbox('Périodique'), checkbox('Surveillance renforcée'), checkbox('Spécialisée')].join('')}</div>
+
+  <div class="footer-section">
+    <div><span class="field-label">L'AGENT — Signature (pour information)</span></div>
+    <div class="footer-sig">
+      <span class="field-label">LE MÉDECIN DU TRAVAIL — Signature et cachet</span>
+      <div class="footer-sig-box"></div>
+    </div>
+  </div>
+</div>
+<script>window.onload=function(){ window.print(); window.onafterprint=function(){ window.close(); }; }</script>
+</body></html>`
+
+    const win = window.open('', '_blank', 'width=900,height=1000')
+    if (win) { win.document.write(html); win.document.close() }
+  }
+
   const exportSectionToPDF = async (sectionId: string, fileName: string) => {
     const printSection = document.getElementById(sectionId)
     if (!printSection) {
@@ -1477,6 +1637,9 @@ export default function DMST() {
   const handleSave = async () => {
     if (!dmst) return
     try {
+      if (agentMatricule.trim() !== (dmst.agent_matricule || '')) {
+        await client.patch(`/medical/agents/${dmst.agent}/`, { matricule: agentMatricule.trim() || null })
+      }
       await client.put(`/medical/dmst/${dmst.id}/`, {
         ...buildDMSTPayload(),
         agent: dmst.agent,
@@ -1573,7 +1736,7 @@ const handleCreateDMST = async () => {
    if (!dmst) {
      return (
        <Box>
-         <Typography variant="h4" gutterBottom>
+         <Typography variant="h4" fontWeight={800} gutterBottom>
            Dossier Médical en Santé au Travail
          </Typography>
          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -1589,15 +1752,30 @@ const handleCreateDMST = async () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            Dossier Médical en Santé au Travail
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Agent: {dmst.agent_name} ({dmst.agent_matricule})
-          </Typography>
-        </Box>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 2.5, sm: 3 },
+          mb: 3,
+          borderRadius: 4,
+          border: '1px solid rgba(10,37,64,0.08)',
+          backgroundImage: 'linear-gradient(120deg, rgba(15,76,134,0.07) 0%, rgba(15,76,134,0) 55%)',
+        }}
+      >
+        <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+          <Box display="flex" alignItems="center" gap={2}>
+            <Avatar sx={{ bgcolor: 'rgba(15,76,134,0.12)', color: '#0F4C86', width: 56, height: 56 }}>
+              <MedicalServicesIcon fontSize="medium" />
+            </Avatar>
+            <Box>
+              <Typography variant="h4" fontWeight={800}>
+                Dossier Médical en Santé au Travail
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Agent : {dmst.agent_name} ({dmst.agent_matricule})
+              </Typography>
+            </Box>
+          </Box>
         {(canEdit || canEditObservation) && (
           <Box>
             {editMode ? (
@@ -1622,12 +1800,15 @@ const handleCreateDMST = async () => {
                     <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} sx={{ mr: 1 }}>
                       Imprimer
                     </Button>
-                    <Button variant="outlined" startIcon={<PdfIcon />} onClick={handleExportPDF} color="error">
+                    <Button variant="outlined" startIcon={<PdfIcon />} onClick={handleExportPDF} color="error" sx={{ mr: 1 }}>
                       Exporter PDF
+                    </Button>
+                    <Button variant="outlined" startIcon={<DescriptionIcon />} onClick={handlePrintFicheVierge} title="Imprimer une fiche vierge, sans aucune donnée">
+                      Fiche vierge
                     </Button>
                   </>
                 )}
-                {tabValue === 2 && (
+                {tabValue === 3 && (
                   <>
                     <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintOrdonnance} sx={{ mr: 1 }}>
                       Imprimer l'ordonnance
@@ -1637,7 +1818,7 @@ const handleCreateDMST = async () => {
                     </Button>
                   </>
                 )}
-                {tabValue === 3 && (
+                {tabValue === 4 && (
                   <>
                     <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintExamen} sx={{ mr: 1 }}>
                       Imprimer la demande
@@ -1647,7 +1828,7 @@ const handleCreateDMST = async () => {
                     </Button>
                   </>
                 )}
-                {tabValue === 4 && (
+                {tabValue === 5 && (
                   <>
                     <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintBulletinAnalyses} sx={{ mr: 1 }}>
                       Imprimer le bulletin
@@ -1657,7 +1838,7 @@ const handleCreateDMST = async () => {
                     </Button>
                   </>
                 )}
-                {tabValue === 5 && (
+                {tabValue === 6 && (
                   <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintCertificat}>
                     Imprimer le certificat
                   </Button>
@@ -1666,12 +1847,14 @@ const handleCreateDMST = async () => {
             )}
           </Box>
         )}
-      </Box>
+        </Box>
+      </Paper>
 
       <Paper>
         <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} variant="scrollable" scrollButtons="auto">
           <Tab label={`Visites (${dmst.visits_count})`} icon={<MedicalServicesIcon />} iconPosition="start" />
           <Tab label="Fiche d'observation" icon={<MedicalServicesIcon />} iconPosition="start" />
+          <Tab label="Fiche de consultation" icon={<AssignmentIcon />} iconPosition="start" />
           <Tab label="Ordonnance" icon={<DescriptionIcon />} iconPosition="start" />
           <Tab label="Demande d'examen" icon={<ScienceIcon />} iconPosition="start" />
           <Tab label="Bulletin d'analyses" icon={<ScienceIcon />} iconPosition="start" />
@@ -1689,9 +1872,23 @@ const handleCreateDMST = async () => {
                 <Typography variant="body2">Fait à Dakar, le</Typography>
                 <TextField size="small" type="date" value={formData.observation_date || ''} onChange={(e) => setFormData({ ...formData, observation_date: e.target.value })} disabled={!editMode} InputLabelProps={{ shrink: true }} sx={{ width: 160 }} />
                 <Typography variant="body2" sx={{ ml: 2 }}>Type de visite :</Typography>
-                <FormControlLabel control={<Checkbox checked={getObsBool('visit_type_embauche')} onChange={(e) => setObs('visit_type_embauche', e.target.checked)} disabled={!editMode} />} label="Embauche" />
-                <FormControlLabel control={<Checkbox checked={getObsBool('visit_type_periodique')} onChange={(e) => setObs('visit_type_periodique', e.target.checked)} disabled={!editMode} />} label="Périodique" />
-                <FormControlLabel control={<Checkbox checked={getObsBool('visit_type_reprise')} onChange={(e) => setObs('visit_type_reprise', e.target.checked)} disabled={!editMode} />} label="Reprise" />
+                {visitTypes.map((vt) => {
+                  const selectedIds = Array.isArray(obs.visit_type_ids) ? (obs.visit_type_ids as number[]) : []
+                  const checked = selectedIds.includes(vt.id)
+                  return (
+                    <FormControlLabel
+                      key={vt.id}
+                      control={
+                        <Checkbox
+                          checked={checked}
+                          onChange={(e) => setObs('visit_type_ids', e.target.checked ? [...selectedIds, vt.id] : selectedIds.filter((id) => id !== vt.id))}
+                          disabled={!editMode}
+                        />
+                      }
+                      label={vt.name}
+                    />
+                  )
+                })}
                 <Autocomplete
                   freeSolo
                   options={doctors.map((d) => d.full_name)}
@@ -1723,7 +1920,14 @@ const handleCreateDMST = async () => {
               </Box>
             </Grid>
             <Grid item xs={12} sm={2}>
-              <TextField fullWidth label="Matricule" value={dmst.agent_matricule} disabled InputProps={{ readOnly: true }} />
+              <TextField
+                fullWidth
+                label="Matricule"
+                value={agentMatricule}
+                onChange={(e) => setAgentMatricule(e.target.value)}
+                disabled={!editMode}
+                helperText="Facultatif"
+              />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField fullWidth label="Téléphone" value={getObs('telephone')} onChange={(e) => setObs('telephone', e.target.value)} disabled={!editMode} />
@@ -2228,8 +2432,25 @@ const handleCreateDMST = async () => {
           </Grid>
         </TabPanel>
 
-        {/* Onglet Ordonnance */}
+        {/* Onglet Fiche de consultation */}
         <TabPanel value={tabValue} index={2}>
+          {dmst && (
+            <ConsultationTab
+              agentId={agentId as string}
+              dmst={{
+                agent_name: dmst.agent_name,
+                agent_matricule: dmst.agent_matricule,
+                agent_age: dmst.agent_age,
+                agent_gender: dmst.agent_gender,
+              }}
+              visitTypes={visitTypes}
+              hasMedicalAccess={hasMedicalAccess}
+            />
+          )}
+        </TabPanel>
+
+        {/* Onglet Ordonnance */}
+        <TabPanel value={tabValue} index={3}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
@@ -2274,7 +2495,7 @@ const handleCreateDMST = async () => {
         </TabPanel>
 
         {/* Onglet Demande d'examen */}
-        <TabPanel value={tabValue} index={3}>
+        <TabPanel value={tabValue} index={4}>
           <Box sx={{ maxWidth: '148mm', mx: 'auto', fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
             {/* EN-TÊTE */}
             <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '10px' }}>
@@ -2340,7 +2561,7 @@ const handleCreateDMST = async () => {
         </TabPanel>
 
         {/* Onglet Bulletin d'analyses */}
-        <TabPanel value={tabValue} index={4}>
+        <TabPanel value={tabValue} index={5}>
           <Box sx={{ maxWidth: '148mm', mx: 'auto', fontFamily: 'Arial, sans-serif', fontSize: '10px' }}>
             {/* EN-TÊTE */}
             <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '5px' }}>
@@ -2442,7 +2663,7 @@ const handleCreateDMST = async () => {
         </TabPanel>
 
         {/* Onglet Certificat médical */}
-        <TabPanel value={tabValue} index={5}>
+        <TabPanel value={tabValue} index={6}>
           <Box sx={{ maxWidth: '560px', mx: 'auto' }}>
             <Grid container spacing={2}>
               {/* Date et ville */}
@@ -2577,6 +2798,7 @@ const handleCreateDMST = async () => {
               </>
             )}
           </Box>
+        </TabPanel>
 
       {/* Dialog Programmer une visite */}
       <Dialog open={openVisitDialog} onClose={() => setOpenVisitDialog(false)} maxWidth="sm" fullWidth>
@@ -3054,10 +3276,9 @@ const handleCreateDMST = async () => {
           </tbody>
         </table>
        </Box>
-     </TabPanel>
 
         {/* ── Onglet Résultats ── */}
-        <TabPanel value={tabValue} index={6}>
+        <TabPanel value={tabValue} index={7}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6">Résultats d'examens médicaux</Typography>
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenResultDialog()}>

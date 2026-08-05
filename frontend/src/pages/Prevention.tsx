@@ -28,8 +28,9 @@ import {
   Select,
   Card,
   CardContent,
+  Avatar,
 } from '@mui/material'
-import { Add as AddIcon } from '@mui/icons-material'
+import { Add as AddIcon, Security as SecurityIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -53,6 +54,7 @@ interface Risk {
   category_name: string
   severity: string
   severity_display: string
+  probability: string
   probability_display: string
   identification_date: string
   is_active: boolean
@@ -430,6 +432,13 @@ export default function Prevention() {
     }
   }
 
+  const SEVERITY_LEVELS: Record<string, number> = { low: 1, medium: 2, high: 3, critical: 4 }
+  const severityNumber = (s: string) => SEVERITY_LEVELS[s] ?? ''
+  const severityLabelWithNumber = (code: string, display: string) => {
+    const n = severityNumber(code)
+    return n ? `${n} - ${display}` : display
+  }
+
   const getStatusColor = (s: string) => {
     switch (s) {
       case 'completed': return 'success'
@@ -449,8 +458,18 @@ export default function Prevention() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Prévention et évaluation des risques</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Avatar sx={{ bgcolor: 'rgba(15,76,134,0.12)', color: '#0F4C86', width: 48, height: 48 }}>
+            <SecurityIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h4" fontWeight={800}>Prévention et évaluation des risques</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Grille EVRP, actions préventives et fiches d&apos;exposition
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -646,7 +665,7 @@ export default function Prevention() {
                       <TableRow key={r.id}>
                         <TableCell>{r.name}</TableCell>
                         <TableCell>{r.category_name}</TableCell>
-                        <TableCell><Chip label={r.severity_display} size="small" color={getSeverityColor(r.severity)} /></TableCell>
+                        <TableCell><Chip label={severityLabelWithNumber(r.severity, r.severity_display)} size="small" color={getSeverityColor(r.severity)} /></TableCell>
                         <TableCell>{r.company_name}</TableCell>
                         <TableCell>{new Date(r.identification_date).toLocaleDateString('fr-FR')}</TableCell>
                       </TableRow>
@@ -824,9 +843,9 @@ export default function Prevention() {
                               <TableCell>{r.name}</TableCell>
                               <TableCell>{r.category_name}</TableCell>
                               <TableCell>
-                                <Chip label={r.severity_display} size="small" color={getSeverityColor(r.severity)} />
+                                <Chip label={severityLabelWithNumber(r.severity, r.severity_display)} size="small" color={getSeverityColor(r.severity)} />
                               </TableCell>
-                              <TableCell>{r.probability_display}</TableCell>
+                              <TableCell>{severityLabelWithNumber(r.probability, r.probability_display)}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -925,31 +944,31 @@ export default function Prevention() {
             </Grid>
             <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
-                <InputLabel>Gravité</InputLabel>
+                <InputLabel>Gravité (1 à 4)</InputLabel>
                 <Select
                   value={riskForm.severity}
                   onChange={(e) => setRiskForm({ ...riskForm, severity: e.target.value })}
-                  label="Gravité"
+                  label="Gravité (1 à 4)"
                 >
-                  <MenuItem value="low">Faible</MenuItem>
-                  <MenuItem value="medium">Moyen</MenuItem>
-                  <MenuItem value="high">Élevé</MenuItem>
-                  <MenuItem value="critical">Critique</MenuItem>
+                  <MenuItem value="low">1 - Faible</MenuItem>
+                  <MenuItem value="medium">2 - Moyen</MenuItem>
+                  <MenuItem value="high">3 - Élevé</MenuItem>
+                  <MenuItem value="critical">4 - Critique</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={4}>
               <FormControl fullWidth>
-                <InputLabel>Probabilité</InputLabel>
+                <InputLabel>Probabilité (1 à 4)</InputLabel>
                 <Select
                   value={riskForm.probability}
                   onChange={(e) => setRiskForm({ ...riskForm, probability: e.target.value })}
-                  label="Probabilité"
+                  label="Probabilité (1 à 4)"
                 >
-                  <MenuItem value="low">Faible</MenuItem>
-                  <MenuItem value="medium">Moyen</MenuItem>
-                  <MenuItem value="high">Élevé</MenuItem>
-                  <MenuItem value="critical">Critique</MenuItem>
+                  <MenuItem value="low">1 - Faible</MenuItem>
+                  <MenuItem value="medium">2 - Moyen</MenuItem>
+                  <MenuItem value="high">3 - Élevé</MenuItem>
+                  <MenuItem value="critical">4 - Critique</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

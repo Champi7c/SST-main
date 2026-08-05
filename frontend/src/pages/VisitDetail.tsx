@@ -11,12 +11,14 @@ import {
   Alert,
   Divider,
   Snackbar,
+  Avatar,
 } from '@mui/material'
 import {
   ArrowBack as ArrowBackIcon,
   CheckCircle as CheckCircleIcon,
   PersonOff as PersonOffIcon,
   Cancel as CancelIcon,
+  EventNote as EventNoteIcon,
 } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -141,11 +143,19 @@ export default function VisitDetail() {
 
   return (
     <Box>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
+      <Box display="flex" alignItems="center" gap={2} mb={3} flexWrap="wrap">
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
           Retour
         </Button>
-        <Typography variant="h4">Détail de la visite médicale</Typography>
+        <Avatar sx={{ bgcolor: 'rgba(15,76,134,0.12)', color: '#0F4C86', width: 48, height: 48 }}>
+          <EventNoteIcon />
+        </Avatar>
+        <Box>
+          <Typography variant="h4" fontWeight={800}>Détail de la visite médicale</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {visit.agent_name} {visit.agent_matricule ? `· ${visit.agent_matricule}` : ''}
+          </Typography>
+        </Box>
       </Box>
 
       <Paper sx={{ p: 3 }}>

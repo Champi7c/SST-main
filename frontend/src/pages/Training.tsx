@@ -30,8 +30,9 @@ import {
   CardContent,
   Divider,
   IconButton,
+  Avatar,
 } from '@mui/material'
-import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon, Download as DownloadIcon, Upload as UploadIcon, Print as PrintIcon, WorkspacePremium as CertIcon, Edit as EditIcon, Delete as DeleteIcon, PictureAsPdf as PdfIcon } from '@mui/icons-material'
+import { Add as AddIcon, Publish as PublishIcon, People as PeopleIcon, Download as DownloadIcon, Upload as UploadIcon, Print as PrintIcon, WorkspacePremium as CertIcon, Edit as EditIcon, Delete as DeleteIcon, PictureAsPdf as PdfIcon, School as SchoolIcon } from '@mui/icons-material'
 import client from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { jsPDF } from 'jspdf'
@@ -1064,8 +1065,18 @@ win.document.write(html)
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Formation et sensibilisation</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Avatar sx={{ bgcolor: 'rgba(30,142,90,0.12)', color: '#1E8E5A', width: 48, height: 48 }}>
+            <SchoolIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h4" fontWeight={800}>Formation et sensibilisation</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Formations, types de cours, articles et certifications
+            </Typography>
+          </Box>
+        </Box>
         {canManage && (
           <Button
             variant="contained"

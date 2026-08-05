@@ -27,8 +27,9 @@ import {
   InputLabel,
   Autocomplete,
   InputAdornment,
+  Avatar,
 } from '@mui/material'
-import { Edit as EditIcon, Unarchive as UnarchiveIcon, Add as AddIcon, Delete as DeleteIcon, Search as SearchIcon } from '@mui/icons-material'
+import { Edit as EditIcon, Unarchive as UnarchiveIcon, Add as AddIcon, Delete as DeleteIcon, Search as SearchIcon, People as PeopleIcon } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import client, { getApiErrorMessage } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -506,9 +507,19 @@ export default function Agents() {
   return (
     <>
       <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h5">Gestion des Agents</Typography>
-        <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <Avatar sx={{ bgcolor: 'rgba(15,76,134,0.12)', color: '#0F4C86', width: 48, height: 48 }}>
+            <PeopleIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h4" fontWeight={800}>Gestion des Agents</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {totalCount} agent{totalCount > 1 ? 's' : ''} enregistré{totalCount > 1 ? 's' : ''}
+            </Typography>
+          </Box>
+        </Box>
+        <Box display="flex" alignItems="center">
           <FormControlLabel
             control={
               <Switch

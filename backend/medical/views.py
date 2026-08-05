@@ -4,10 +4,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
-from .models import Agent, DMST, Pathology, AgentPathology, DMSTHistory, MedicalResult
+from .models import Agent, DMST, Pathology, AgentPathology, DMSTHistory, MedicalResult, MedicalConsultation
 from .serializers import (
     AgentSerializer, DMSTSerializer, PathologySerializer, AgentPathologySerializer, DMSTHistorySerializer,
-    MedicalResultSerializer
+    MedicalResultSerializer, MedicalConsultationSerializer
 )
 from accounts.permissions import CanViewMedicalData, IsMedicalStaff, CanManageAgents
 from audit.models import MedicalDataAccess
@@ -338,3 +338,26 @@ class MedicalResultViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class MedicalConsultationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet pour les fiches de consultation médicale (historique indépendant par agent)
+    """
+    queryset = MedicalConsultation.objects.select_related('agent', 'doctor', 'visit_type', 'created_by').all()
+    serializer_class = MedicalConsultationSerializer
+    permission_classes = [permissions.IsAuthenticated, CanViewMedicalData]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['agent']
+    ordering_fields = ['consultation_date', 'created_at']
+    ordering = ['-consultation_date']
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        extra = {'created_by': user, 'updated_by': user}
+        if not serializer.validated_data.get('doctor') and user.role in ['medecin', 'super_admin']:
+            extra['doctor'] = user
+        serializer.save(**extra)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
