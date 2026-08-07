@@ -330,7 +330,13 @@ class MedicalConsultation(models.Model):
     horodaté automatiquement. Un agent peut avoir plusieurs consultations
     (historique chronologique), contrairement au DMST qui est unique par agent.
     """
+    KIND_CHOICES = [
+        ('observation', "Fiche d'observation"),
+        ('consultation', 'Consultation médicale'),
+    ]
+
     agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name='consultations', verbose_name="Agent")
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='consultation', verbose_name="Type de fiche")
     doctor = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='consultations_doctor', verbose_name="Médecin"
@@ -360,6 +366,7 @@ class MedicalConsultation(models.Model):
         ordering = ['-consultation_date']
         indexes = [
             models.Index(fields=['agent', '-consultation_date']),
+            models.Index(fields=['agent', 'kind', '-consultation_date']),
         ]
 
     def __str__(self):

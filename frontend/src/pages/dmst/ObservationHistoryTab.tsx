@@ -18,7 +18,7 @@ import {
   Select,
   MenuItem,
   FormControlLabel,
-  Switch,
+  Checkbox,
   Divider,
   Chip,
   Dialog,
@@ -58,16 +58,8 @@ const FICHE_BLUE = '#1F4788'
 const FicheTitleBand = ({ label }: { label: string }) => (
   <Box
     sx={{
-      textAlign: 'center',
-      fontWeight: 700,
-      fontSize: '0.95rem',
-      color: FICHE_BLUE,
-      border: `2px solid ${FICHE_BLUE}`,
-      backgroundColor: '#E8F0F8',
-      py: 0.75,
-      borderRadius: 1,
-      mb: 2,
-      letterSpacing: 0.5,
+      textAlign: 'center', fontWeight: 700, fontSize: '0.95rem', color: FICHE_BLUE,
+      border: `2px solid ${FICHE_BLUE}`, backgroundColor: '#E8F0F8', py: 0.75, borderRadius: 1, mb: 2, letterSpacing: 0.5,
     }}
   >
     {label}
@@ -91,29 +83,31 @@ interface VisitTypeOption {
   code: string
 }
 
-interface ConsultationTabProps {
+interface ObservationHistoryTabProps {
   agentId: string
   dmst: DMSTInfo
   visitTypes: VisitTypeOption[]
   hasMedicalAccess: boolean
 }
 
-interface ConsultationFormState {
+interface ObservationFormState {
   visit_type: string
   motif: string
   diagnostic_principal: string
   data: Record<string, unknown>
 }
 
-const emptyForm: ConsultationFormState = { visit_type: '', motif: '', diagnostic_principal: '', data: {} }
+const emptyForm: ObservationFormState = { visit_type: '', motif: '', diagnostic_principal: '', data: {} }
 
-export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalAccess }: ConsultationTabProps) {
-  const [consultations, setConsultations] = useState<MedicalConsultation[]>([])
+const EDUCATION_THEMES = ['MHD', 'MHV', 'FDR-CVx', 'Ergo', 'SPB&Psy', 'Thérapie']
+
+export default function ObservationHistoryTab({ agentId, dmst, visitTypes, hasMedicalAccess }: ObservationHistoryTabProps) {
+  const [fiches, setFiches] = useState<MedicalConsultation[]>([])
   const [loading, setLoading] = useState(true)
   const [loaded, setLoaded] = useState(false)
   const [view, setView] = useState<'list' | 'form'>('list')
   const [editing, setEditing] = useState<MedicalConsultation | null>(null)
-  const [form, setForm] = useState<ConsultationFormState>(emptyForm)
+  const [form, setForm] = useState<ObservationFormState>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [toDelete, setToDelete] = useState<MedicalConsultation | null>(null)
   const [docsMenu, setDocsMenu] = useState<{ anchor: HTMLElement; consultation: MedicalConsultation } | null>(null)
@@ -124,16 +118,21 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
   const showError = (msg: string) => setSnackbar({ open: true, message: msg, severity: 'error' })
   const showSuccess = (msg: string) => setSnackbar({ open: true, message: msg, severity: 'success' })
 
-  const fetchConsultations = () => {
+  const sstVisitTypes = useMemo(
+    () => visitTypes.filter((vt) => vt.code !== 'consultation'),
+    [visitTypes]
+  )
+
+  const fetchFiches = () => {
     setLoading(true)
-    client.get('/medical/consultations/', { params: { agent: agentId, kind: 'consultation', ordering: '-consultation_date', page_size: 500 } })
-      .then((r) => setConsultations(r.data.results ?? r.data))
+    client.get('/medical/consultations/', { params: { agent: agentId, kind: 'observation', ordering: '-consultation_date', page_size: 500 } })
+      .then((r) => setFiches(r.data.results ?? r.data))
       .catch((err) => showError(getApiErrorMessage(err)))
       .finally(() => { setLoading(false); setLoaded(true) })
   }
 
   useEffect(() => {
-    if (!loaded) fetchConsultations()
+    if (!loaded) fetchFiches()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -154,7 +153,7 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
     return ''
   }, [cdata.poids, cdata.taille]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const buildPreviewConsultation = (): MedicalConsultation => ({
+  const buildPreview = (): MedicalConsultation => ({
     id: editing?.id ?? 0,
     agent: Number(agentId),
     agent_name: dmst.agent_name,
@@ -162,6 +161,7 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
     agent_age: dmst.agent_age,
     agent_gender: dmst.agent_gender,
     doctor_name: editing?.doctor_name,
+    kind: 'observation',
     consultation_date: editing?.consultation_date ?? new Date().toISOString(),
     motif: form.motif,
     diagnostic_principal: form.diagnostic_principal,
@@ -169,13 +169,11 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
   })
 
   const [exportingPdf, setExportingPdf] = useState(false)
-
-  const handlePrintCurrent = () => printCompteRendu(buildPreviewConsultation())
-
+  const handlePrintCurrent = () => printCompteRendu(buildPreview())
   const handleExportPdfCurrent = async () => {
     setExportingPdf(true)
     try {
-      await exportCompteRenduPDF(buildPreviewConsultation())
+      await exportCompteRenduPDF(buildPreview())
     } catch (err) {
       showError(getApiErrorMessage(err))
     } finally {
@@ -185,18 +183,17 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
 
   const openNew = () => {
     setEditing(null)
-    const defaultType = visitTypes.find((vt) => vt.code === 'consultation')
-    setForm({ ...emptyForm, visit_type: defaultType ? String(defaultType.id) : '' })
+    setForm({ ...emptyForm, visit_type: sstVisitTypes[0] ? String(sstVisitTypes[0].id) : '' })
     setView('form')
   }
 
-  const openEdit = (c: MedicalConsultation) => {
-    setEditing(c)
+  const openEdit = (f: MedicalConsultation) => {
+    setEditing(f)
     setForm({
-      visit_type: c.visit_type ? String(c.visit_type) : '',
-      motif: c.motif || '',
-      diagnostic_principal: c.diagnostic_principal || '',
-      data: { ...(c.data || {}) },
+      visit_type: f.visit_type ? String(f.visit_type) : '',
+      motif: f.motif || '',
+      diagnostic_principal: f.diagnostic_principal || '',
+      data: { ...(f.data || {}) },
     })
     setView('form')
   }
@@ -212,7 +209,7 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
     try {
       const payload = {
         agent: Number(agentId),
-        kind: 'consultation',
+        kind: 'observation',
         visit_type: form.visit_type ? Number(form.visit_type) : null,
         motif: form.motif || null,
         diagnostic_principal: form.diagnostic_principal || null,
@@ -220,12 +217,12 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
       }
       if (editing) {
         await client.put(`/medical/consultations/${editing.id}/`, payload)
-        showSuccess('Consultation mise à jour avec succès')
+        showSuccess('Fiche mise à jour avec succès')
       } else {
         await client.post('/medical/consultations/', payload)
-        showSuccess('Consultation enregistrée avec succès')
+        showSuccess('Fiche enregistrée avec succès')
       }
-      fetchConsultations()
+      fetchFiches()
       backToList()
     } catch (err) {
       showError(getApiErrorMessage(err))
@@ -238,9 +235,9 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
     if (!toDelete) return
     try {
       await client.delete(`/medical/consultations/${toDelete.id}/`)
-      setConsultations((prev) => prev.filter((c) => c.id !== toDelete.id))
+      setFiches((prev) => prev.filter((f) => f.id !== toDelete.id))
       setToDelete(null)
-      showSuccess('Consultation supprimée')
+      showSuccess('Fiche supprimée')
     } catch (err) {
       showError(getApiErrorMessage(err))
     }
@@ -248,13 +245,13 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
 
   if (view === 'list') {
     return (
-      <Box>
-        <FicheTitleBand label="FICHE DE CONSULTATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL" />
+      <Box sx={{ mb: 3 }}>
+        <FicheTitleBand label="HISTORIQUE DES FICHES D'OBSERVATION — SERVICE DE SANTÉ AU TRAVAIL" />
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h6">Historique des consultations</Typography>
+          <Typography variant="h6">Fiches d'observation datées</Typography>
           {hasMedicalAccess && (
             <Button variant="contained" startIcon={<AddIcon />} onClick={openNew}>
-              Nouvelle consultation
+              Nouvelle fiche d'observation
             </Button>
           )}
         </Box>
@@ -267,41 +264,37 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
               <TableHead>
                 <TableRow>
                   <TableCell>Date</TableCell>
+                  <TableCell>Type</TableCell>
                   <TableCell>Médecin</TableCell>
-                  <TableCell>Motif</TableCell>
-                  <TableCell>Diagnostic principal</TableCell>
+                  <TableCell>Diagnostic / conclusion</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {consultations.length === 0 ? (
+                {fiches.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                        Aucune consultation enregistrée pour cet agent.
+                        Aucune fiche d'observation enregistrée pour cet agent.
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  consultations.map((c) => (
-                    <TableRow key={c.id} hover>
-                      <TableCell>{new Date(c.consultation_date).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</TableCell>
-                      <TableCell>{c.doctor_name || '-'}</TableCell>
-                      <TableCell sx={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.motif || '-'}</TableCell>
-                      <TableCell sx={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.diagnostic_principal || '-'}</TableCell>
+                  fiches.map((f) => (
+                    <TableRow key={f.id} hover>
+                      <TableCell>{new Date(f.consultation_date).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</TableCell>
+                      <TableCell>{f.visit_type_name || '-'}</TableCell>
+                      <TableCell>{f.doctor_name || '-'}</TableCell>
+                      <TableCell sx={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.diagnostic_principal || '-'}</TableCell>
                       <TableCell align="right">
-                        <IconButton size="small" color="primary" onClick={() => openEdit(c)} title="Ouvrir / Modifier">
+                        <IconButton size="small" color="primary" onClick={() => openEdit(f)} title="Ouvrir / Modifier">
                           <EditIcon fontSize="small" />
                         </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => setDocsMenu({ anchor: e.currentTarget, consultation: c })}
-                          title="Documents"
-                        >
+                        <IconButton size="small" onClick={(e) => setDocsMenu({ anchor: e.currentTarget, consultation: f })} title="Documents">
                           <DescriptionIcon fontSize="small" />
                         </IconButton>
                         {hasMedicalAccess && (
-                          <IconButton size="small" color="error" onClick={() => setToDelete(c)} title="Supprimer">
+                          <IconButton size="small" color="error" onClick={() => setToDelete(f)} title="Supprimer">
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         )}
@@ -314,28 +307,19 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
           </TableContainer>
         )}
 
-        <Menu
-          anchorEl={docsMenu?.anchor}
-          open={!!docsMenu}
-          onClose={() => setDocsMenu(null)}
-        >
+        <Menu anchorEl={docsMenu?.anchor} open={!!docsMenu} onClose={() => setDocsMenu(null)}>
           {docsMenu && CONSULTATION_DOCUMENTS.map((doc) => (
-            <MenuItem
-              key={doc.key}
-              disabled={!doc.hasContent(docsMenu.consultation)}
-              onClick={() => { doc.print(docsMenu.consultation); setDocsMenu(null) }}
-            >
+            <MenuItem key={doc.key} disabled={!doc.hasContent(docsMenu.consultation)} onClick={() => { doc.print(docsMenu.consultation); setDocsMenu(null) }}>
               {doc.label}
             </MenuItem>
           ))}
         </Menu>
 
         <Dialog open={!!toDelete} onClose={() => setToDelete(null)}>
-          <DialogTitle>Supprimer la consultation</DialogTitle>
+          <DialogTitle>Supprimer la fiche d'observation</DialogTitle>
           <DialogContent>
             <Typography>
-              Supprimer la consultation du {toDelete ? new Date(toDelete.consultation_date).toLocaleDateString('fr-FR') : ''} ?
-              Cette action est irréversible.
+              Supprimer la fiche du {toDelete ? new Date(toDelete.consultation_date).toLocaleDateString('fr-FR') : ''} ? Cette action est irréversible.
             </Typography>
           </DialogContent>
           <DialogActions>
@@ -353,24 +337,25 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
 
   // ─── Vue formulaire ────────────────────────────────────────────────────
 
+  const educationThemes = getDList('education_themes')
+  const toggleEducationTheme = (theme: string, checked: boolean) => {
+    setD('education_themes', checked ? [...educationThemes, theme] : educationThemes.filter((t) => t !== theme))
+  }
+
   return (
-    <Box>
-      <FicheTitleBand label="FICHE DE CONSULTATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL" />
+    <Box sx={{ mb: 3 }}>
+      <FicheTitleBand label="FICHE D'OBSERVATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL" />
       <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1.5} mb={2}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <Button startIcon={<ArrowBackIcon />} onClick={backToList}>Retour à l'historique</Button>
-          <Typography variant="h6">{editing ? 'Modifier la consultation' : 'Nouvelle consultation'}</Typography>
+          <Typography variant="h6">{editing ? "Modifier la fiche d'observation" : "Nouvelle fiche d'observation"}</Typography>
         </Box>
         <Box display="flex" gap={1}>
-          <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintCurrent}>
-            Imprimer
-          </Button>
+          <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrintCurrent}>Imprimer</Button>
           <Button
-            variant="outlined"
-            color="error"
+            variant="outlined" color="error"
             startIcon={exportingPdf ? <CircularProgress size={16} color="inherit" /> : <PdfIcon />}
-            onClick={handleExportPdfCurrent}
-            disabled={exportingPdf}
+            onClick={handleExportPdfCurrent} disabled={exportingPdf}
           >
             Exporter PDF
           </Button>
@@ -382,29 +367,26 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
           <FormControl fullWidth>
             <InputLabel>Type de visite</InputLabel>
             <Select value={form.visit_type} label="Type de visite" onChange={(e) => setForm({ ...form, visit_type: e.target.value })}>
-              {visitTypes.map((vt) => (<MenuItem key={vt.id} value={String(vt.id)}>{vt.name}</MenuItem>))}
+              {sstVisitTypes.map((vt) => (<MenuItem key={vt.id} value={String(vt.id)}>{vt.name}</MenuItem>))}
             </Select>
           </FormControl>
         </Grid>
-
-        <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Motif de consultation</SectionTitle></Grid>
-        <Grid item xs={12}>
-          <TextField fullWidth multiline rows={2} label="Motif de consultation" value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} />
+        <Grid item xs={12} sm={4}>
+          <TextField fullWidth label="Direction" value={getD('observation_direction')} onChange={(e) => setD('observation_direction', e.target.value)} />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField fullWidth label="Site" value={getD('observation_site')} onChange={(e) => setD('observation_site', e.target.value)} />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField fullWidth label="Fonction / Poste" value={getD('observation_function')} onChange={(e) => setD('observation_function', e.target.value)} />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField fullWidth type="number" label="Ancienneté au poste (ans)" value={getD('seniority_years')} onChange={(e) => setD('seniority_years', e.target.value)} />
         </Grid>
 
         <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Plaintes</SectionTitle></Grid>
         <Grid item xs={12}>
           <PlaintesSection {...fieldApi} />
-        </Grid>
-
-        <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Histoire de la maladie actuelle</SectionTitle></Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth multiline rows={5}
-            placeholder="Début, évolution, symptômes associés, traitements déjà reçus, facteurs aggravants/soulageants, chronologie..."
-            value={getD('histoire_maladie_actuelle')}
-            onChange={(e) => setD('histoire_maladie_actuelle', e.target.value)}
-          />
         </Grid>
 
         <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Antécédents</SectionTitle></Grid>
@@ -417,31 +399,9 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
           <HabitudesDeVieSection {...fieldApi} />
         </Grid>
 
-        <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Rubriques optionnelles</SectionTitle></Grid>
+        <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Expositions professionnelles</SectionTitle></Grid>
         <Grid item xs={12}>
-          <FormControlLabel
-            control={<Switch checked={getDBool('option_exposition_pro')} onChange={(e) => setD('option_exposition_pro', e.target.checked)} />}
-            label="Expositions professionnelles"
-          />
-          {getDBool('option_exposition_pro') && (
-            <Box sx={{ mt: 1, mb: 2 }}>
-              <ExpositionsProfessionnellesSection {...fieldApi} />
-            </Box>
-          )}
-          <FormControlLabel
-            control={<Switch checked={getDBool('option_nuisances_pro')} onChange={(e) => setD('option_nuisances_pro', e.target.checked)} />}
-            label="Nuisances professionnelles"
-          />
-          {getDBool('option_nuisances_pro') && (
-            <TextField fullWidth multiline rows={2} value={getD('option_nuisances_pro_details')} onChange={(e) => setD('option_nuisances_pro_details', e.target.value)} sx={{ mt: 0.5, mb: 2 }} />
-          )}
-          <FormControlLabel
-            control={<Switch checked={getDBool('option_aptitude_poste')} onChange={(e) => setD('option_aptitude_poste', e.target.checked)} />}
-            label="Aptitude au poste"
-          />
-          {getDBool('option_aptitude_poste') && (
-            <TextField fullWidth multiline rows={2} value={getD('option_aptitude_poste_details')} onChange={(e) => setD('option_aptitude_poste_details', e.target.value)} sx={{ mt: 0.5 }} />
-          )}
+          <ExpositionsProfessionnellesSection {...fieldApi} />
         </Grid>
 
         <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Constantes</SectionTitle></Grid>
@@ -449,11 +409,10 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
         <Grid item xs={6} sm={2}><TextField fullWidth size="small" label="TA dia." value={getD('ta_dia')} onChange={(e) => setD('ta_dia', e.target.value)} /></Grid>
         <Grid item xs={6} sm={2}><TextField fullWidth size="small" label="T° (°C)" value={getD('temperature')} onChange={(e) => setD('temperature', e.target.value)} /></Grid>
         <Grid item xs={6} sm={2}><TextField fullWidth size="small" label="FC (/min)" value={getD('fc')} onChange={(e) => setD('fc', e.target.value)} /></Grid>
-        <Grid item xs={6} sm={2}><TextField fullWidth size="small" label="Fréquence resp. (/min)" value={getD('fr')} onChange={(e) => setD('fr', e.target.value)} /></Grid>
         <Grid item xs={6} sm={2}><TextField fullWidth size="small" label="SpO₂ (%)" value={getD('spo2')} onChange={(e) => setD('spo2', e.target.value)} /></Grid>
+        <Grid item xs={6} sm={2}><TextField fullWidth size="small" label="Glycémie (g/L)" value={getD('glycemie')} onChange={(e) => setD('glycemie', e.target.value)} /></Grid>
         <Grid item xs={6} sm={2}><TextField fullWidth size="small" label="Poids (kg)" value={getD('poids')} onChange={(e) => setD('poids', e.target.value)} /></Grid>
         <Grid item xs={6} sm={2}><TextField fullWidth size="small" label="Taille (cm)" value={getD('taille')} onChange={(e) => setD('taille', e.target.value)} /></Grid>
-        <Grid item xs={6} sm={2}><TextField fullWidth size="small" label="Glycémie (g/L)" value={getD('glycemie')} onChange={(e) => setD('glycemie', e.target.value)} /></Grid>
         {imc && <Grid item xs={12}><Chip label={`IMC calculé : ${imc} kg/m²`} size="small" /></Grid>}
         <Grid item xs={12}>
           <Box sx={{ mt: 1 }}>
@@ -471,66 +430,61 @@ export default function ConsultationTab({ agentId, dmst, visitTypes, hasMedicalA
           <EtatGeneralSection {...fieldApi} />
         </Grid>
 
-        <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Hypothèses diagnostiques</SectionTitle></Grid>
+        <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Conclusion médicale — Avis d'aptitude</SectionTitle></Grid>
         <Grid item xs={12}>
-          <TextField fullWidth label="Diagnostic principal" value={form.diagnostic_principal} onChange={(e) => setForm({ ...form, diagnostic_principal: e.target.value })} />
-        </Grid>
-        <Grid item xs={12}>
-          <StringListEditor label="Diagnostics différentiels" values={getDList('diagnostics_differentiels')} onChange={(v) => setD('diagnostics_differentiels', v)} placeholder="Ajouter un diagnostic différentiel..." />
-        </Grid>
-
-        <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Résumé syndromique</SectionTitle></Grid>
-        <Grid item xs={12}>
-          <TextField fullWidth multiline rows={3} value={getD('resume_syndromique')} onChange={(e) => setD('resume_syndromique', e.target.value)} />
-        </Grid>
-
-        <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Conduite à tenir</SectionTitle></Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField fullWidth multiline rows={2} label="Prescriptions médicamenteuses" value={getD('cat_prescriptions')} onChange={(e) => setD('cat_prescriptions', e.target.value)} />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField fullWidth multiline rows={2} label="Examens biologiques" value={getD('cat_examens_bio')} onChange={(e) => setD('cat_examens_bio', e.target.value)} />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField fullWidth multiline rows={2} label="Imagerie" value={getD('cat_imagerie')} onChange={(e) => setD('cat_imagerie', e.target.value)} />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField fullWidth multiline rows={2} label="ECG" value={getD('cat_ecg')} onChange={(e) => setD('cat_ecg', e.target.value)} />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField fullWidth multiline rows={2} label="Avis spécialisé (motif)" value={getD('cat_avis_specialise')} onChange={(e) => setD('cat_avis_specialise', e.target.value)} />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField fullWidth label="Destinataire de l'avis / adressage" value={getD('cat_avis_destinataire')} onChange={(e) => setD('cat_avis_destinataire', e.target.value)} />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <FormControlLabel control={<Switch checked={getDBool('cat_hospitalisation')} onChange={(e) => setD('cat_hospitalisation', e.target.checked)} />} label="Hospitalisation" />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField fullWidth multiline rows={2} label="Conseils hygiéno-diététiques" value={getD('cat_conseils')} onChange={(e) => setD('cat_conseils', e.target.value)} />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField fullWidth label="Suivi" value={getD('cat_suivi')} onChange={(e) => setD('cat_suivi', e.target.value)} />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField fullWidth label="Contrôle" value={getD('cat_controle')} onChange={(e) => setD('cat_controle', e.target.value)} />
-        </Grid>
-        <Grid item xs={12}>
-          <FormControlLabel control={<Switch checked={getDBool('cat_arret_travail')} onChange={(e) => setD('cat_arret_travail', e.target.checked)} />} label="Arrêt de travail" />
-          {getDBool('cat_arret_travail') && (
-            <Box display="flex" gap={2} flexWrap="wrap" sx={{ mt: 1 }}>
-              <TextField size="small" type="date" label="Date de début" InputLabelProps={{ shrink: true }} value={getD('arret_date_debut')} onChange={(e) => setD('arret_date_debut', e.target.value)} />
-              <TextField size="small" type="number" label="Durée (jours)" value={getD('arret_duree_jours')} onChange={(e) => setD('arret_duree_jours', e.target.value)} sx={{ width: 140 }} />
-              <TextField size="small" label="Motif" value={getD('arret_motif')} onChange={(e) => setD('arret_motif', e.target.value)} sx={{ minWidth: 200 }} />
+          <TextField fullWidth label="Diagnostic / conclusion (résumé)" value={form.diagnostic_principal} onChange={(e) => setForm({ ...form, diagnostic_principal: e.target.value })} sx={{ mb: 1 }} />
+          <Box display="flex" flexWrap="wrap" gap={2}>
+            <FormControlLabel control={<Checkbox checked={getDBool('conclusion_apte')} onChange={(e) => setD('conclusion_apte', e.target.checked)} />} label="APTE" />
+            <FormControlLabel control={<Checkbox checked={getDBool('conclusion_asr')} onChange={(e) => setD('conclusion_asr', e.target.checked)} />} label="ASR" />
+            <FormControlLabel control={<Checkbox checked={getDBool('conclusion_aar')} onChange={(e) => setD('conclusion_aar', e.target.checked)} />} label="AAR" />
+            <Box display="flex" alignItems="center" gap={1}>
+              <FormControlLabel control={<Checkbox checked={getDBool('conclusion_int')} onChange={(e) => setD('conclusion_int', e.target.checked)} />} label="INT" />
+              {getDBool('conclusion_int') && (
+                <TextField size="small" label="Durée" value={getD('conclusion_int_duree')} onChange={(e) => setD('conclusion_int_duree', e.target.value)} sx={{ width: 120 }} />
+              )}
             </Box>
-          )}
+            <FormControlLabel control={<Checkbox checked={getDBool('conclusion_ind')} onChange={(e) => setD('conclusion_ind', e.target.checked)} />} label="IND" />
+          </Box>
+          <TextField fullWidth multiline rows={2} label="Restrictions / Aménagements" value={getD('conclusion_restrictions')} onChange={(e) => setD('conclusion_restrictions', e.target.value)} sx={{ mt: 1.5 }} />
+          <TextField fullWidth multiline rows={2} label="Recommandations" value={getD('conclusion_recommandations')} onChange={(e) => setD('conclusion_recommandations', e.target.value)} sx={{ mt: 1.5 }} />
+        </Grid>
+
+        <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Éducation thérapeutique</SectionTitle></Grid>
+        <Grid item xs={12}>
+          <Box display="flex" flexWrap="wrap" gap={2}>
+            {EDUCATION_THEMES.map((theme) => (
+              <FormControlLabel
+                key={theme}
+                control={<Checkbox checked={educationThemes.includes(theme)} onChange={(e) => toggleEducationTheme(theme, e.target.checked)} />}
+                label={theme}
+              />
+            ))}
+          </Box>
+          <TextField fullWidth size="small" placeholder="Autre / préciser" value={getD('education_autre')} onChange={(e) => setD('education_autre', e.target.value)} sx={{ mt: 1 }} />
+          <Box display="flex" gap={2} flexWrap="wrap" sx={{ mt: 1.5 }}>
+            <TextField size="small" type="date" label="Date prochaine visite" InputLabelProps={{ shrink: true }} value={getD('next_visit_date')} onChange={(e) => setD('next_visit_date', e.target.value)} />
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>Type de la prochaine visite</InputLabel>
+              <Select value={getD('next_visit_type')} label="Type de la prochaine visite" onChange={(e) => setD('next_visit_type', e.target.value)}>
+                <MenuItem value="">—</MenuItem>
+                <MenuItem value="periodique">Périodique</MenuItem>
+                <MenuItem value="surveillance">Surveillance renforcée</MenuItem>
+                <MenuItem value="specialisee">Spécialisée</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </Grid>
+
+        <Grid item xs={12}><Divider sx={{ my: 1 }} /><SectionTitle>Diagnostics différentiels</SectionTitle></Grid>
+        <Grid item xs={12}>
+          <StringListEditor label="" values={getDList('diagnostics_differentiels')} onChange={(v) => setD('diagnostics_differentiels', v)} placeholder="Ajouter un diagnostic différentiel..." />
         </Grid>
       </Grid>
 
       <Box display="flex" justifyContent="flex-end" gap={1} sx={{ mt: 3 }}>
         <Button onClick={backToList}>Annuler</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving} startIcon={saving ? <CircularProgress size={18} color="inherit" /> : undefined}>
-          Enregistrer la consultation
+          Enregistrer la fiche
         </Button>
       </Box>
 

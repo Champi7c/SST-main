@@ -348,7 +348,7 @@ class MedicalConsultationViewSet(viewsets.ModelViewSet):
     serializer_class = MedicalConsultationSerializer
     permission_classes = [permissions.IsAuthenticated, CanViewMedicalData]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['agent']
+    filterset_fields = ['agent', 'kind']
     ordering_fields = ['consultation_date', 'created_at']
     ordering = ['-consultation_date']
 

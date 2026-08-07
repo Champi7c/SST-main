@@ -14,6 +14,7 @@ export interface MedicalConsultation {
   doctor_name?: string
   visit_type?: number | null
   visit_type_name?: string
+  kind?: 'observation' | 'consultation'
   consultation_date: string
   motif?: string
   diagnostic_principal?: string
@@ -237,9 +238,51 @@ function buildCompteRenduBodyHtml(c: MedicalConsultation): string {
     dBool(c, 'cat_arret_travail') && `• Arrêt de travail (${d(c, 'arret_duree_jours') || '?'} j.)`,
   ].filter(Boolean).join('\n')
 
+  const isObservation = c.kind === 'observation'
+  const title = isObservation
+    ? "FICHE D'OBSERVATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL"
+    : 'FICHE DE CONSULTATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL'
+
+  const conclusion = [
+    dBool(c, 'conclusion_apte') && 'APTE',
+    dBool(c, 'conclusion_asr') && 'ASR',
+    dBool(c, 'conclusion_aar') && 'AAR',
+    dBool(c, 'conclusion_int') && `INT (durée : ${d(c, 'conclusion_int_duree') || ''})`,
+    dBool(c, 'conclusion_ind') && 'IND',
+  ].filter(Boolean).join('  ')
+  const educationThemes = dList(c, 'education_themes')
+
+  const middleSections = isObservation
+    ? `
+    ${antecedents ? `<div class="fiche-section-title">III. ANTÉCÉDENTS</div>${antecedents}<hr>` : ''}
+    ${constantes ? `<div class="fiche-section-title">IV. CONSTANTES</div><div class="fiche-free-text">${constantes}</div><hr>` : ''}
+    ${examLines ? `<div class="fiche-section-title">V. EXAMEN CLINIQUE</div>${examLines}<hr>` : ''}
+    ${generalLines ? `<div class="fiche-section-title">VI. ÉTAT GÉNÉRAL</div>${generalLines}<hr>` : ''}
+    <div class="fiche-section-title">VII. CONCLUSION MÉDICALE — AVIS D'APTITUDE</div>
+    <div class="fiche-field-row">${conclusion || 'Aucun'}</div>
+    ${d(c, 'conclusion_restrictions') ? `<div class="fiche-free-text"><strong>Restrictions / Aménagements :</strong> ${esc(d(c, 'conclusion_restrictions'))}</div>` : ''}
+    ${d(c, 'conclusion_recommandations') ? `<div class="fiche-free-text"><strong>Recommandations :</strong> ${esc(d(c, 'conclusion_recommandations'))}</div>` : ''}
+    <hr>
+    ${educationThemes.length || d(c, 'education_autre') ? `<div class="fiche-section-title">VIII. ÉDUCATION THÉRAPEUTIQUE</div><div class="fiche-free-text">${[...educationThemes, d(c, 'education_autre')].filter(Boolean).join(', ')}</div><hr>` : ''}
+  `
+    : `
+    ${d(c, 'histoire_maladie_actuelle') ? `<div class="fiche-section-title">III. HISTOIRE DE LA MALADIE ACTUELLE</div><div class="fiche-free-text">${esc(d(c, 'histoire_maladie_actuelle'))}</div><hr>` : ''}
+    ${antecedents ? `<div class="fiche-section-title">IV. ANTÉCÉDENTS</div>${antecedents}<hr>` : ''}
+    ${constantes ? `<div class="fiche-section-title">V. CONSTANTES</div><div class="fiche-free-text">${constantes}</div><hr>` : ''}
+    ${examLines ? `<div class="fiche-section-title">VI. EXAMEN CLINIQUE</div>${examLines}<hr>` : ''}
+    ${generalLines ? `<div class="fiche-section-title">VII. ÉTAT GÉNÉRAL</div>${generalLines}<hr>` : ''}
+    ${section('VIII. RÉSUMÉ SYNDROMIQUE', d(c, 'resume_syndromique'))}
+    <hr>
+    <div class="fiche-section-title">IX. HYPOTHÈSES DIAGNOSTIQUES</div>
+    ${c.diagnostic_principal ? `<div class="fiche-field-row"><strong>Diagnostic principal :</strong> ${esc(c.diagnostic_principal)}</div>` : ''}
+    ${dList(c, 'diagnostics_differentiels').length ? `<div class="fiche-free-text">Différentiels : ${dList(c, 'diagnostics_differentiels').join(', ')}</div>` : ''}
+    <hr>
+    ${cat ? `<div class="fiche-section-title">X. CONDUITE À TENIR</div><div class="fiche-free-text">${cat.replace(/\n/g, '<br>')}</div>` : ''}
+  `
+
   const body = `
     ${ficheHeader(dateStr)}
-    <div class="fiche-title">FICHE DE CONSULTATION MÉDICALE — SERVICE DE SANTÉ AU TRAVAIL</div>
+    <div class="fiche-title">${title}</div>
 
     <div class="fiche-section-title">I. IDENTIFICATION DE L'AGENT</div>
     <div class="fiche-field-row">
@@ -255,25 +298,7 @@ function buildCompteRenduBodyHtml(c: MedicalConsultation): string {
     ${plaintes.length ? `<div class="fiche-free-text">${plaintes.map((p) => `• ${esc(p)}`).join('<br>')}</div>` : ''}
     <hr>
 
-    ${d(c, 'histoire_maladie_actuelle') ? `<div class="fiche-section-title">III. HISTOIRE DE LA MALADIE ACTUELLE</div><div class="fiche-free-text">${esc(d(c, 'histoire_maladie_actuelle'))}</div><hr>` : ''}
-
-    ${antecedents ? `<div class="fiche-section-title">IV. ANTÉCÉDENTS</div>${antecedents}<hr>` : ''}
-
-    ${constantes ? `<div class="fiche-section-title">V. CONSTANTES</div><div class="fiche-free-text">${constantes}</div><hr>` : ''}
-
-    ${examLines ? `<div class="fiche-section-title">VI. EXAMEN CLINIQUE</div>${examLines}<hr>` : ''}
-
-    ${generalLines ? `<div class="fiche-section-title">VII. ÉTAT GÉNÉRAL</div>${generalLines}<hr>` : ''}
-
-    ${section('VIII. RÉSUMÉ SYNDROMIQUE', d(c, 'resume_syndromique'))}
-    <hr>
-
-    <div class="fiche-section-title">IX. HYPOTHÈSES DIAGNOSTIQUES</div>
-    ${c.diagnostic_principal ? `<div class="fiche-field-row"><strong>Diagnostic principal :</strong> ${esc(c.diagnostic_principal)}</div>` : ''}
-    ${dList(c, 'diagnostics_differentiels').length ? `<div class="fiche-free-text">Différentiels : ${dList(c, 'diagnostics_differentiels').join(', ')}</div>` : ''}
-    <hr>
-
-    ${cat ? `<div class="fiche-section-title">X. CONDUITE À TENIR</div><div class="fiche-free-text">${cat.replace(/\n/g, '<br>')}</div>` : ''}
+    ${middleSections}
 
     <div class="fiche-footer">
       <div style="font-size:12px;">L'AGENT — Signature (pour information)</div>
@@ -288,11 +313,12 @@ function buildCompteRenduBodyHtml(c: MedicalConsultation): string {
 }
 
 export function printCompteRendu(c: MedicalConsultation) {
+  const isObservation = c.kind === 'observation'
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Fiche de consultation - Cabinet Médical Lionel</title>
+  <title>${isObservation ? "Fiche d'observation" : 'Fiche de consultation'} - Cabinet Médical Lionel</title>
   <style>${ficheCss}</style>
 </head>
 <body>
@@ -355,7 +381,8 @@ export async function exportCompteRenduPDF(c: MedicalConsultation) {
         if (remaining > 0) pdf.addPage()
       }
     }
-    const filename = `consultation_${c.agent_matricule || c.agent}_${fmtDate(c.consultation_date).replace(/\//g, '-')}.pdf`
+    const prefix = c.kind === 'observation' ? 'fiche_observation' : 'consultation'
+    const filename = `${prefix}_${c.agent_matricule || c.agent}_${fmtDate(c.consultation_date).replace(/\//g, '-')}.pdf`
     pdf.save(filename)
   } finally {
     document.body.removeChild(container)

@@ -328,6 +328,7 @@ class MedicalConsultationSerializer(serializers.ModelSerializer):
     agent_gender = serializers.CharField(source='agent.gender', read_only=True, allow_null=True)
     doctor_name = serializers.CharField(source='doctor.get_full_name', read_only=True, allow_null=True)
     visit_type_name = serializers.CharField(source='visit_type.name', read_only=True, allow_null=True)
+    kind_display = serializers.CharField(source='get_kind_display', read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, allow_null=True)
     updated_by_name = serializers.CharField(source='updated_by.get_full_name', read_only=True, allow_null=True)
 

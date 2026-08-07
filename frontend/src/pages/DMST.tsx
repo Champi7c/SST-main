@@ -41,6 +41,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
 import ConsultationTab from './dmst/ConsultationTab'
+import ObservationHistoryTab from './dmst/ObservationHistoryTab'
 
 interface DMST {
   id: number
@@ -1863,6 +1864,23 @@ const handleCreateDMST = async () => {
         </Tabs>
 
         <TabPanel value={tabValue} index={1}>
+          {dmst && (
+            <ObservationHistoryTab
+              agentId={agentId as string}
+              dmst={{
+                agent_name: dmst.agent_name,
+                agent_matricule: dmst.agent_matricule,
+                agent_age: dmst.agent_age,
+                agent_gender: dmst.agent_gender,
+              }}
+              visitTypes={visitTypes}
+              hasMedicalAccess={hasMedicalAccess}
+            />
+          )}
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+            Brouillon courant (utilisé par les onglets Ordonnance, Demande d'examen, Bulletin, Certificat et Fiche vierge ci-dessous)
+          </Typography>
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom>
