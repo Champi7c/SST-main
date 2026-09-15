@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Box,
   Typography,
@@ -212,11 +213,16 @@ export default function Vaccination() {
 
   useEffect(() => {
     if (!carnetPrintData) return
+    document.body.setAttribute('data-print', 'carnet')
     const t = setTimeout(() => {
       window.print()
+      document.body.removeAttribute('data-print')
       setCarnetPrintData(null)
     }, 400)
-    return () => clearTimeout(t)
+    return () => {
+      clearTimeout(t)
+      document.body.removeAttribute('data-print')
+    }
   }, [carnetPrintData])
 
   const calculateAge = (dob?: string) => {
@@ -1017,9 +1023,11 @@ export default function Vaccination() {
         const sorted = [...carnetPrintData.vaccinations].sort(
           (a, b) => new Date(a.vaccination_date).getTime() - new Date(b.vaccination_date).getTime()
         )
-        const pages: VaccinationRecord[][] = []
+        const pages: (VaccinationRecord | undefined)[][] = []
         for (let i = 0; i < Math.max(sorted.length, 6); i += 6) {
-          pages.push(sorted.slice(i, i + 6))
+          const chunk: (VaccinationRecord | undefined)[] = []
+          for (let j = i; j < i + 6; j++) chunk.push(sorted[j])
+          pages.push(chunk)
         }
         const cardStyle: CSSProperties = {
           width: '95mm',
@@ -1038,7 +1046,7 @@ export default function Vaccination() {
             </span>
           </div>
         )
-        return (
+        return createPortal(
           <Box
             id="carnet-print-section"
             className="print-section carnet-print-section"
@@ -1143,7 +1151,8 @@ export default function Vaccination() {
                 </div>
               </Box>
             ))}
-          </Box>
+          </Box>,
+          document.body
         )
       })()}
 

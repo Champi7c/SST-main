@@ -88,4 +88,26 @@
     background: #fff !important;
     z-index: 9999;
   }
+
+  /* Carnet de vaccination (multi-pages) : le contenu est déplacé (portal) à la
+     racine du <body>. On masque tout le reste de l'app avec display:none (et
+     non visibility:hidden) pour que la pagination sur plusieurs pages A4
+     fonctionne correctement — position:absolute empêche les sauts de page. */
+  body[data-print="carnet"] #root {
+    display: none !important;
+  }
+  body[data-print="carnet"] #carnet-print-section {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 210mm;
+    margin: 0 auto;
+    background: #fff !important;
+  }
+  body[data-print="carnet"] #carnet-print-section * {
+    visibility: visible !important;
+  }
 }
