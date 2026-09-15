@@ -1023,20 +1023,34 @@ export default function Vaccination() {
         const sorted = [...carnetPrintData.vaccinations].sort(
           (a, b) => new Date(a.vaccination_date).getTime() - new Date(b.vaccination_date).getTime()
         )
-        const pages: (VaccinationRecord | undefined)[][] = []
-        for (let i = 0; i < Math.max(sorted.length, 6); i += 6) {
+        // Chaque page intérieure du livret ne porte que 3 encarts VACCIN
+        // (comme le carnet Cabinet Lionel : 2 pages intérieures x 3 = 6 au 1er feuillet,
+        // puis des feuillets supplémentaires de 3+3 si besoin de plus de place).
+        const vaccChunks: (VaccinationRecord | undefined)[][] = []
+        for (let i = 0; i < Math.max(sorted.length, 6); i += 3) {
           const chunk: (VaccinationRecord | undefined)[] = []
-          for (let j = i; j < i + 6; j++) chunk.push(sorted[j])
-          pages.push(chunk)
+          for (let j = i; j < i + 3; j++) chunk.push(sorted[j])
+          vaccChunks.push(chunk)
         }
-        const cardStyle: CSSProperties = {
-          width: '95mm',
-          margin: '0 auto',
+
+        const innerCardStyle: CSSProperties = {
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
           border: '1.5px solid #1F4788',
           borderRadius: '6px',
-          padding: '10px 14px',
+          padding: '8px 10px',
           fontFamily: 'Arial, sans-serif',
           color: '#1a1a1a',
+        }
+        const panelSx = {
+          width: '148.5mm',
+          height: '210mm',
+          boxSizing: 'border-box' as const,
+          padding: '8mm 6mm',
+          display: 'flex',
+          flexDirection: 'column' as const,
+          overflow: 'hidden',
         }
         const fieldRow = (label: string, value?: string | number | null) => (
           <div style={{ display: 'flex', alignItems: 'flex-end', fontSize: '10px', margin: '9px 0 0' }}>
@@ -1046,25 +1060,11 @@ export default function Vaccination() {
             </span>
           </div>
         )
-        return createPortal(
-          <Box
-            id="carnet-print-section"
-            className="print-section carnet-print-section"
-            sx={{
-              position: 'absolute',
-              left: -9999,
-              top: 0,
-              width: '210mm',
-              padding: '14mm',
-              backgroundColor: '#fff',
-              '@media print': {
-                left: 0,
-                top: 0,
-              },
-            }}
-          >
-            {/* PAGE DE COUVERTURE — reproduit la carte de vaccination physique */}
-            <div style={cardStyle}>
+
+        // PAGE 1 — couverture (recto droite du 1er feuillet)
+        const coverPanel = (
+          <Box key="p1" sx={panelSx}>
+            <div style={innerCardStyle}>
               <table style={{ margin: '0 auto', borderCollapse: 'collapse' }}>
                 <tbody>
                   <tr>
@@ -1116,39 +1116,95 @@ export default function Vaccination() {
                 NB: Veuillez garder précieusement cette carte
               </div>
             </div>
+          </Box>
+        )
 
-            {/* PAGES INTÉRIEURES — 6 encarts VACCIN par page, comme le carnet physique */}
-            {pages.map((page, pageIdx) => (
-              <Box key={pageIdx} sx={{ pageBreakBefore: 'always', pt: '4mm' }}>
-                <div style={{ ...cardStyle, width: '170mm' }}>
-                  <Grid container spacing={1.5}>
-                    {page.map((v, i) => (
-                      <Grid item xs={6} key={v?.id ?? `empty-${pageIdx}-${i}`}>
-                        <Box sx={{ border: '1px solid #2E4C8C', borderRadius: '5px', overflow: 'hidden', height: '100%' }}>
-                          <Box sx={{ background: '#2E4C8C', color: '#fff', fontWeight: 'bold', fontSize: '10px', px: 1, py: '2px' }}>
-                            VACCIN
-                          </Box>
-                          <Box sx={{ display: 'flex' }}>
-                            <Box sx={{ flex: 1, fontSize: '8.5px', p: '4px 6px' }}>
-                              <div style={{ borderBottom: '1px dotted #999', minHeight: '13px', marginBottom: '3px' }}>
-                                {v?.vaccine_name ?? ''}
-                              </div>
-                              <div>Date: {v ? new Date(v.vaccination_date).toLocaleDateString('fr-FR') : ''}</div>
-                              <div>Lot: {v?.batch_number ?? ''}</div>
-                            </Box>
-                            <Box sx={{ width: '38%', borderLeft: '1px solid #2E4C8C' }} />
-                          </Box>
-                        </Box>
-                      </Grid>
-                    ))}
-                  </Grid>
-                  {pageIdx === 0 && (
-                    <Box sx={{ mt: '10px', border: '1px solid #999', borderRadius: '4px', p: '6px' }}>
-                      <Typography sx={{ fontSize: '8px', fontWeight: 'bold', mb: '2px' }}>OBSERVATIONS</Typography>
-                      <Box sx={{ minHeight: '30px' }} />
+        // PAGE 4 — dos (verso gauche du 1er feuillet, sur la même face que la page 1)
+        const backPanel = (
+          <Box key="p4" sx={panelSx}>
+            <div style={innerCardStyle}>
+              <Typography sx={{ fontSize: '11px', fontWeight: 'bold', textAlign: 'center', mb: 1 }}>
+                OBSERVATIONS
+              </Typography>
+              <Box sx={{ flex: 1, border: '1px dotted #999', borderRadius: '4px' }} />
+              <Typography sx={{ fontSize: '7px', color: '#666', textAlign: 'center', mt: 1 }}>
+                Cachet et signature du médecin
+              </Typography>
+            </div>
+          </Box>
+        )
+
+        // PAGES 2, 3... — encarts VACCIN (3 par page), à l'intérieur du livret
+        const vaccinPanel = (chunk: (VaccinationRecord | undefined)[], key: string) => (
+          <Box key={key} sx={panelSx}>
+            <div style={innerCardStyle}>
+              {chunk.map((v, i) => (
+                <Box
+                  key={v?.id ?? `empty-${key}-${i}`}
+                  sx={{
+                    border: '1px solid #2E4C8C',
+                    borderRadius: '5px',
+                    overflow: 'hidden',
+                    flex: 1,
+                    mb: i < chunk.length - 1 ? '8px' : 0,
+                  }}
+                >
+                  <Box sx={{ background: '#2E4C8C', color: '#fff', fontWeight: 'bold', fontSize: '11px', px: 1, py: '3px' }}>
+                    VACCIN
+                  </Box>
+                  <Box sx={{ display: 'flex' }}>
+                    <Box sx={{ flex: 1, fontSize: '9px', p: '5px 7px' }}>
+                      <div style={{ borderBottom: '1px dotted #999', minHeight: '14px', marginBottom: '4px' }}>
+                        {v?.vaccine_name ?? ''}
+                      </div>
+                      <div>Date: {v ? new Date(v.vaccination_date).toLocaleDateString('fr-FR') : ''}</div>
+                      <div>Lot: {v?.batch_number ?? ''}</div>
                     </Box>
-                  )}
-                </div>
+                    <Box sx={{ width: '38%', borderLeft: '1px solid #2E4C8C' }} />
+                  </Box>
+                </Box>
+              ))}
+            </div>
+          </Box>
+        )
+
+        // Assemblage en feuillets recto-verso : feuillet 1 = [dos | couverture] puis [p2 | p3] ;
+        // feuillets suivants (si + de 6 vaccins) = [pN | pN+1] uniquement des encarts VACCIN.
+        const sheets: { left: JSX.Element; right: JSX.Element }[] = [
+          { left: backPanel, right: coverPanel },
+        ]
+        for (let i = 0; i < vaccChunks.length; i += 2) {
+          sheets.push({
+            left: vaccinPanel(vaccChunks[i], `l-${i}`),
+            right: vaccChunks[i + 1] ? vaccinPanel(vaccChunks[i + 1], `r-${i}`) : <Box key={`r-empty-${i}`} sx={panelSx} />,
+          })
+        }
+
+        return createPortal(
+          <Box
+            id="carnet-print-section"
+            className="print-section carnet-print-section"
+            sx={{
+              position: 'absolute',
+              left: -9999,
+              top: 0,
+              backgroundColor: '#fff',
+            }}
+          >
+            {sheets.map((sheet, idx) => (
+              <Box
+                key={idx}
+                sx={{
+                  width: '297mm',
+                  height: '210mm',
+                  display: 'flex',
+                  flexDirection: 'row',
+                  breakAfter: idx < sheets.length - 1 ? 'page' : 'auto',
+                  pageBreakAfter: idx < sheets.length - 1 ? 'always' : 'auto',
+                }}
+              >
+                {sheet.left}
+                {sheet.right}
               </Box>
             ))}
           </Box>,

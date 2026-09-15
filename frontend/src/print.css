@@ -4,6 +4,13 @@
   margin: 0;
 }
 
+/* Carnet de vaccination : livret A5 imprimé sur feuille A4 paysage (imposition),
+   2 pages A5 portrait côte à côte par feuillet, à plier en deux à l'impression. */
+@page carnet {
+  size: A4 landscape;
+  margin: 0;
+}
+
 @media print {
   body * {
     visibility: hidden;
@@ -102,10 +109,11 @@
     position: static !important;
     left: auto !important;
     top: auto !important;
-    width: 100% !important;
-    max-width: 210mm;
-    margin: 0 auto;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
     background: #fff !important;
+    page: carnet;
   }
   body[data-print="carnet"] #carnet-print-section * {
     visibility: visible !important;
