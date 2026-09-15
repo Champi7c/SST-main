@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import {
   Box,
   Typography,
@@ -102,6 +103,12 @@ interface Agent {
   id: number
   matricule: string
   full_name: string
+  first_name?: string
+  last_name?: string
+  date_of_birth?: string
+  gender?: string
+  phone?: string
+  address?: string
 }
 
 interface Company {
@@ -131,7 +138,17 @@ export default function Vaccination() {
   const [vaccinationToDelete, setVaccinationToDelete] = useState<VaccinationRecord | null>(null)
   const [openContraindicationDialog, setOpenContraindicationDialog] = useState(false)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
-  const [carnetPrintData, setCarnetPrintData] = useState<{ agent_name: string; agent_matricule: string; vaccinations: VaccinationRecord[] } | null>(null)
+  const [carnetPrintData, setCarnetPrintData] = useState<{
+    agent_name: string
+    agent_matricule: string
+    agent_first_name?: string
+    agent_last_name?: string
+    agent_age?: number | null
+    agent_gender?: string
+    agent_address?: string
+    agent_phone?: string
+    vaccinations: VaccinationRecord[]
+  } | null>(null)
   const [companyFilter, setCompanyFilter] = useState<string>('')
   const [siteFilter, setSiteFilter] = useState<string>('')
   const [serviceFilter, setServiceFilter] = useState<string>('')
@@ -202,11 +219,31 @@ export default function Vaccination() {
     return () => clearTimeout(t)
   }, [carnetPrintData])
 
-  const handlePrintCarnet = async (agentId: number, agentName: string, agentMatricule: string) => {
+  const calculateAge = (dob?: string) => {
+    if (!dob) return null
+    const birth = new Date(dob)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const m = today.getMonth() - birth.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+    return age
+  }
+
+  const handlePrintCarnet = async (agent: Agent) => {
     try {
-      const r = await client.get('/vaccination/vaccinations/', { params: { agent: agentId } })
+      const r = await client.get('/vaccination/vaccinations/', { params: { agent: agent.id } })
       const list = r.data.results || r.data
-      setCarnetPrintData({ agent_name: agentName, agent_matricule: agentMatricule, vaccinations: list || [] })
+      setCarnetPrintData({
+        agent_name: agent.full_name,
+        agent_matricule: agent.matricule,
+        agent_first_name: agent.first_name,
+        agent_last_name: agent.last_name,
+        agent_age: calculateAge(agent.date_of_birth),
+        agent_gender: agent.gender === 'M' ? 'Masculin' : agent.gender === 'F' ? 'Féminin' : agent.gender,
+        agent_address: agent.address,
+        agent_phone: agent.phone,
+        vaccinations: list || [],
+      })
     } catch (e) {
       showSnackbar('Erreur lors du chargement des vaccinations', 'error')
     }
@@ -958,7 +995,7 @@ export default function Vaccination() {
                                   size="small"
                                   variant="outlined"
                                   startIcon={<PrintIcon />}
-                                  onClick={() => handlePrintCarnet(a.id, a.full_name, a.matricule)}
+                                  onClick={() => handlePrintCarnet(a)}
                                 >
                                   Imprimer le carnet
                                 </Button>
@@ -976,83 +1013,139 @@ export default function Vaccination() {
         </Box>
       </Paper>
 
-      {carnetPrintData && (
-        <Box
-          id="carnet-print-section"
-          className="print-section carnet-print-section"
-          sx={{
-            position: 'absolute',
-            left: -9999,
-            top: 0,
-            width: '210mm',
-            padding: '20mm',
-            backgroundColor: '#fff',
-            '@media print': {
-              left: 0,
-              top: 0,
-            },
-          }}
-        >
-          {/* EN-TÊTE style bulletin */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2.5px solid #2E75B6', marginBottom: '10px' }}>
-            <tbody><tr>
-              <td style={{ width: '52px', textAlign: 'center', padding: '3px', verticalAlign: 'middle' }}>
-                <img src="/coly.png" alt="Logo" style={{ width: '50px', height: '50px', objectFit: 'contain', display: 'block', margin: 'auto' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-              </td>
-              <td style={{ paddingLeft: '7px', verticalAlign: 'middle' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1F4788' }}>CABINET MÉDICAL LIONEL</div>
-                <div style={{ fontSize: '7px', color: '#333', lineHeight: 1.6 }}>Autorisation n° : 26JUIL2022*022346<br />RC : SN.THS.2024.A.266<br />NINEA : 010949412</div>
-              </td>
-              <td style={{ textAlign: 'right', verticalAlign: 'middle', paddingRight: '3px', whiteSpace: 'nowrap', fontSize: '8.5px' }}>
-                <em>Le </em>{new Date().toLocaleDateString('fr-FR')}
-              </td>
-            </tr></tbody>
-          </table>
-          {/* TITRE */}
-          <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#1F4788', border: '2px solid #1F4788', background: '#E8F0F8', padding: '4px 0 5px', marginTop: '20px', marginBottom: '14px', letterSpacing: '0.5px' }}>
-            CARNET DE VACCINATION — SERVICE DE SANTÉ AU TRAVAIL
+      {carnetPrintData && (() => {
+        const sorted = [...carnetPrintData.vaccinations].sort(
+          (a, b) => new Date(a.vaccination_date).getTime() - new Date(b.vaccination_date).getTime()
+        )
+        const pages: VaccinationRecord[][] = []
+        for (let i = 0; i < Math.max(sorted.length, 6); i += 6) {
+          pages.push(sorted.slice(i, i + 6))
+        }
+        const cardStyle: CSSProperties = {
+          width: '95mm',
+          margin: '0 auto',
+          border: '1.5px solid #1F4788',
+          borderRadius: '6px',
+          padding: '10px 14px',
+          fontFamily: 'Arial, sans-serif',
+          color: '#1a1a1a',
+        }
+        const fieldRow = (label: string, value?: string | number | null) => (
+          <div style={{ display: 'flex', alignItems: 'flex-end', fontSize: '10px', margin: '9px 0 0' }}>
+            <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>{label} :</span>
+            <span style={{ flex: 1, borderBottom: '1px dotted #333', marginLeft: '4px', paddingBottom: '1px', minHeight: '11px' }}>
+              {value ?? ''}
+            </span>
           </div>
+        )
+        return (
+          <Box
+            id="carnet-print-section"
+            className="print-section carnet-print-section"
+            sx={{
+              position: 'absolute',
+              left: -9999,
+              top: 0,
+              width: '210mm',
+              padding: '14mm',
+              backgroundColor: '#fff',
+              '@media print': {
+                left: 0,
+                top: 0,
+              },
+            }}
+          >
+            {/* PAGE DE COUVERTURE — reproduit la carte de vaccination physique */}
+            <div style={cardStyle}>
+              <table style={{ margin: '0 auto', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ width: '22px', height: '15px', background: '#00853F' }} />
+                    <td style={{ width: '22px', height: '15px', background: '#FDEF42', textAlign: 'center', fontSize: '9px', lineHeight: '15px' }}>★</td>
+                    <td style={{ width: '22px', height: '15px', background: '#E31B23' }} />
+                  </tr>
+                </tbody>
+              </table>
+              <div style={{ textAlign: 'center', fontSize: '8px', fontWeight: 'bold', marginTop: '2px' }}>
+                REPUBLIQUE DU SENEGAL
+              </div>
+              <div style={{ textAlign: 'center', fontSize: '6.5px', color: '#333' }}>Un Peuple – Un But – Une Foi</div>
 
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-              {carnetPrintData.agent_name} — Matricule : {carnetPrintData.agent_matricule}
-            </Typography>
+              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '9.5px', color: '#1F4788', marginTop: '6px', lineHeight: 1.3 }}>
+                MINISTÈRE DE LA SANTÉ ET<br />DE L'ACTION SOCIALE
+              </div>
+              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '11px', color: '#222', marginTop: '4px' }}>
+                DISTRICT SANITAIRE DE TIVAOUANE
+              </div>
+
+              <Box sx={{ textAlign: 'center', my: '6px' }}>
+                <img src="/coly.png" alt="Logo" style={{ width: '78px', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              </Box>
+
+              <div style={{ textAlign: 'center', fontSize: '7px', color: '#333', lineHeight: 1.5 }}>
+                Autorisation N° : 26JUIL2022*022346<br />
+                Adresse : Mboro, Quartier Serigne Mansour<br />
+                à 200m de la Banque Islamique en face école Mboro 12
+              </div>
+
+              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14px', margin: '10px 0 6px' }}>
+                CARTE DE VACCINATION
+              </div>
+
+              {fieldRow('PRENOM', carnetPrintData.agent_first_name)}
+              {fieldRow('NOM', carnetPrintData.agent_last_name)}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ flex: 1 }}>{fieldRow('AGE', carnetPrintData.agent_age)}</div>
+                <div style={{ flex: 1 }}>{fieldRow('SEXE', carnetPrintData.agent_gender)}</div>
+              </div>
+              {fieldRow('ADRESSE', carnetPrintData.agent_address)}
+              {fieldRow('TELEPHONE', carnetPrintData.agent_phone)}
+              <div style={{ fontSize: '8px', color: '#666', marginTop: '6px' }}>
+                Matricule : {carnetPrintData.agent_matricule}
+              </div>
+
+              <div style={{ textAlign: 'center', fontStyle: 'italic', fontWeight: 'bold', fontSize: '8px', color: '#C0158A', marginTop: '12px' }}>
+                NB: Veuillez garder précieusement cette carte
+              </div>
+            </div>
+
+            {/* PAGES INTÉRIEURES — 6 encarts VACCIN par page, comme le carnet physique */}
+            {pages.map((page, pageIdx) => (
+              <Box key={pageIdx} sx={{ pageBreakBefore: 'always', pt: '4mm' }}>
+                <div style={{ ...cardStyle, width: '170mm' }}>
+                  <Grid container spacing={1.5}>
+                    {page.map((v, i) => (
+                      <Grid item xs={6} key={v?.id ?? `empty-${pageIdx}-${i}`}>
+                        <Box sx={{ border: '1px solid #2E4C8C', borderRadius: '5px', overflow: 'hidden', height: '100%' }}>
+                          <Box sx={{ background: '#2E4C8C', color: '#fff', fontWeight: 'bold', fontSize: '10px', px: 1, py: '2px' }}>
+                            VACCIN
+                          </Box>
+                          <Box sx={{ display: 'flex' }}>
+                            <Box sx={{ flex: 1, fontSize: '8.5px', p: '4px 6px' }}>
+                              <div style={{ borderBottom: '1px dotted #999', minHeight: '13px', marginBottom: '3px' }}>
+                                {v?.vaccine_name ?? ''}
+                              </div>
+                              <div>Date: {v ? new Date(v.vaccination_date).toLocaleDateString('fr-FR') : ''}</div>
+                              <div>Lot: {v?.batch_number ?? ''}</div>
+                            </Box>
+                            <Box sx={{ width: '38%', borderLeft: '1px solid #2E4C8C' }} />
+                          </Box>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                  {pageIdx === 0 && (
+                    <Box sx={{ mt: '10px', border: '1px solid #999', borderRadius: '4px', p: '6px' }}>
+                      <Typography sx={{ fontSize: '8px', fontWeight: 'bold', mb: '2px' }}>OBSERVATIONS</Typography>
+                      <Box sx={{ minHeight: '30px' }} />
+                    </Box>
+                  )}
+                </div>
+              </Box>
+            ))}
           </Box>
-          <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell><strong>Vaccin</strong></TableCell>
-                  <TableCell><strong>Date</strong></TableCell>
-                  <TableCell><strong>Rappel</strong></TableCell>
-                  <TableCell><strong>Dose</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {carnetPrintData.vaccinations.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4}>Aucune vaccination enregistrée</TableCell>
-                  </TableRow>
-                ) : (
-                  carnetPrintData.vaccinations
-                    .sort((a, b) => new Date(b.vaccination_date).getTime() - new Date(a.vaccination_date).getTime())
-                    .map((v) => (
-                      <TableRow key={v.id}>
-                        <TableCell>{v.vaccine_name}</TableCell>
-                        <TableCell>{new Date(v.vaccination_date).toLocaleDateString('fr-FR')}</TableCell>
-                        <TableCell>{v.next_due_date ? new Date(v.next_due_date).toLocaleDateString('fr-FR') : '–'}</TableCell>
-                        <TableCell>{v.dose_number ? `${v.dose_number}ère dose` : '–'}</TableCell>
-                      </TableRow>
-                    ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <Typography variant="caption" sx={{ mt: 2, display: 'block' }}>
-            Document confidentiel — Secret médical — Données de vaccination
-          </Typography>
-        </Box>
-      )}
+        )
+      })()}
 
       <Dialog open={openDialog} onClose={() => { setOpenDialog(false); setEditingVaccination(null) }} maxWidth="sm" fullWidth>
         <DialogTitle>{editingVaccination ? 'Modifier la vaccination' : 'Enregistrer une vaccination'}</DialogTitle>
